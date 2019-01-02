@@ -1,0 +1,64 @@
+    module csr_mod
+
+    implicit none
+
+    type csr
+        real, dimension (:), allocatable :: value
+        integer, dimension (:), allocatable :: ja ! ja is column index. Its length is equal to the length of the array acsr.
+        integer, dimension (:), allocatable :: ia ! length of ia = number of column in matrix + 1. sum of nnz in matrix in previous rows 
+        integer, dimension (2) :: shape
+    contains
+    procedure, nopass :: csr_init_or_clean
+    !procedure :: csr_check_fail
+    !procedure, nopass :: add
+    !procedure :: to_coo
+    end type csr
+    
+    interface csr
+    !module procedure csr_init_or_clean
+    end interface
+
+    contains
+    
+    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!    
+    !type(csr) function csr_init_or_clean(value, ja, ia, shape)
+    !
+    !implicit none
+    !real, dimension (:), intent(in) :: value
+    !integer, dimension (:), intent(in) :: ja, ia
+    !integer, dimension (2), intent(in) :: shape
+    !class(csr), allocatable :: csr0
+    !
+    !integer :: i, j, k
+    !
+    !!allocate( csr0 )
+    !allocate( csr0%value(size(value)), csr0%ja(size(ja)), csr0%ia(size(ia)) )
+    !csr0%value=value
+    !csr0%ja=ja
+    !csr0%ia=ia
+    !csr0%shape=shape
+    !
+    !if (csr_init_or_clean%csr_check_fail()) then
+    !    print *, "CSR sparse matrix size is incorrect. (SUBROUTINE init_or_clean)"
+    !    stop(1)
+    !end if
+    !
+    !end function csr_init_or_clean
+    !
+    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    logical function csr_check_fail(self)
+    implicit none
+    
+    class(csr), intent(in) :: self
+    
+    if (size(self%value)/=size(self%ja) .or. size(self%ia)/=self%shape(1)+1) then
+        csr_check_fail = .true.
+    else
+        csr_check_fail = .false.
+    end if
+    
+    end function csr_check_fail
+    
+
+    end module csr_mod
+
