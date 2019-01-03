@@ -16,6 +16,7 @@
     !system_clock
     REAL(8) :: system_clock_rate,t1,t2
     INTEGER :: c1,c2,cr,cm
+    logical :: abc
 
     ! First initialize the system_clock
     CALL system_clock(count_rate=cr)
@@ -23,7 +24,7 @@
     system_clock_rate = REAL(cr)
 
     !if (size(A,1)==1) A=transpose(A)
-
+    
     nx=size(A,1)
     ny=size(A,2)
     nz=size(A,3)
@@ -246,9 +247,9 @@
         if (k==1) then
             !CALL CPU_TIME(t1)
             !CALL SYSTEM_CLOCK(c1)
+            !$omp parallel do
             do kk=1, nz
                 do j=1, ny
-                    !$omp parallel do
                     do i=1, nx
                         if (i==1) then
                             B(1,j,kk)=(A(nx,j,kk)+A(nx-1,j,kk))/2.0d0
@@ -256,18 +257,19 @@
                             B(i,j,kk)=(A(i,j,kk)+A(i-1,j,kk))/2.0d0
                         end if
                     end do
-                    !$omp end parallel do
+
                 end do
             end do
+            !$omp end parallel do
             !CALL CPU_TIME(t2)
             !CALL SYSTEM_CLOCK(c2)
             !print '("    omp wall time: " (f6.4) " second")', (c2-c1)/system_clock_rate
             !print '("    omp cpu time: " (f6.4) " second")', t2-t1
             C => B(:,:,:)
         else if (k==2) then
+            !$omp parallel do
             do kk=1, nz
                 do j=1, ny
-                    !$omp parallel do
                     do i=1, nx
                         if (j==1) then
                             B(i,1,kk)=(A(i,ny,kk)+A(i,ny-1,kk))/2.0d0
@@ -275,16 +277,15 @@
                             B(i,j,kk)=(A(i,j,kk)+A(i,j-1,kk))/2.0d0
                         end if
                     end do
-                    !$omp end parallel do
                 end do
             end do
+            !$omp end parallel do
 
             C => B(:,:,:)
         else if (k==3) then
-
+            !$omp parallel do
             do kk=1, nz
                 do j=1, ny
-                    !$omp parallel do
                     do i=1, nx
                         if (kk==1) then
                             B(i,j,1)=(A(i,j,nz)+A(i,j,nz-1))/2.0d0
@@ -292,48 +293,48 @@
                             B(i,j,kk)=(A(i,j,kk)+A(i,j,kk-1))/2.0d0
                         end if
                     end do
-                    !$omp end parallel do
                 end do
             end do
+            !$omp end parallel do
 
             C => B(:,:,:)
         end if
     else
         if (k==1) then
+            !$omp parallel do
             do kk=1, nz
                 do j=1, ny
-                    !$omp parallel do
                     do i=1, nx-1
                         B(i,j,kk)=(A(i+1,j,kk)+A(i,j,kk))/2.0d0
                     end do
-                    !$omp end parallel do
                 end do
             end do
+            !$omp end parallel do
 
             C => B(1:nx-1,:,:)
         else if (k==2) then
+            !$omp parallel do
             do kk=1, nz
                 do j=1, ny-1
-                    !$omp parallel do
                     do i=1, nx
                         B(i,j,kk)=(A(i,j+1,kk)+A(i,j,kk))/2.0d0
                     end do
-                    !$omp end parallel do
                 end do
             end do
-            
+            !$omp end parallel do
+
             C => B(:,1:ny-1,:)
         else if (k==3) then
+            !$omp parallel do
             do kk=1, nz-1
                 do j=1, ny
-                    !$omp parallel do
                     do i=1, nx
                         B(i,j,kk)=(A(i,j,kk+1)+A(i,j,kk))/2.0d0
                     end do
-                    !$omp end parallel do
                 end do
             end do
-            
+            !$omp end parallel do
+
             C => B(:,:,1:nz-1)
         end if
     end if
@@ -367,41 +368,41 @@
 
     if (k==1) then
         !CALL SYSTEM_CLOCK(c1)
+        !$omp parallel do
         do kk=1, nz
             do j=1, ny
-                !$omp parallel do
                 do i=1, nx-1
                     B(i,j,kk)=A(i+1,j,kk)-A(i,j,kk)
                 end do
-                !$omp end parallel do
             end do
         end do
+        !$omp end parallel do
         !CALL SYSTEM_CLOCK(c2)
         !print '("    omp wall time 2: " (f6.4) " second")', (c2-c1)/system_clock_rate
 
         C => B(1:nx-1,:,:)
     else if (k==2) then
+        !$omp parallel do
         do kk=1, nz
             do j=1, ny-1
-                !$omp parallel do
                 do i=1, nx
                     B(i,j,kk)=A(i,j+1,kk)-A(i,j,kk)
                 end do
-                !$omp end parallel do
             end do
         end do
+        !$omp end parallel do
 
         C => B(:,1:ny-1,:)
     else if (k==3) then
+        !$omp parallel do
         do kk=1, nz-1
             do j=1, ny
-                !$omp parallel do
                 do i=1, nx
                     B(i,j,kk)=A(i,j,kk+1)-A(i,j,kk)
                 end do
-                !$omp end parallel do
             end do
         end do
+        !$omp end parallel do
 
         C => B(:,:,1:nz-1)
     end if
@@ -435,9 +436,9 @@
 
     if (bc==1) then
         if (k==1) then
+            !$omp parallel do
             do kk=1, nz
                 do j=1, ny
-                    !$omp parallel do
                     do i=1, nx-1
                         if (i==1) then
                             B(1,j,kk)=A(nx-1,j,kk)-2.0d0*A(1,j,kk)+A(2,j,kk)
@@ -445,15 +446,15 @@
                             B(i,j,kk)=A(i-1,j,kk)-2.0d0*A(i,j,kk)+A(i+1,j,kk)
                         end if
                     end do
-                    !$omp end parallel do
                 end do
             end do
+            !$omp end parallel do
 
             C => B(1:nx-1,:,:)
         else if (k==2) then
+            !$omp parallel do
             do kk=1, nz
                 do j=1, ny-1
-                    !$omp parallel do
                     do i=1, nx
                         if (j==1) then
                             B(i,1,kk)=A(i,ny-1,kk)-2.0d0*A(i,1,kk)+A(i,2,kk)
@@ -461,15 +462,15 @@
                             B(i,j,kk)=A(i,j-1,kk)-2.0d0*A(i,j,kk)+A(i,j+1,kk)
                         end if
                     end do
-                    !$omp end parallel do
                 end do
             end do
+            !$omp end parallel do
 
             C => B(:,1:ny-1,:)
         else if (k==3) then
+            !$omp parallel do
             do kk=1, nz-1
                 do j=1, ny
-                    !$omp parallel do
                     do i=1, nx
                         if (kk==1) then
                             B(i,j,1)=A(i,j,nz-1)-2.0d0*A(i,j,1)+A(i,j,2)
@@ -477,47 +478,47 @@
                             B(i,j,kk)=A(i,j,kk-1)-2.0d0*A(i,j,kk)+A(i,j,kk+1)
                         end if
                     end do
-                    !$omp end parallel do
                 end do
             end do
+            !$omp end parallel do
 
             C => B(:,:,1:nz-1)
         end if
     else
         if (k==1) then
+            !$omp parallel do
             do kk=1, nz
                 do j=1, ny
-                    !$omp parallel do
                     do i=1, nx-2
                         B(i,j,kk)=A(i,j,kk)-2.0d0*A(i+1,j,kk)+A(i+2,j,kk)
                     end do
-                    !$omp end parallel do
                 end do
             end do
+            !$omp end parallel do
 
             C => B(1:nx-2,:,:)
         else if (k==2) then
+            !$omp parallel do
             do kk=1, nz
                 do j=1, ny-2
-                    !$omp parallel do
                     do i=1, nx
                         B(i,j,kk)=A(i,j,kk)-2.0d0*A(i,j+1,kk)+A(i,j+2,kk)
                     end do
-                    !$omp end parallel do
                 end do
             end do
+            !$omp end parallel do
 
             C => B(:,1:ny-2,:)
         else if (k==3) then
+            !$omp parallel do
             do kk=1, nz-2
                 do j=1, ny
-                    !$omp parallel do
                     do i=1, nx
                         B(i,j,kk)=A(i,j,kk)-2.0d0*A(i,j,kk+1)+A(i,j,kk+2)
                     end do
-                    !$omp end parallel do
                 end do
             end do
+            !$omp end parallel do
 
             C => B(:,:,1:nz-2)
         end if
