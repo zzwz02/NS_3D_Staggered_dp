@@ -51,10 +51,12 @@
 		<File RelativePath=".\coo_mod.f90"/>
 		<File RelativePath=".\csr_mod.f90"/>
 		<File RelativePath=".\FD_functions.f90"/>
-		<File RelativePath=".\NS_3D_Staggered_dp.f90"/>
+		<File RelativePath=".\main.f90"/>
+		<File RelativePath=".\big_domain_3D.f90"/>
 		<File RelativePath=".\NS_functions.f90"/>
 		<File RelativePath=".\ogpf.f90"/>
 		<File RelativePath=".\other_utility.f90"/>
+		<File RelativePath=".\re_simulation.f90"/>
 		<File RelativePath=".\sparse_utility.f90"/></Filter>
 		<File RelativePath=".\ReadMe.txt"/></Files>
 	<Globals/></VisualStudioProject>

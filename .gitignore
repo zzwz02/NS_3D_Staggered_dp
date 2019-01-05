@@ -263,3 +263,6 @@ __pycache__/
 *.dat
 *.pdf
 *.gp
+*.png
+plots/
+result/
