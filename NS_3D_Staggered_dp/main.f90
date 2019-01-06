@@ -25,7 +25,7 @@
     !call re_simulation
 
     write (*,*) "Press anykey to continue..."
-    read (*,*)
+    !read (*,*)
 
     end program main
 

@@ -208,6 +208,9 @@
     poisson_eigv(1,1,1)=1.0d0
     poisson_eigv=-poisson_eigv*4.0d0
 
+    sizeof_record=size(u)+size(v)+size(w)+size(p)+size(rhs_x_previous)+size(rhs_y_previous)+size(rhs_z_previous)
+    sizeof_record_sub=size(u_sub)+size(v_sub)+size(w_sub)+size(p_sub)+size(u_star_sub)+size(v_star_sub)+size(w_star_sub)+size(dp_sub)
+    
     do t_step=0,time_length
         tGet=time_array(t_step)
         print *,''
@@ -515,17 +518,15 @@
 
         if (tGet>=0) then
 
-            sizeof_record=size(u)+size(v)+size(w)+size(p)+size(rhs_x_previous)+size(rhs_y_previous)+size(rhs_z_previous)
             if (allocated(temp11) .and. size(temp11)/=sizeof_record) then
                 deallocate(temp11)
-                allocate(temp11(sizeof_record))
             end if
-
-            sizeof_record_sub=size(u_sub)+size(v_sub)+size(w_sub)+size(p_sub)+size(u_star_sub)+size(v_star_sub)+size(w_star_sub)+size(dp_sub)
+            if (.not. allocated(temp11)) allocate(temp11(sizeof_record))
+            
             if (allocated(temp12) .and. size(temp12)/=sizeof_record_sub) then
                 deallocate(temp12)
-                allocate(temp12(sizeof_record_sub))
             end if
+            if (.not. allocated(temp12)) allocate(temp12(sizeof_record_sub))
 
             if (tGet==0 .or. tGet==1) then
                 tempi1=1;        tempi2=size(u);        temp11(tempi1:tempi2)=[u]
@@ -536,7 +537,7 @@
                 tempi1=tempi2+1; tempi2=tempi2+size(rhs_y_previous); temp11(tempi1:tempi2)=[rhs_y_previous]
                 tempi1=tempi2+1; tempi2=tempi2+size(rhs_z_previous); temp11(tempi1:tempi2)=[rhs_z_previous]
 
-                write (string_var,'("result\HIT_128^3_decay_5e-3_AB2_dp_t_",f7.4,".dat")') tGet
+                write (string_var,'("result\HIT_128^3_decay_5e-3_AB2_dp_t_",f0.4,".dat")') tGet
                 open(20, file=string_var, form='unformatted', status='replace', action='write', &
                     access='direct', recl=sizeof_record*2) !variables are double precision
                 write(20, rec=1) temp11
@@ -556,7 +557,7 @@
                 tempi1=tempi2+1; tempi2=tempi2+size(u_star_sub); temp12(tempi1:tempi2)=[u_star_sub]
                 tempi1=tempi2+1; tempi2=tempi2+size(v_star_sub); temp12(tempi1:tempi2)=[v_star_sub]
                 tempi1=tempi2+1; tempi2=tempi2+size(w_star_sub); temp12(tempi1:tempi2)=[w_star_sub]
-                write (string_var,'("result\HIT_128^3_decay_5e-3_AB2_dp_x0_",i0,"_nx0_",i0,"_t_",f7.4,".dat")') x0,nx0,tGet
+                write (string_var,'("result\HIT_128^3_decay_5e-3_AB2_dp_x0_",i0,"_nx0_",i0,"_t_",f0.4,".dat")') x0,nx0,tGet
                 open(20, file=string_var, form='unformatted', status='replace', action='write', &
                     access='direct', recl=sizeof_record_sub*2) !variables are double precision
                 write(20, rec=1) temp12

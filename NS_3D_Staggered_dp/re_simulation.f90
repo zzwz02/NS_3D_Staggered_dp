@@ -63,11 +63,11 @@
     real(8), dimension (:,:,:), allocatable :: temp31!, temp32, temp33, temp34, temp35, temp36
     real(4) :: ini_vel(3,nx_file,nx_file,nx_file), ini_pr(nx_file,nx_file,nx_file)
     real(8) :: div(nx,ny,nz)
-    real(8) :: ux(nx+1,ny+2,nz+2), uy(nx+1,ny+1,nz+2), uz(nx+1,ny+2,nz+1)
-    real(8) :: vx(nx+1,ny+1,nz+2), vy(nx+2,ny+1,nz+2), vz(nx+2,ny+1,nz+1)
-    real(8) :: wx(nx+1,ny+2,nz+1), wy(nx+2,ny+1,nz+1), wz(nx+2,ny+2,nz+1)
-    real(8) :: conv_x(nx,ny,nz), conv_y(nx,ny,nz), conv_z(nx,ny,nz)
-    real(8) :: diff_x(nx,ny,nz), diff_y(nx,ny,nz), diff_z(nx,ny,nz)
+    real(8) :: ux(nx,ny+2,nz+2), uy(nx+1,ny+1,nz+2), uz(nx+1,ny+2,nz+1)
+    real(8) :: vx(nx+1,ny+1,nz+2), vy(nx+2,ny,nz+2), vz(nx+2,ny+1,nz+1)
+    real(8) :: wx(nx+1,ny+2,nz+1), wy(nx+2,ny+1,nz+1), wz(nx+2,ny+2,nz)
+    real(8) :: conv_x(nx-1,ny,nz), conv_y(nx,ny-1,nz), conv_z(nx,ny,nz-1)
+    real(8) :: diff_x(nx-1,ny,nz), diff_y(nx,ny-1,nz), diff_z(nx,ny,nz-1)
     real(8) :: RHS_poisson_internal(nx,ny,nz)
 
     !INTEL mkl_pardiso
@@ -234,9 +234,10 @@
         else
             if (allocated(temp11) .and. size(temp11)/=sizeof_record_sub) then
                 deallocate(temp11)
-                allocate(temp11(sizeof_record_sub))
             end if
-            write (string_var,'("result\HIT_128^3_decay_5e-3_AB2_dp_x0_",i0,"_nx0_",i0,"_t_",f7.4,".dat")') x0,nx0,tGet
+            if (.not. allocated(temp11)) allocate(temp11(sizeof_record_sub))
+
+            write (string_var,'("result\HIT_128^3_decay_5e-3_AB2_dp_x0_",i0,"_nx0_",i0,"_t_",f7.4,".dat")') x0,nx,tGet
             open(20, file=string_var, form='unformatted', status='old', action='read', &
                 access='direct', recl=sizeof_record_sub*2) !variables are double precision
             read(20, rec=1) temp11
@@ -465,14 +466,14 @@
             !print *, v_star(7,10,15)
             !print *, w_star(3,4,2)
 
-            RHS_poisson(2:ubound(RHS_poisson,1)-1,2:ubound(RHS_poisson,2)-1,2:ubound(RHS_poisson,3)-1) = &
-                (diff(u_star(:,2:ubound(u_star,2)-1,2:ubound(u_star,3)-1),1,1)/dx + &
-                diff(v_star(2:ubound(v_star,1)-1,:,2:ubound(v_star,3)-1),1,2)/dy + &
-                diff(w_star(2:ubound(w_star,1)-1,2:ubound(w_star,2)-1,:),1,3)/dz) / (dt0);
-            !RHS_poisson_internal = diff(u_star(:,2:ubound(u_star,2)-1,2:ubound(u_star,3)-1),1,1)/dx
-            !RHS_poisson_internal = RHS_poisson_internal + diff(v_star(2:ubound(v_star,1)-1,:,2:ubound(v_star,3)-1),1,2)/dy
-            !RHS_poisson_internal = RHS_poisson_internal + diff(w_star(2:ubound(w_star,1)-1,2:ubound(w_star,2)-1,:),1,3)/dz
-            !RHS_poisson_internal = RHS_poisson_internal/dt0
+            !RHS_poisson(2:ubound(RHS_poisson,1)-1,2:ubound(RHS_poisson,2)-1,2:ubound(RHS_poisson,3)-1) = &
+            !    (diff(u_star(:,2:ubound(u_star,2)-1,2:ubound(u_star,3)-1),1,1)/dx + &
+            !    diff(v_star(2:ubound(v_star,1)-1,:,2:ubound(v_star,3)-1),1,2)/dy + &
+            !    diff(w_star(2:ubound(w_star,1)-1,2:ubound(w_star,2)-1,:),1,3)/dz) / (dt0);
+            RHS_poisson_internal = diff(u_star(:,2:ubound(u_star,2)-1,2:ubound(u_star,3)-1),1,1)/dx
+            RHS_poisson_internal = RHS_poisson_internal + diff(v_star(2:ubound(v_star,1)-1,:,2:ubound(v_star,3)-1),1,2)/dy
+            RHS_poisson_internal = RHS_poisson_internal + diff(w_star(2:ubound(w_star,1)-1,2:ubound(w_star,2)-1,:),1,3)/dz
+            RHS_poisson_internal = RHS_poisson_internal/dt0
 
             if (LU_poisson) then
                 !RHS_poisson(2:ubound(RHS_poisson,1)-1,2:ubound(RHS_poisson,2)-1,2:ubound(RHS_poisson,3)-1)=RHS_poisson_internal
@@ -563,7 +564,7 @@
             !dp=LHS_poisson\RHS_poisson(:);
             !dp=reshape(dp,nxp,nyp,nzp);
 
-            !dp=dp_lu
+            dp=dp_lu
             u=-dt0*diff(dp,1,1)/dx+u_star
             v=-dt0*diff(dp,1,2)/dy+v_star
             w=-dt0*diff(dp,1,3)/dz+w_star
@@ -633,7 +634,7 @@
                 !real(8), dimension (:,:), allocatable :: xx, yy
 
                 !call meshgrid( xx, yy, yu(2:ubound(yu,1)-1), xu )
-                write (string_var,'("iso128_t_",i0.4)') t_step
+                write (string_var,'("re-sim_t_",i0.4)') t_step
                 call gp%output_filename(string_var)
                 call gp%multiplot(2,2)
 
