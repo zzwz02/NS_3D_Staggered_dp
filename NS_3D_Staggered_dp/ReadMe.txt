@@ -15,7 +15,7 @@ NS_3D_Staggered_dp.vfproj
     platforms, configurations, and project features selected with the 
     Application Wizard.
 
-NS_3D_Staggered_dp.f90
+main.f90
     This is the main source file for the Fortran Console application. 
     It contains the program entry point.
 

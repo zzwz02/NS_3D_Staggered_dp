@@ -11,18 +11,18 @@
     !  PURPOSE:  Entry point for the console application.
     !
     !****************************************************************************
-    include 'mkl_dfti.f90'
+    
 
     program main
 
-    use big_domain_3D
+    use NS_3D_Staggered_dp
 
     implicit none
     include 'omp_lib.h'
 
-    !call big_periodic_3D
+    call big_periodic_3D
 
-    call re_simulation
+    !call re_simulation
 
     write (*,*) "Press anykey to continue..."
     read (*,*)

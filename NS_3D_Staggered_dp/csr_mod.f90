@@ -8,7 +8,7 @@
         integer, dimension (2) :: shape
     contains
     procedure, nopass :: csr_init
-    procedure :: csr_check_fail
+    procedure, public :: csr_check_fail
     procedure, nopass :: add
     end type csr
 
