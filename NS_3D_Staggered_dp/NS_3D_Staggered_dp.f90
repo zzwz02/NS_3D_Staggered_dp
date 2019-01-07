@@ -6,7 +6,6 @@
     use NS_functions
     use coo_mod
     use csr_mod
-    !use sparse_pack
     use other_utility
     use ogpf
 
@@ -17,21 +16,18 @@
     subroutine big_periodic_3D
 
     implicit none
-    !include 'omp_lib.h'
-    INCLUDE 'mkl_pardiso.fi'
+    include 'mkl_pardiso.fi'
     include 'fftw/fftw3.f'
 
     ! Variables
     real(8), parameter :: pi = 3.1415926535897932_8
     integer :: i=0,j=0,k=0,ll=0,mm=0
 
-    logical, parameter :: init=.true.
-    character *4 :: timescheme="AB2"
-    !integer, parameter :: timescheme=2 ! 1 Euler; 2 AB2
+    logical, parameter :: init=.true., plot_output=.true.
     real(8), parameter :: Re=1.0d0, nu=0.0008d0, t_start=-1.0d0, t_end=20.0d0, dt0=0.005d0
+
     integer, parameter :: nx_file=256
     integer, parameter :: nx=128, ny=nx, nz=nx, nxp=nx+2, nyp=ny+2, nzp=nz+2, sub_tstep=1
-    logical, parameter :: LU_poisson=(nxp*nyp*nzp<=34**3)
     real(8), parameter :: lx=2.0d0*pi, ly=2.0d0*pi, lz=2.0d0*pi, dx=lx/nx, dy=ly/ny, dz=lz/nz, dx2=dx*dx, dy2=dy*dy, dz2=dz*dz
     real(8), parameter :: xu(nx+1)=[(i*dx, i=0, nx)],          yu(ny+2)=[((i+0.5)*dy, i=-1, ny)],   zu(nz+2)=[((i+0.5)*dz, i=-1, nz)]
     real(8), parameter :: xv(nx+2)=[((i+0.5d0)*dx, i=-1, nx)], yv(ny+1)=[(i*dy, i=0, ny)],          zv(nz+2)=[((i+0.5d0)*dz, i=-1, nz)]
@@ -45,26 +41,21 @@
     integer, parameter :: idx_xw(nx0+2)=[(x0+i, i=0, nx0+1)], idx_yw(ny0+2)=[(y0+i, i=0, ny0+1)], idx_zw(nz0+1)=[(z0+i, i=0, nz0)]
     integer, parameter :: idx_xp(nx0+2)=[(x0+i, i=0, nx0+1)], idx_yp(ny0+2)=[(y0+i, i=0, ny0+1)], idx_zp(nz0+2)=[(z0+i, i=0, nz0+1)]
 
-    !integer, parameter :: nx0=8, ny0=8, nz0=8, x0=9, y0=9, z0=9
-    !integer, dimension (:), allocatable :: idx_xu, idx_yu, idx_zu, idx_xv, idx_yv, idx_zv, idx_xw, idx_yw, idx_zw, idx_xp, idx_yp, idx_zp
-
-    ! pbc=1 Periodic; pbc=2 Dirichlet on boundary (cell wall)
-    ! pbc=3 Neumann on boundary (cell wall); pbc=4 Dirichlet on ghost cell
-    integer, parameter :: bc_x=1, bc_y=1, bc_z=1, pbc_x=1, pbc_y=1, pbc_z=1
+    logical, parameter :: LU_poisson=(nxp*nyp*nzp<=34**3)
 
     integer, parameter :: time_length=nint((t_end-t_start)/(dt0))
     real(8), dimension (0:time_length), parameter :: time_array=[(t_start+dt0*i, i=0, time_length)]
     real(8) :: u(nx+1,ny+2,nz+2)=0,              v(nx+2,ny+1,nz+2)=0,              w(nx+2,ny+2,nz+1)=0,       p(nxp,nyp,nzp)=0
     real(8) :: u_star(nx+1,ny+2,nz+2)=0,         v_star(nx+2,ny+1,nz+2)=0,         w_star(nx+2,ny+2,nz+1)=0,  dp(nxp,nyp,nzp)=0
-    real(8) :: rhs_x(nx+1,ny+2,nz+2)=0,          rhs_y(nx+2,ny+1,nz+2)=0,          rhs_z(nx+2,ny+2,nz+1)=0,   RHS_poisson(nxp,nyp,nzp)=0, RHS_poisson0(nxp*nyp*nzp)=0
+    real(8) :: rhs_x(nx+1,ny+2,nz+2)=0,          rhs_y(nx+2,ny+1,nz+2)=0,          rhs_z(nx+2,ny+2,nz+1)=0,   RHS_poisson(nxp,nyp,nzp)=0,   RHS_poisson0(nxp*nyp*nzp)=0
     real(8) :: rhs_x_previous(nx+1,ny+2,nz+2)=0, rhs_y_previous(nx+2,ny+1,nz+2)=0, rhs_z_previous(nx+2,ny+2,nz+1)=0, dp_vec(nxp*nyp*nzp)=0, dp_lu(nxp,nyp,nzp)=0
     real(8) :: dpdx(nx+1,ny+2,nz+2)=0,           dpdy(nx+2,ny+1,nz+2)=0,           dpdz(nx+2,ny+2,nz+1)=0
     real(8) :: u_sub(nx0+1,ny0+2,nz0+2)=0,       v_sub(nx0+2,ny0+1,nz0+2)=0,       w_sub(nx0+2,ny0+2,nz0+1)=0,       p_sub(nx0+2,ny0+2,nz0+2)=0
     real(8) :: u_star_sub(nx0+1,ny0+2,nz0+2)=0,  v_star_sub(nx0+2,ny0+1,nz0+2)=0,  w_star_sub(nx0+2,ny0+2,nz0+1)=0,  dp_sub(nx0+2,ny0+2,nz0+2)=0
     real(8) :: f_term_x=0,                       f_term_y=0,                       f_term_z=0
+    real(8) :: RHS_poisson_sub(nx0+2,ny0+2,nz0+2)=0
     !real(8) :: rhs_x_previous0(nx+1,ny+2,nz+2)=0,rhs_y_previous0(nx+2,ny+1,nz+2)=0,rhs_z_previous0(nx+2,ny+2,nz+1)=0
     !real(8) :: f_term_x(nx+1,ny+2,nz+2)=0,       f_term_y(nx+2,ny+1,nz+2)=0,       f_term_z(nx+2,ny+2,nz+1)=0
-
 
     real(8) :: bx_u_1(ny+2,nz+2)=0, bx_u_nx(ny+2,nz+2)=0, by_u_1(nx+1,nz+2)=0, by_u_ny(nx+1,nz+2)=0, bz_u_1(nx+1,ny+2)=0, bz_u_nz(nx+1,ny+2)=0
     real(8) :: bx_v_1(ny+1,nz+2)=0, bx_v_nx(ny+1,nz+2)=0, by_v_1(nx+2,nz+2)=0, by_v_ny(nx+2,nz+2)=0, bz_v_1(nx+2,ny+1)=0, bz_v_nz(nx+2,ny+1)=0
@@ -80,19 +71,17 @@
     real(8), dimension (:,:), allocatable :: LHS_poisson_den
 
     integer(8) :: sizeof_record, sizeof_record_sub, tempi1, tempi2
-    real(8) :: temp01, temp02, temp03, temp04, temp05, temp06
-    real(8), dimension (:), allocatable :: temp11, temp12, temp13, temp14, temp15, temp16
-    real(8), dimension (:,:), allocatable :: temp21, temp22, temp23, temp24, temp25, temp26
-    real(8), dimension (:,:,:), allocatable :: temp31, temp32, temp33, temp34, temp35, temp36
+    real(8) :: temp01, temp02, temp03!, temp04, temp05, temp06
+    real(8), dimension (:), allocatable :: temp11, temp12!, temp13, temp14, temp15, temp16
+    !real(8), dimension (:,:), allocatable :: temp21, temp22, temp23, temp24, temp25, temp26
+    real(8), dimension (:,:,:), allocatable :: temp31!, temp32, temp33, temp34, temp35, temp36
     real(4) :: ini_vel(3,nx_file,nx_file,nx_file), ini_pr(nx_file,nx_file,nx_file)
     real(8) :: div(nx,ny,nz)
-    !real(8), dimension (:,:,:), allocatable :: vx, vy, vz, wx, wy, wz
-    !real(8), dimension (:,:,:), allocatable :: conv_x, conv_y, conv_z, diff_x, diff_y, diff_z
-    real(8) :: ux(nx+1,ny+2,nz+2), uy(nx+1,ny+1,nz+2), uz(nx+1,ny+2,nz+1)
-    real(8) :: vx(nx+1,ny+1,nz+2), vy(nx+2,ny+1,nz+2), vz(nx+2,ny+1,nz+1)
-    real(8) :: wx(nx+1,ny+2,nz+1), wy(nx+2,ny+1,nz+1), wz(nx+2,ny+2,nz+1)
-    real(8) :: conv_x(nx,ny,nz), conv_y(nx,ny,nz), conv_z(nx,ny,nz)
-    real(8) :: diff_x(nx,ny,nz), diff_y(nx,ny,nz), diff_z(nx,ny,nz)
+    real(8), dimension (:,:,:), allocatable :: ux, uy, uz
+    real(8), dimension (:,:,:), allocatable :: vx, vy, vz
+    real(8), dimension (:,:,:), allocatable :: wx, wy, wz
+    real(8), dimension (:,:,:), allocatable :: conv_x, conv_y, conv_z
+    real(8), dimension (:,:,:), allocatable :: diff_x, diff_y, diff_z
     real(8) :: RHS_poisson_internal(nx,ny,nz)
 
     !INTEL mkl_pardiso
@@ -114,6 +103,11 @@
     !system_clock
     REAL(8) :: system_clock_rate
     INTEGER :: c01,c02,c1,c2,cr,cm
+
+    !simulation parameters
+    character(*), parameter :: timescheme="AB2"
+    ! pbc=1 Periodic; pbc=2 Dirichlet on boundary (cell wall); pbc=3 Neumann on boundary (cell wall); pbc=4 Dirichlet on ghost cell
+    integer, parameter :: bc_x=1, bc_y=bc_x, bc_z=bc_x, pbc_x=1, pbc_y=pbc_x, pbc_z=pbc_x
 
     call OMP_set_dynamic(.true.)
     ! First initialize the system_clock
@@ -142,6 +136,24 @@
         !allocate( z_range0(nx-1) )
         z_range0=[ (i, i=2, nz) ]
     end if
+    
+    if (bc_x==1) then
+        allocate( ux(nx+1,ny+2,nz+2), uy(nx+1,ny+1,nz+2), uz(nx+1,ny+2,nz+1), conv_x(nx,ny,nz),   diff_x(nx,ny,nz)   )
+    else
+        allocate( ux(nx,  ny+2,nz+2), uy(nx+1,ny+1,nz+2), uz(nx+1,ny+2,nz+1), conv_x(nx-1,ny,nz), diff_x(nx-1,ny,nz) )
+    end if
+    
+    if (bc_y==1) then
+        allocate( vx(nx+1,ny+1,nz+2), vy(nx+2,ny+1,nz+2), vz(nx+2,ny+1,nz+1), conv_y(nx,ny,nz),   diff_y(nx,ny,nz)   )
+    else
+        allocate( vx(nx+1,ny+1,nz+2), vy(nx+2,ny  ,nz+2), vz(nx+2,ny+1,nz+1), conv_y(nx,ny-1,nz), diff_y(nx,ny-1,nz) )
+    end if
+    
+    if (bc_z==1) then
+        allocate( wx(nx+1,ny+2,nz+1), wy(nx+2,ny+1,nz+1), wz(nx+2,ny+2,nz+1), conv_z(nx,ny,nz),   diff_z(nx,ny,nz)   )
+    else
+        allocate( wx(nx+1,ny+2,nz+1), wy(nx+2,ny+1,nz+1), wz(nx+2,ny+2,nz  ), conv_z(nx,ny,nz-1), diff_z(nx,ny,nz-1) )
+    end if
 
     if (LU_poisson) then
         LHS_poisson=Poisson_LHS_staggered(nxp, nyp, nzp, dx2, dy2, dz2, pbc_x, pbc_y, pbc_z, dx, dy, dz)
@@ -149,12 +161,12 @@
             pt(i)%DUMMY = 0
         END DO
         phase=12
-        iparm(1) = 1 ! no solver default
-        iparm(2) = 2 ! fill-in reordering from METIS
-        iparm(5) = 2 ! no user fill-in reducing permutation
-        iparm(11) = 1 ! use nonsymmetric permutation and scaling MPS
-        iparm(13) = 1 ! maximum weighted matching algorithm is switched-on (default for non-symmetric)
-        iparm(19) = -1 ! Output: Mflops for LU factorization
+        iparm(1) = 0 ! no solver default
+        !iparm(2) = 2 ! fill-in reordering from METIS
+        !iparm(5) = 2 ! no user fill-in reducing permutation
+        !iparm(11) = 1 ! use nonsymmetric permutation and scaling MPS
+        !iparm(13) = 1 ! maximum weighted matching algorithm is switched-on (default for non-symmetric)
+        !iparm(19) = -1 ! Output: Mflops for LU factorization
 
         print *, "**************************************"
         print *, "LU of LHS_poisson start..."
@@ -209,8 +221,8 @@
     poisson_eigv=-poisson_eigv*4.0d0
 
     sizeof_record=size(u)+size(v)+size(w)+size(p)+size(rhs_x_previous)+size(rhs_y_previous)+size(rhs_z_previous)
-    sizeof_record_sub=size(u_sub)+size(v_sub)+size(w_sub)+size(p_sub)+size(u_star_sub)+size(v_star_sub)+size(w_star_sub)+size(dp_sub)
-    
+    sizeof_record_sub=size(u_sub)+size(v_sub)+size(w_sub)+size(p_sub)+size(u_star_sub)+size(v_star_sub)+size(w_star_sub)+size(dp_sub)+size(RHS_poisson_sub)
+
     do t_step=0,time_length
         tGet=time_array(t_step)
         print *,''
@@ -371,7 +383,8 @@
                 rhs_z(x_range1,y_range1,z_range0)=nu*diff_z-conv_z;
 
                 ! prediction
-                if (t_step==1 .and. init) then
+                !if (t_step==1 .and. init) then
+                if (t_step==1 .or. t_step==nint((dt0-t_start)/(dt0))) then
                     u_star=dt0*(1.0d0*rhs_x-1.0d0*dpdx+1.0d0*f_term_x)+u;
                     v_star=dt0*(1.0d0*rhs_y-1.0d0*dpdy+1.0d0*f_term_y)+v;
                     w_star=dt0*(1.0d0*rhs_z-1.0d0*dpdz+1.0d0*f_term_z)+w;
@@ -409,57 +422,48 @@
             RHS_poisson_internal = RHS_poisson_internal + diff(v_star(2:ubound(v_star,1)-1,:,2:ubound(v_star,3)-1),1,2)/dy
             RHS_poisson_internal = RHS_poisson_internal + diff(w_star(2:ubound(w_star,1)-1,2:ubound(w_star,2)-1,:),1,3)/dz
             RHS_poisson_internal = RHS_poisson_internal/dt0
+            RHS_poisson(2:nxp-1,2:nyp-1,2:nzp-1)=RHS_poisson_internal
+
+
 
             if (LU_poisson) then
-                RHS_poisson(2:ubound(RHS_poisson,1)-1,2:ubound(RHS_poisson,2)-1,2:ubound(RHS_poisson,3)-1)=RHS_poisson_internal
+                !RHS_poisson(2:nxp-1,2:nyp-1,2:nzp-1)=RHS_poisson_internal
                 if (pbc_x==1) then
-                    RHS_poisson(1,:,:)=0;      RHS_poisson(ubound(RHS_poisson,1),:,:)=0;
+                    RHS_poisson(1,:,:)=0;      RHS_poisson(nxp,:,:)=0;
                 else if (pbc_x==2 .or. pbc_x==4) then
-                    RHS_poisson(1,:,:)=bx_p_1; RHS_poisson(ubound(RHS_poisson,1),:,:)=bx_p_nx;
+                    RHS_poisson(1,:,:)=bx_p_1; RHS_poisson(nxp,:,:)=bx_p_nx;
                 else if (pbc_x==3) then
-                    RHS_poisson(1,:,:)=bx_p_1; RHS_poisson(ubound(RHS_poisson,1),:,:)=bx_p_nx;
+                    RHS_poisson(1,:,:)=bx_p_1; RHS_poisson(nxp,:,:)=bx_p_nx;
                 end if
                 if (pbc_y==1) then
-                    RHS_poisson(:,1,:)=0;      RHS_poisson(:,ubound(RHS_poisson,2),:)=0;
+                    RHS_poisson(:,1,:)=0;      RHS_poisson(:,nyp,:)=0;
                 else if (pbc_y==2 .or. pbc_y==4) then
-                    RHS_poisson(:,1,:)=by_p_1; RHS_poisson(:,ubound(RHS_poisson,2),:)=by_p_ny;
+                    RHS_poisson(:,1,:)=by_p_1; RHS_poisson(:,nyp,:)=by_p_ny;
                 else if (pbc_y==3) then
-                    RHS_poisson(:,1,:)=by_p_1; RHS_poisson(:,ubound(RHS_poisson,2),:)=by_p_ny;
+                    RHS_poisson(:,1,:)=by_p_1; RHS_poisson(:,nyp,:)=by_p_ny;
                 end if
                 if (pbc_z==1) then
-                    RHS_poisson(:,:,1)=0;      RHS_poisson(:,:,ubound(RHS_poisson,3))=0;
+                    RHS_poisson(:,:,1)=0;      RHS_poisson(:,:,nzp)=0;
                 else if (pbc_y==2 .or. pbc_y==4) then
-                    RHS_poisson(:,:,1)=bz_p_1; RHS_poisson(:,:,ubound(RHS_poisson,3))=bz_p_nz;
+                    RHS_poisson(:,:,1)=bz_p_1; RHS_poisson(:,:,nzp)=bz_p_nz;
                 else if (pbc_z==3) then
-                    RHS_poisson(:,:,1)=bz_p_1; RHS_poisson(:,:,ubound(RHS_poisson,3))=bz_p_nz;
+                    RHS_poisson(:,:,1)=bz_p_1; RHS_poisson(:,:,nzp)=bz_p_nz;
                 end if
 
-                !LHS_poisson_coo=from_csr(LHS_poisson)
-                !LHS_poisson_den=LHS_poisson_coo%to_den()
                 RHS_poisson0=[RHS_poisson]
 
                 !DO i = 1, 64
                 !    pt(i)%DUMMY = 0
                 !END DO
                 phase=33
-                !iparm(1) = 1 ! no solver default
-                !iparm(2) = 2 ! fill-in reordering from METIS
-                !iparm(5) = 2 ! no user fill-in reducing permutation
-                !iparm(11) = 1 ! use nonsymmetric permutation and scaling MPS
-                !iparm(13) = 1 ! maximum weighted matching algorithm is switched-on (default for non-symmetric)
-                !iparm(19) = -1 ! Output: Mflops for LU factorization
 
-
-                print *, "**************************************"
-                print *, "   Solve Poisson (LU decomp) start..."
                 CALL SYSTEM_CLOCK(c1)
                 call pardiso (pt, maxfct, mnum, mtype, phase, n, LHS_poisson%value, LHS_poisson%ia, LHS_poisson%ja, &
                     idum, nrhs, iparm, msglvl, RHS_poisson0, dp_vec, error)
                 CALL SYSTEM_CLOCK(c2)
                 print '("    Solve Poisson (LU decomp) completed: " (f6.4) " second")', (c2-c1)/system_clock_rate
-                print *, "**************************************"
+                !print *, "**************************************"
                 dp_lu=reshape(dp_vec,([nxp,nyp,nzp]))
-                dp_lu=dp_lu-dp_lu(2,2,2)
             end if
 
             CALL SYSTEM_CLOCK(c1)
@@ -473,23 +477,22 @@
             status = DftiComputeForward(hand_f, dft_out_c(:,1,1))
 
             dft_out_c=dft_out_c/poisson_eigv
-
+            dft_out_c(1,1,1)=0
             !print *, "   Backward FFT..."
             !status = DftiComputeBackward(hand_b, dft_out_c(:,1,1), dft_out_r(:,1,1))
             status = DftiComputeBackward(hand_b, dft_out_c(:,1,1))
             dft_out_r=real(dft_out_c)
-            dft_out_r=dft_out_r-dft_out_r(1,1,1)
             dp(2:nxp-1,2:nyp-1,2:nzp-1)=dft_out_r
             dp(1,:,:)=dp(nxp-1,:,:); dp(nxp,:,:)=dp(2,:,:)
-            dp(:,1,:)=dp(:,nxp-1,:); dp(:,nxp,:)=dp(:,2,:)
-            dp(:,:,1)=dp(:,:,nxp-1); dp(:,:,nxp)=dp(:,:,2)
+            dp(:,1,:)=dp(:,nyp-1,:); dp(:,nyp,:)=dp(:,2,:)
+            dp(:,:,1)=dp(:,:,nzp-1); dp(:,:,nzp)=dp(:,:,2)
 
 
             CALL SYSTEM_CLOCK(c2)
             print '("    Solve Poisson (FFT-based FD) completed: ", (f6.4), " second")', (c2-c1)/system_clock_rate
             !print *, "**************************************"
 
-            !print *, maxval(abs(dp-dp_lu))
+            print *, maxval(abs(dp-dp(1,1,1)-dp_lu+dp_lu(1,1,1)))
             !temp31=dp-dp_lu
 
             !OPEN(10, file="poisson_eq.dat", form="unformatted")
@@ -499,8 +502,9 @@
             !CLOSE(10)
             !dp=LHS_poisson\RHS_poisson(:);
             !dp=reshape(dp,nxp,nyp,nzp);
-            !dp=dp_lu
 
+            !dp=dp_lu;
+            dp=dp-dp(1,1,1)
             u=-dt0*diff(dp,1,1)/dx+u_star
             v=-dt0*diff(dp,1,2)/dy+v_star
             w=-dt0*diff(dp,1,3)/dz+w_star
@@ -515,14 +519,15 @@
             diff_old(v(2:ubound(v,1)-1,:,2:ubound(v,3)-1),1,2)/dy + &
             diff_old(w(2:ubound(w,1)-1,2:ubound(w,2)-1,:),1,3)/dz;
         print '("Complete: ", f6.4, " second. MAX Div: ", e13.6)', (c02-c01)/system_clock_rate, maxval(abs(div))
+        print *, "**************************************"
 
-        if (tGet>=0) then
+        if (tGet>=0 .and. plot_output) then
 
             if (allocated(temp11) .and. size(temp11)/=sizeof_record) then
                 deallocate(temp11)
             end if
             if (.not. allocated(temp11)) allocate(temp11(sizeof_record))
-            
+
             if (allocated(temp12) .and. size(temp12)/=sizeof_record_sub) then
                 deallocate(temp12)
             end if
@@ -549,6 +554,7 @@
                 v_sub=v(idx_xv,idx_yv,idx_zv); v_star_sub=v_star(idx_xv,idx_yv,idx_zv);
                 w_sub=w(idx_xw,idx_yw,idx_zw); w_star_sub=w_star(idx_xw,idx_yw,idx_zw);
                 p_sub=p(idx_xp,idx_yp,idx_zp); dp_sub=dp(idx_xp,idx_yp,idx_zp)
+                RHS_poisson_sub=RHS_poisson(idx_xp,idx_yp,idx_zp)
 
                 tempi1=1;        tempi2=size(u_sub);             temp12(tempi1:tempi2)=[u_sub]
                 tempi1=tempi2+1; tempi2=tempi2+size(v_sub);      temp12(tempi1:tempi2)=[v_sub]
@@ -557,6 +563,8 @@
                 tempi1=tempi2+1; tempi2=tempi2+size(u_star_sub); temp12(tempi1:tempi2)=[u_star_sub]
                 tempi1=tempi2+1; tempi2=tempi2+size(v_star_sub); temp12(tempi1:tempi2)=[v_star_sub]
                 tempi1=tempi2+1; tempi2=tempi2+size(w_star_sub); temp12(tempi1:tempi2)=[w_star_sub]
+                tempi1=tempi2+1; tempi2=tempi2+size(dp_sub);     temp12(tempi1:tempi2)=[dp_sub]
+                tempi1=tempi2+1; tempi2=tempi2+size(RHS_poisson_sub);     temp12(tempi1:tempi2)=[RHS_poisson_sub]
                 write (string_var,'("result\HIT_128^3_decay_5e-3_AB2_dp_x0_",i0,"_nx0_",i0,"_t_",f0.4,".dat")') x0,nx0,tGet
                 open(20, file=string_var, form='unformatted', status='replace', action='write', &
                     access='direct', recl=sizeof_record_sub*2) !variables are double precision

@@ -18,7 +18,7 @@
     real(8), dimension (:,:,:), intent(inout), optional :: u, v, w, p
 
     integer :: nx, ny, nz, i, j, k
-    
+
     !if (size(A,1)==1) A=transpose(A)
 
     nx=size(x)
@@ -225,7 +225,7 @@
     Az(1,:)=0.0d0; Az(nzp,:)=0.0d0;
     !call print_mat(Ix)
     !call print_mat(Ay)
-    
+
     Ax=Ax/dx2; Ay=Ay/dy2; Az=Az/dz2;
 
     CALL SYSTEM_CLOCK(c2)
@@ -259,10 +259,9 @@
     vv=0.0d0; ii=0; jj=0;
 
     temp2=1
-    tempy=repmat_1d_2d( [(i, i=1, nyp)], 2, nzp )
-    tempz=repmat_1d_2d( [(i, i=1, nzp)], 1, nyp )
-
-    if (pbc_x==1) then
+    tempy=spread( [(i, i=1, nyp)], 2, nzp )    
+    tempz=spread( [(i, i=1, nzp)], 1, nyp )
+    if (pbc_x==1) then ! Periodic
 
         row1=[1+(tempy-1)*nxp+(tempz-1)*nxp*nyp]
         col1=[nxp-1+(tempy-1)*nxp+(tempz-1)*nxp*nyp]
@@ -298,14 +297,108 @@
         vv(temp2:temp2+nyp*nzp-1)=-1.0d0
         temp2=temp2+nyp*nzp
 
-    else if (pbc_x==2) then
-    else if (pbc_x==3) then
-    else if (pbc_x==4) then
+    else if (pbc_x==2) then ! Dirichlet on boundary (cell wall)
+        
+        row1=[1+(tempy-1)*nxp+(tempz-1)*nxp*nyp]
+        col1=[2+(tempy-1)*nxp+(tempz-1)*nxp*nyp]
+        !call print_mat(float(row))
+        do i=1,size(row1)
+            where (ii==row1(i)) vv=0.0d0
+            !where (LHS_poisson_coo%row==row1(i)) LHS_poisson_coo%value=0.0
+        end do
 
+        ii(temp2:temp2+nyp*nzp-1)=row1
+        jj(temp2:temp2+nyp*nzp-1)=row1
+        vv(temp2:temp2+nyp*nzp-1)=0.5d0
+        temp2=temp2+nyp*nzp
+        ii(temp2:temp2+nyp*nzp-1)=row1
+        jj(temp2:temp2+nyp*nzp-1)=col1
+        vv(temp2:temp2+nyp*nzp-1)=0.5d0
+        temp2=temp2+nyp*nzp
+        
+        row2=[nxp+(tempy-1)*nxp+(tempz-1)*nxp*nyp]
+        col2=[nxp-1+(tempy-1)*nxp+(tempz-1)*nxp*nyp]
+        !call print_mat(float(row))
+        do i=1,size(row2)
+            where (ii==row2(i)) vv=0.0d0
+            !where (LHS_poisson_coo%row==row2(i)) LHS_poisson_coo%value=0.0
+        end do
+
+        ii(temp2:temp2+nyp*nzp-1)=row2
+        jj(temp2:temp2+nyp*nzp-1)=row2
+        vv(temp2:temp2+nyp*nzp-1)=0.5d0
+        temp2=temp2+nyp*nzp
+        ii(temp2:temp2+nyp*nzp-1)=row2
+        jj(temp2:temp2+nyp*nzp-1)=col2
+        vv(temp2:temp2+nyp*nzp-1)=0.5d0
+        temp2=temp2+nyp*nzp
+        
+    else if (pbc_x==3) then ! Neumann on boundary (cell wall)
+        
+        row1=[1+(tempy-1)*nxp+(tempz-1)*nxp*nyp]
+        col1=[2+(tempy-1)*nxp+(tempz-1)*nxp*nyp]
+        !call print_mat(float(row))
+        do i=1,size(row1)
+            where (ii==row1(i)) vv=0.0d0
+            !where (LHS_poisson_coo%row==row1(i)) LHS_poisson_coo%value=0.0
+        end do
+
+        ii(temp2:temp2+nyp*nzp-1)=row1
+        jj(temp2:temp2+nyp*nzp-1)=row1
+        vv(temp2:temp2+nyp*nzp-1)=-1.0d0/dx
+        temp2=temp2+nyp*nzp
+        ii(temp2:temp2+nyp*nzp-1)=row1
+        jj(temp2:temp2+nyp*nzp-1)=col1
+        vv(temp2:temp2+nyp*nzp-1)=1.0d0/dx
+        temp2=temp2+nyp*nzp
+        
+        row2=[nxp+(tempy-1)*nxp+(tempz-1)*nxp*nyp]
+        col2=[nxp-1+(tempy-1)*nxp+(tempz-1)*nxp*nyp]
+        !call print_mat(float(row))
+        do i=1,size(row2)
+            where (ii==row2(i)) vv=0.0d0
+            !where (LHS_poisson_coo%row==row2(i)) LHS_poisson_coo%value=0.0
+        end do
+
+        ii(temp2:temp2+nyp*nzp-1)=row2
+        jj(temp2:temp2+nyp*nzp-1)=row2
+        vv(temp2:temp2+nyp*nzp-1)=1.0d0/dx
+        temp2=temp2+nyp*nzp
+        ii(temp2:temp2+nyp*nzp-1)=row2
+        jj(temp2:temp2+nyp*nzp-1)=col2
+        vv(temp2:temp2+nyp*nzp-1)=-1.0d0/dx
+        temp2=temp2+nyp*nzp
+        
+    else if (pbc_x==4) then ! Dirichlet on ghost cell
+
+        row1=[1+(tempy-1)*nxp+(tempz-1)*nxp*nyp]
+        !call print_mat(float(row))
+        do i=1,size(row1)
+            where (ii==row1(i)) vv=0.0d0
+            !where (LHS_poisson_coo%row==row1(i)) LHS_poisson_coo%value=0.0
+        end do
+
+        ii(temp2:temp2+nyp*nzp-1)=row1
+        jj(temp2:temp2+nyp*nzp-1)=row1
+        vv(temp2:temp2+nyp*nzp-1)=1.0d0
+        temp2=temp2+nyp*nzp
+        
+        row2=[nxp+(tempy-1)*nxp+(tempz-1)*nxp*nyp]
+        !call print_mat(float(row))
+        do i=1,size(row2)
+            where (ii==row2(i)) vv=0.0d0
+            !where (LHS_poisson_coo%row==row2(i)) LHS_poisson_coo%value=0.0
+        end do
+
+        ii(temp2:temp2+nyp*nzp-1)=row2
+        jj(temp2:temp2+nyp*nzp-1)=row2
+        vv(temp2:temp2+nyp*nzp-1)=1.0d0
+        temp2=temp2+nyp*nzp
+        
     end if
 
-    tempx=repmat_1d_2d( [(i, i=1, nxp)], 2, nzp )
-    tempz=repmat_1d_2d( [(i, i=1, nzp)], 1, nxp )
+    tempx=spread( [(i, i=1, nxp)], 2, nzp )
+    tempz=spread( [(i, i=1, nzp)], 1, nxp )
     if (pbc_y==1) then
 
         row3=[tempx+(1-1)*nxp+(tempz-1)*nxp*nyp]
@@ -343,14 +436,108 @@
         temp2=temp2+nxp*nzp
 
     else if (pbc_y==2) then
+        
+        row3=[tempx+(1-1)*nxp+(tempz-1)*nxp*nyp]
+        col3=[tempx+(2-1)*nxp+(tempz-1)*nxp*nyp]
+        !call print_mat(float(row))
+        do i=1,size(row3)
+            where (ii==row3(i)) vv=0.0d0
+            !where (LHS_poisson_coo%row==row3(i)) LHS_poisson_coo%value=0.0
+        end do
+
+        ii(temp2:temp2+nxp*nzp-1)=row3
+        jj(temp2:temp2+nxp*nzp-1)=row3
+        vv(temp2:temp2+nxp*nzp-1)=0.5d0
+        temp2=temp2+nxp*nzp
+        ii(temp2:temp2+nxp*nzp-1)=row3
+        jj(temp2:temp2+nxp*nzp-1)=col3
+        vv(temp2:temp2+nxp*nzp-1)=0.5d0
+        temp2=temp2+nxp*nzp
+
+        row4=[tempx+(nyp-1)*nxp+(tempz-1)*nxp*nyp]
+        col4=[tempx+(nyp-1-1)*nxp+(tempz-1)*nxp*nyp]
+        !call print_mat(float(row))
+        do i=1,size(row4)
+            where (ii==row4(i)) vv=0.0d0
+            !where (LHS_poisson_coo%row==row4(i)) LHS_poisson_coo%value=0.0
+        end do
+
+        ii(temp2:temp2+nxp*nzp-1)=row4
+        jj(temp2:temp2+nxp*nzp-1)=row4
+        vv(temp2:temp2+nxp*nzp-1)=0.5d0
+        temp2=temp2+nxp*nzp
+        ii(temp2:temp2+nxp*nzp-1)=row4
+        jj(temp2:temp2+nxp*nzp-1)=col4
+        vv(temp2:temp2+nxp*nzp-1)=0.5d0
+        temp2=temp2+nxp*nzp
+        
     else if (pbc_y==3) then
+        
+        row3=[tempx+(1-1)*nxp+(tempz-1)*nxp*nyp]
+        col3=[tempx+(2-1)*nxp+(tempz-1)*nxp*nyp]
+        !call print_mat(float(row))
+        do i=1,size(row3)
+            where (ii==row3(i)) vv=0.0d0
+            !where (LHS_poisson_coo%row==row3(i)) LHS_poisson_coo%value=0.0
+        end do
+
+        ii(temp2:temp2+nxp*nzp-1)=row3
+        jj(temp2:temp2+nxp*nzp-1)=row3
+        vv(temp2:temp2+nxp*nzp-1)=-1.0d0/dy
+        temp2=temp2+nxp*nzp
+        ii(temp2:temp2+nxp*nzp-1)=row3
+        jj(temp2:temp2+nxp*nzp-1)=col3
+        vv(temp2:temp2+nxp*nzp-1)=1.0d0/dy
+        temp2=temp2+nxp*nzp
+
+        row4=[tempx+(nyp-1)*nxp+(tempz-1)*nxp*nyp]
+        col4=[tempx+(nyp-1-1)*nxp+(tempz-1)*nxp*nyp]
+        !call print_mat(float(row))
+        do i=1,size(row4)
+            where (ii==row4(i)) vv=0.0d0
+            !where (LHS_poisson_coo%row==row4(i)) LHS_poisson_coo%value=0.0
+        end do
+
+        ii(temp2:temp2+nxp*nzp-1)=row4
+        jj(temp2:temp2+nxp*nzp-1)=row4
+        vv(temp2:temp2+nxp*nzp-1)=1.0d0/dy
+        temp2=temp2+nxp*nzp
+        ii(temp2:temp2+nxp*nzp-1)=row4
+        jj(temp2:temp2+nxp*nzp-1)=col4
+        vv(temp2:temp2+nxp*nzp-1)=-1.0d0/dy
+        temp2=temp2+nxp*nzp
+        
     else if (pbc_y==4) then
+        
+        row3=[tempx+(1-1)*nxp+(tempz-1)*nxp*nyp]
+        !call print_mat(float(row))
+        do i=1,size(row3)
+            where (ii==row3(i)) vv=0.0d0
+            !where (LHS_poisson_coo%row==row3(i)) LHS_poisson_coo%value=0.0
+        end do
+
+        ii(temp2:temp2+nxp*nzp-1)=row3
+        jj(temp2:temp2+nxp*nzp-1)=row3
+        vv(temp2:temp2+nxp*nzp-1)=1.0d0
+        temp2=temp2+nxp*nzp
+
+        row4=[tempx+(nyp-1)*nxp+(tempz-1)*nxp*nyp]
+        !call print_mat(float(row))
+        do i=1,size(row4)
+            where (ii==row4(i)) vv=0.0d0
+            !where (LHS_poisson_coo%row==row4(i)) LHS_poisson_coo%value=0.0
+        end do
+
+        ii(temp2:temp2+nxp*nzp-1)=row4
+        jj(temp2:temp2+nxp*nzp-1)=row4
+        vv(temp2:temp2+nxp*nzp-1)=1.0d0
+        temp2=temp2+nxp*nzp
 
     end if
 
-    tempx=repmat_1d_2d( [(i, i=1, nxp)], 2, nzp )
-    tempy=repmat_1d_2d( [(i, i=1, nyp)], 1, nyp )
-    if (pbc_y==1) then
+    tempx=spread( [(i, i=1, nxp)], 2, nzp )
+    tempy=spread( [(i, i=1, nyp)], 1, nyp )
+    if (pbc_z==1) then
 
         row5=[tempx+(tempy-1)*nxp+(1-1)*nxp*nyp]
         col5=[tempx+(tempy-1)*nxp+(nzp-1-1)*nxp*nyp]
@@ -386,9 +573,103 @@
         vv(temp2:temp2+nxp*nyp-1)=-1.0d0
         temp2=temp2+nxp*nyp
 
-    else if (pbc_y==2) then
-    else if (pbc_y==3) then
-    else if (pbc_y==4) then
+    else if (pbc_z==2) then
+        
+        row5=[tempx+(tempy-1)*nxp+(1-1)*nxp*nyp]
+        col5=[tempx+(tempy-1)*nxp+(2-1)*nxp*nyp]
+        !call print_mat(float(row))
+        do i=1,size(row5)
+            where (ii==row5(i)) vv=0.0d0
+            !where (LHS_poisson_coo%row==row5(i)) LHS_poisson_coo%value=0.0
+        end do
+
+        ii(temp2:temp2+nxp*nyp-1)=row5
+        jj(temp2:temp2+nxp*nyp-1)=row5
+        vv(temp2:temp2+nxp*nyp-1)=0.5d0
+        temp2=temp2+nxp*nyp
+        ii(temp2:temp2+nxp*nyp-1)=row5
+        jj(temp2:temp2+nxp*nyp-1)=col5
+        vv(temp2:temp2+nxp*nyp-1)=0.5d0
+        temp2=temp2+nxp*nyp
+
+        row6=[tempx+(tempy-1)*nxp+(nzp-1)*nxp*nyp]
+        col6=[tempx+(tempy-1)*nxp+(nzp-1-1)*nxp*nyp]
+        !call print_mat(float(row))
+        do i=1,size(row6)
+            where (ii==row6(i)) vv=0.0d0
+            !where (LHS_poisson_coo%row==row6(i)) LHS_poisson_coo%value=0.0
+        end do
+
+        ii(temp2:temp2+nxp*nyp-1)=row6
+        jj(temp2:temp2+nxp*nyp-1)=row6
+        vv(temp2:temp2+nxp*nyp-1)=0.5d0
+        temp2=temp2+nxp*nyp
+        ii(temp2:temp2+nxp*nyp-1)=row6
+        jj(temp2:temp2+nxp*nyp-1)=col6
+        vv(temp2:temp2+nxp*nyp-1)=0.5d0
+        temp2=temp2+nxp*nyp
+        
+    else if (pbc_z==3) then
+        
+        row5=[tempx+(tempy-1)*nxp+(1-1)*nxp*nyp]
+        col5=[tempx+(tempy-1)*nxp+(2-1)*nxp*nyp]
+        !call print_mat(float(row))
+        do i=1,size(row5)
+            where (ii==row5(i)) vv=0.0d0
+            !where (LHS_poisson_coo%row==row5(i)) LHS_poisson_coo%value=0.0
+        end do
+
+        ii(temp2:temp2+nxp*nyp-1)=row5
+        jj(temp2:temp2+nxp*nyp-1)=row5
+        vv(temp2:temp2+nxp*nyp-1)=-1.0d0/dz
+        temp2=temp2+nxp*nyp
+        ii(temp2:temp2+nxp*nyp-1)=row5
+        jj(temp2:temp2+nxp*nyp-1)=col5
+        vv(temp2:temp2+nxp*nyp-1)=1.0d0/dz
+        temp2=temp2+nxp*nyp
+
+        row6=[tempx+(tempy-1)*nxp+(nzp-1)*nxp*nyp]
+        col6=[tempx+(tempy-1)*nxp+(nzp-1-1)*nxp*nyp]
+        !call print_mat(float(row))
+        do i=1,size(row6)
+            where (ii==row6(i)) vv=0.0d0
+            !where (LHS_poisson_coo%row==row6(i)) LHS_poisson_coo%value=0.0
+        end do
+
+        ii(temp2:temp2+nxp*nyp-1)=row6
+        jj(temp2:temp2+nxp*nyp-1)=row6
+        vv(temp2:temp2+nxp*nyp-1)=1.0d0/dz
+        temp2=temp2+nxp*nyp
+        ii(temp2:temp2+nxp*nyp-1)=row6
+        jj(temp2:temp2+nxp*nyp-1)=col6
+        vv(temp2:temp2+nxp*nyp-1)=-1.0d0/dz
+        temp2=temp2+nxp*nyp
+        
+    else if (pbc_z==4) then
+        
+        row5=[tempx+(tempy-1)*nxp+(1-1)*nxp*nyp]
+        !call print_mat(float(row))
+        do i=1,size(row5)
+            where (ii==row5(i)) vv=0.0d0
+            !where (LHS_poisson_coo%row==row5(i)) LHS_poisson_coo%value=0.0
+        end do
+
+        ii(temp2:temp2+nxp*nyp-1)=row5
+        jj(temp2:temp2+nxp*nyp-1)=row5
+        vv(temp2:temp2+nxp*nyp-1)=1.0d0
+        temp2=temp2+nxp*nyp
+
+        row6=[tempx+(tempy-1)*nxp+(nzp-1)*nxp*nyp]
+        !call print_mat(float(row))
+        do i=1,size(row6)
+            where (ii==row6(i)) vv=0.0d0
+            !where (LHS_poisson_coo%row==row6(i)) LHS_poisson_coo%value=0.0
+        end do
+
+        ii(temp2:temp2+nxp*nyp-1)=row6
+        jj(temp2:temp2+nxp*nyp-1)=row6
+        vv(temp2:temp2+nxp*nyp-1)=1.0d0
+        temp2=temp2+nxp*nyp
 
     end if
 
@@ -401,7 +682,7 @@
     co2=coo_init_or_clean(vv, ii, jj, LHS_poisson_coo%shape)
 
     LHS_poisson=add( co1%to_csr(), co2%to_csr() )
-    CALL SYSTEM_CLOCK(c1)
+    CALL SYSTEM_CLOCK(c2)
     print '("   LHS_poisson completed: " (f6.4) " second")', (c2-c1)/system_clock_rate
     print *, "**************************************"
 

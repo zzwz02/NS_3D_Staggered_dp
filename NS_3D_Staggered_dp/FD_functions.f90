@@ -368,7 +368,7 @@
 
     if (k==1) then
         !CALL SYSTEM_CLOCK(c1)
-        !$omp parallel do
+        !!$omp parallel do
         do kk=1, nz
             do j=1, ny
                 do i=1, nx-1
@@ -376,7 +376,7 @@
                 end do
             end do
         end do
-        !$omp end parallel do
+        !!$omp end parallel do
         !CALL SYSTEM_CLOCK(c2)
         !print '("    omp wall time 2: " (f6.4) " second")', (c2-c1)/system_clock_rate
 

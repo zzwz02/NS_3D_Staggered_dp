@@ -11,7 +11,7 @@
     !  PURPOSE:  Entry point for the console application.
     !
     !****************************************************************************
-    
+
 
     program main
 
@@ -20,12 +20,25 @@
     implicit none
     include 'omp_lib.h'
 
-    call big_periodic_3D
+    logical, parameter :: running_all=.true.
+    integer :: i
 
-    !call re_simulation
+    write (*,*) "Choose:"
+    write (*,*) "(1): big_periodic_3D"
+    write (*,*) "(2): re_simulation"
+    write (*,*) "(3): both"
+    read (*,'(i1)') i
+
+    if (i==1 .or. i==3) then
+        call big_periodic_3D
+    end if
+    
+    if (i==2 .or. i==3) then
+        call re_simulation
+    end if
 
     write (*,*) "Press anykey to continue..."
-    !read (*,*)
+    read (*,*)
 
     end program main
 

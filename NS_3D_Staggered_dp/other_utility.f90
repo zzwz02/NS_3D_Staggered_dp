@@ -5,36 +5,6 @@
     contains
 
     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-    function repmat_1d_2d(vec,dir,m) result(mat)
-    ! repeat vector in dir for m times
-    implicit none
-
-    integer, dimension (:), intent(in) :: vec
-    integer, intent(in) :: dir, m
-    integer, dimension (:,:), allocatable :: mat
-
-    integer :: i
-
-    if (dir==1) then
-        allocate( mat(m,size(vec)) )
-        do i=1,m
-            mat(i,:)=vec
-        end do
-
-    else if (dir==2) then
-        allocate( mat(size(vec),m) )
-        do i=1,m
-            mat(:,i)=vec
-        end do
-
-    else
-        print *, "dir must be 1 or 2. (SUBROUTINE repmat_1d_2d)"
-    end if
-
-
-    end function repmat_1d_2d
-
-    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     subroutine print_mat(mat)
     implicit none
 
@@ -43,7 +13,7 @@
     integer :: i, j, mat_shape(2)
 
     mat_shape=shape(mat)
-    do, i=1,mat_shape(1)
+    do i=1,mat_shape(1)
         write(*,'(100g15.5)') ( mat(i,j), j=1,mat_shape(2) )
     enddo
     print *, "**************************************"
@@ -104,7 +74,7 @@
     !print "(10i5:)", vec_out
     end function unique_sort
 
-    ! Compute mod(K*L,M) accurately
+    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     real(8) function timediff(ic0, ic1)
     CHARACTER (LEN = 12), intent(in) :: ic0, ic1
     real(8) :: hh0, mm0, ss0, hh1, mm1, ss1
@@ -126,6 +96,22 @@
     end if
 
     end function timediff
+    
+    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    real(8) function mean(a)
+    real(8), intent(in) :: a(:,:,:)
+
+    mean=sum(a)!/size(a)
+    
+    end function mean
+    
+    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    real(8) function rms(a)
+    real(8), intent(in) :: a(:,:,:)
+
+    rms=sqrt(sum(a*a)/size(a))
+    
+    end function rms
 
     end module other_utility
 
