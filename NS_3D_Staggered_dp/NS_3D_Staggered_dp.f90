@@ -24,8 +24,8 @@
     integer :: i=0,j=0,k=0,ll=0,mm=0
 
     logical, parameter :: init=.true., plot_output=.true.
-    real(8), parameter :: Re=1.0d0, nu=0.0008d0, t_start=-1.0d0, t_end=20.0d0, dt0=0.005d0
-
+    real(8), parameter :: Re=1.0d0, nu=0.0008d0, t_end=20.0d0, dt0=0.005d0
+    real(8), parameter :: t_start=-1.0d0
     integer, parameter :: nx_file=256
     integer, parameter :: nx=128, ny=nx, nz=nx, nxp=nx+2, nyp=ny+2, nzp=nz+2, sub_tstep=1
     real(8), parameter :: lx=2.0d0*pi, ly=2.0d0*pi, lz=2.0d0*pi, dx=lx/nx, dy=ly/ny, dz=lz/nz, dx2=dx*dx, dy2=dy*dy, dz2=dz*dz
@@ -34,7 +34,7 @@
     real(8), parameter :: xw(nx+2)=[((i+0.5d0)*dx, i=-1, nx)], yw(ny+2)=[((i+0.5d0)*dy, i=-1, ny)], zw(nz+1)=[(i*dz, i=0, nz)]
     real(8), parameter :: xp(nx+2)=[((i+0.5d0)*dx, i=-1, nx)], yp(ny+2)=[((i+0.5d0)*dy, i=-1, ny)], zp(nz+2)=[((i+0.5d0)*dz, i=-1, nz)]
 
-    integer, parameter :: nx0=8, ny0=8, nz0=8
+    integer, parameter :: nx0=8, ny0=nx0, nz0=nx0
     integer, parameter :: x0=16, y0=16, z0=16
     integer, parameter :: idx_xu(nx0+1)=[(x0+i, i=0, nx0)],   idx_yu(ny0+2)=[(y0+i, i=0, ny0+1)], idx_zu(nz0+2)=[(z0+i, i=0, nz0+1)]
     integer, parameter :: idx_xv(nx0+2)=[(x0+i, i=0, nx0+1)], idx_yv(ny0+1)=[(y0+i, i=0, ny0)],   idx_zv(nz0+2)=[(z0+i, i=0, nz0+1)]

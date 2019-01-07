@@ -8,7 +8,7 @@
     real(8), parameter :: pi = 3.1415926535897932_8
     integer :: i=0,j=0,k=0,ll=0,mm=0
 
-    logical, parameter :: init=.true.
+    logical, parameter :: init=.true., plot_output=.true.
     real(8), parameter :: Re=1.0d0, nu=0.0008d0, t_end=10.0d0, dt0=0.005d0
     real(8) :: t_start
     integer, parameter :: nx_file=256
@@ -336,13 +336,12 @@
                 bz_p_1 =dp_sub(:,:,1);
                 bz_p_nz=dp_sub(:,:,nzp);
             else if (pbc_x==3) then
-                !dpdx_sub=diff(dp_sub,1,1)/dx; dpdy_sub=diff(dp_sub,1,2)/dy; dpdz_sub=diff(dp_sub,1,3)/dz;
-                bx_p_1 =reshape([diff(dp_sub(1:2,:,:),1,1)/dx], (/nyp,nzp/)) !dpdx_sub(1,:,:)
-                bx_p_nx=reshape([diff(dp_sub(nxp-1:nxp,:,:),1,1)/dx], (/nyp,nzp/)) !dpdx_sub(nxp-1,:,:)
-                by_p_1 =reshape([diff(dp_sub(:,1:2,:),1,1)/dy], (/nxp,nzp/)) !dpdy_sub(:,1,:)
-                by_p_ny=reshape([diff(dp_sub(:,nyp-1:nyp,:),1,1)/dy], (/nxp,nzp/)) !dpdy_sub(:,nyp-1,:)
-                bz_p_1 =reshape([diff(dp_sub(:,:,1:2),1,1)/dz], (/nxp,nyp/)) !dpdz_sub(:,:,1)
-                bz_p_nz=reshape([diff(dp_sub(:,:,nzp-1:nzp),1,1)/dz], (/nxp,nyp/)) !dpdz_sub(:,:,nzp-1)
+                bx_p_1 =reshape([diff(dp_sub(1:2,:,:),1,1)/dx]      , (/nyp,nzp/))
+                bx_p_nx=reshape([diff(dp_sub(nxp-1:nxp,:,:),1,1)/dx], (/nyp,nzp/))
+                by_p_1 =reshape([diff(dp_sub(:,1:2,:),1,1)/dy]      , (/nxp,nzp/))
+                by_p_ny=reshape([diff(dp_sub(:,nyp-1:nyp,:),1,1)/dy], (/nxp,nzp/))
+                bz_p_1 =reshape([diff(dp_sub(:,:,1:2),1,1)/dz]      , (/nxp,nyp/))
+                bz_p_nz=reshape([diff(dp_sub(:,:,nzp-1:nzp),1,1)/dz], (/nxp,nyp/))
             end if
 
             !!! Convection
