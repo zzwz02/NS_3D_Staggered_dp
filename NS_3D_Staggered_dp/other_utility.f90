@@ -71,7 +71,7 @@
     enddo
     !allocate(vec_out(i), source=unique(1:i))   !<-- Or, just use unique(1:i)
     vec_out=unique(1:i)
-    !print "(10i5:)", vec_out
+    !print "(10I5:)", vec_out
     end function unique_sort
 
     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!

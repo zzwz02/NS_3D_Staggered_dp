@@ -178,7 +178,7 @@
         call pardiso (pt, maxfct, mnum, mtype, phase, n, LHS_poisson%value, LHS_poisson%ia, LHS_poisson%ja, &
             idum, nrhs, iparm, msglvl, RHS_poisson0, dp_vec, error)
         CALL SYSTEM_CLOCK(c2)
-        print '(" LU of LHS_poisson completed: " (f6.4) " second")', (c2-c1)/system_clock_rate
+        print '(" LU of LHS_poisson completed: ", F6.4, " second")', (c2-c1)/system_clock_rate
         print *, "**************************************"
     end if
 
@@ -231,25 +231,25 @@
     do t_step=0,time_length
         tGet=time_array(t_step)
         print *,''
-        print '(" t_step ", (i6), "        tGet ", f7.4)', t_step, tGet
+        print '(" t_step ", I6, "        tGet ", F7.4)', t_step, tGet
         CALL SYSTEM_CLOCK(c01)
 
         if (t_step==0) then
             if (allocated(temp11)) deallocate(temp11)
             allocate(temp11(sizeof_record))
-            write (string_var,'("result\HIT_128^3_decay_5e-3_AB2_dp_t_",f0.4,".dat")') tGet
+            write (string_var,'("result_AB2\HIT_128^3_decay_", ES5.0E1, "_", A ,"_dp_t_" , F0.4, ".dat")') dt0, trim(timescheme), tGet
             open(20, file=string_var, form='unformatted', status='old', action='read', &
                 access='direct', recl=sizeof_record*2) !variables are double precision
             read(20, rec=1) temp11
             close(20)
 
-            tempi1=1;        tempi2=(nx0+1)*(ny0+2)*(nz0+2);        temp31=reshape(temp11(tempi1:tempi2), (/nx0+1,ny0+2,nz0+2/)); u_sub=temp31(idx_xu,idx_yu,idx_zu)
-            tempi1=tempi2+1; tempi2=tempi2+(nx0+2)*(ny0+1)*(nz0+2); temp31=reshape(temp11(tempi1:tempi2), (/nx0+2,ny0+1,nz0+2/)); v_sub=temp31(idx_xv,idx_yv,idx_zv)
-            tempi1=tempi2+1; tempi2=tempi2+(nx0+2)*(ny0+2)*(nz0+1); temp31=reshape(temp11(tempi1:tempi2), (/nx0+2,ny0+2,nz0+1/)); w_sub=temp31(idx_xw,idx_yw,idx_zw)
-            tempi1=tempi2+1; tempi2=tempi2+(nx0+2)*(ny0+2)*(nz0+2); temp31=reshape(temp11(tempi1:tempi2), (/nx0+2,ny0+2,nz0+2/)); p_sub=temp31(idx_xp,idx_yp,idx_zp)
-            tempi1=tempi2+1; tempi2=tempi2+(nx0+1)*(ny0+2)*(nz0+2); temp31=reshape(temp11(tempi1:tempi2), (/nx0+2,ny0+1,nz0+2/)); rhs_x_previous=temp31(idx_xu,idx_yu,idx_zu)
-            tempi1=tempi2+1; tempi2=tempi2+(nx0+2)*(ny0+1)*(nz0+2); temp31=reshape(temp11(tempi1:tempi2), (/nx0+2,ny0+1,nz0+2/)); rhs_y_previous=temp31(idx_xv,idx_yv,idx_zv)
-            tempi1=tempi2+1; tempi2=tempi2+(nx0+2)*(ny0+2)*(nz0+1); temp31=reshape(temp11(tempi1:tempi2), (/nx0+2,ny0+2,nz0+1/)); rhs_z_previous=temp31(idx_xw,idx_yw,idx_zw)
+            tempi1=1;        tempi2=(nx0+1)*(ny0+2)*(nz0+2);        temp31=reshape(temp11(tempi1:tempi2), [nx0+1,ny0+2,nz0+2]); u_sub=temp31(idx_xu,idx_yu,idx_zu)
+            tempi1=tempi2+1; tempi2=tempi2+(nx0+2)*(ny0+1)*(nz0+2); temp31=reshape(temp11(tempi1:tempi2), [nx0+2,ny0+1,nz0+2]); v_sub=temp31(idx_xv,idx_yv,idx_zv)
+            tempi1=tempi2+1; tempi2=tempi2+(nx0+2)*(ny0+2)*(nz0+1); temp31=reshape(temp11(tempi1:tempi2), [nx0+2,ny0+2,nz0+1]); w_sub=temp31(idx_xw,idx_yw,idx_zw)
+            tempi1=tempi2+1; tempi2=tempi2+(nx0+2)*(ny0+2)*(nz0+2); temp31=reshape(temp11(tempi1:tempi2), [nx0+2,ny0+2,nz0+2]); p_sub=temp31(idx_xp,idx_yp,idx_zp)
+            tempi1=tempi2+1; tempi2=tempi2+(nx0+1)*(ny0+2)*(nz0+2); temp31=reshape(temp11(tempi1:tempi2), [nx0+1,ny0+2,nz0+2]); rhs_x_previous=temp31(idx_xu,idx_yu,idx_zu)
+            tempi1=tempi2+1; tempi2=tempi2+(nx0+2)*(ny0+1)*(nz0+2); temp31=reshape(temp11(tempi1:tempi2), [nx0+2,ny0+1,nz0+2]); rhs_y_previous=temp31(idx_xv,idx_yv,idx_zv)
+            tempi1=tempi2+1; tempi2=tempi2+(nx0+2)*(ny0+2)*(nz0+1); temp31=reshape(temp11(tempi1:tempi2), [nx0+2,ny0+2,nz0+1]); rhs_z_previous=temp31(idx_xw,idx_yw,idx_zw)
 
             u=u_sub; v=v_sub; w=w_sub; p=p_sub;
             !call TGV(xu, yu, zu, 0.0d0, nu, u)
@@ -261,7 +261,7 @@
             end if
             if (.not. allocated(temp11)) allocate(temp11(sizeof_record_sub))
 
-            write (string_var,'("result\HIT_128^3_decay_5e-3_AB2_dp_x0_",i0,"_nx0_",i0,"_t_",f0.4,".dat")') x0,nx,tGet
+            write (string_var,'("result_AB2\HIT_128^3_decay_", ES5.0E1, "_", A , "_dp_x0_", I0, "_nx0_", I0, "_t_", F0.4, ".dat")') dt0, trim(timescheme), x0, nx0, tGet
             open(20, file=string_var, form='unformatted', status='old', action='read', &
                 access='direct', recl=sizeof_record_sub*2) !variables are double precision
             read(20, rec=1) temp11
@@ -540,7 +540,7 @@
                 call pardiso (pt, maxfct, mnum, mtype, phase, n, LHS_poisson%value, LHS_poisson%ia, LHS_poisson%ja, &
                     idum, nrhs, iparm, msglvl, RHS_poisson0, dp_vec, error)
                 CALL SYSTEM_CLOCK(c2)
-                print '("    Solve Poisson (LU decomp) completed: " (f6.4) " second")', (c2-c1)/system_clock_rate
+                print '("    Solve Poisson (LU decomp) completed: ", F6.4, " second")', (c2-c1)/system_clock_rate
                 !print *, "**************************************"
                 dp_lu=reshape(dp_vec,([nxp,nyp,nzp]))
             end if
@@ -567,7 +567,7 @@
             dp(:,:,1)=dp(:,:,nxp-1); dp(:,:,nxp)=dp(:,:,2)
 
             CALL SYSTEM_CLOCK(c2)
-            print '("    Solve Poisson (FFT-based FD) completed: ", (f6.4), " second")', (c2-c1)/system_clock_rate
+            print '("    Solve Poisson (FFT-based FD) completed: ", F6.4, " second")', (c2-c1)/system_clock_rate
             !print *, "**************************************"
 
             !print *, maxval(abs(dp-dp_lu))
@@ -607,7 +607,7 @@
         !err_grad(5,t_step)=mean(u-u_sub)/rms(u_sub); err_grad(6,t_step)=mean(v-v_sub)/rms(v_sub); err_grad(7,t_step)=mean(w-w_sub)/rms(w_sub); err_grad(8,t_step)=mean(p-p_sub)/rms(p_sub)
 
         write(*,'("   MAX vel/pr error: ", 100g15.5)') err_vel(1:4,t_step)
-        print '("Complete: ", f6.4, " second. MAX Div: ", e13.6)', (c02-c01)/system_clock_rate, maxval(abs(div))
+        print '("Complete: ", F6.4, " second. MAX Div: ", E13.6)', (c02-c01)/system_clock_rate, maxval(abs(div))
         print *, "**************************************"
         !if (tGet>=0) then
         !

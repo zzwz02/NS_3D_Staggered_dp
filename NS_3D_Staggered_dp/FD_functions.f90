@@ -41,8 +41,8 @@
             !$omp end parallel do
             !CALL CPU_TIME(t2)
             !CALL SYSTEM_CLOCK(c2)
-            !print '("    omp wall time: " (f6.4) " second")', (c2-c1)/system_clock_rate
-            !print '("    omp cpu time: " (f6.4) " second")', t2-t1
+            !print '("    omp wall time: ", F6.4, " second")', (c2-c1)/system_clock_rate
+            !print '("    omp cpu time: ", F6.4, " second")', t2-t1
             B(1,:,:)=B(nx,:,:)
         else if (k==2) then
             allocate( B(nx,ny,nz) )
@@ -263,8 +263,8 @@
             !$omp end parallel do
             !CALL CPU_TIME(t2)
             !CALL SYSTEM_CLOCK(c2)
-            !print '("    omp wall time: " (f6.4) " second")', (c2-c1)/system_clock_rate
-            !print '("    omp cpu time: " (f6.4) " second")', t2-t1
+            !print '("    omp wall time: ", F6.4, " second")', (c2-c1)/system_clock_rate
+            !print '("    omp cpu time: ", F6.4, " second")', t2-t1
             C => B(:,:,:)
         else if (k==2) then
             !$omp parallel do
@@ -378,7 +378,7 @@
         end do
         !!$omp end parallel do
         !CALL SYSTEM_CLOCK(c2)
-        !print '("    omp wall time 2: " (f6.4) " second")', (c2-c1)/system_clock_rate
+        !print '("    omp wall time 2: ", F6.4, " second")', (c2-c1)/system_clock_rate
 
         C => B(1:nx-1,:,:)
     else if (k==2) then

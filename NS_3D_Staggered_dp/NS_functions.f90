@@ -229,7 +229,7 @@
     Ax=Ax/dx2; Ay=Ay/dy2; Az=Az/dz2;
 
     CALL SYSTEM_CLOCK(c2)
-    print '("   Get Ax/Ay/Az: " (f6.4) " second")', (c2-c1)/system_clock_rate
+    print '("   Get Ax/Ay/Az: ", F6.4, " second")', (c2-c1)/system_clock_rate
 
     !LHS_poisson = -kron(kron(Iz,Iy),Ax)-kron(kron(Iz,Ay),Ix)-kron(kron(Az,Iy),Ix);
 
@@ -254,12 +254,12 @@
     LHS_poisson=add( add(t4%to_csr(), t5%to_csr()), t6%to_csr() )
     LHS_poisson_coo=from_csr(LHS_poisson)
     CALL SYSTEM_CLOCK(c2)
-    print '("   Kron product: " (f6.4) " second")', (c2-c1)/system_clock_rate
+    print '("   Kron product: ", F6.4, " second")', (c2-c1)/system_clock_rate
 
     vv=0.0d0; ii=0; jj=0;
 
     temp2=1
-    tempy=spread( [(i, i=1, nyp)], 2, nzp )    
+    tempy=spread( [(i, i=1, nyp)], 2, nzp )
     tempz=spread( [(i, i=1, nzp)], 1, nyp )
     if (pbc_x==1) then ! Periodic
 
@@ -298,7 +298,7 @@
         temp2=temp2+nyp*nzp
 
     else if (pbc_x==2) then ! Dirichlet on boundary (cell wall)
-        
+
         row1=[1+(tempy-1)*nxp+(tempz-1)*nxp*nyp]
         col1=[2+(tempy-1)*nxp+(tempz-1)*nxp*nyp]
         !call print_mat(float(row))
@@ -315,7 +315,7 @@
         jj(temp2:temp2+nyp*nzp-1)=col1
         vv(temp2:temp2+nyp*nzp-1)=0.5d0
         temp2=temp2+nyp*nzp
-        
+
         row2=[nxp+(tempy-1)*nxp+(tempz-1)*nxp*nyp]
         col2=[nxp-1+(tempy-1)*nxp+(tempz-1)*nxp*nyp]
         !call print_mat(float(row))
@@ -332,9 +332,9 @@
         jj(temp2:temp2+nyp*nzp-1)=col2
         vv(temp2:temp2+nyp*nzp-1)=0.5d0
         temp2=temp2+nyp*nzp
-        
+
     else if (pbc_x==3) then ! Neumann on boundary (cell wall)
-        
+
         row1=[1+(tempy-1)*nxp+(tempz-1)*nxp*nyp]
         col1=[2+(tempy-1)*nxp+(tempz-1)*nxp*nyp]
         !call print_mat(float(row))
@@ -351,7 +351,7 @@
         jj(temp2:temp2+nyp*nzp-1)=col1
         vv(temp2:temp2+nyp*nzp-1)=1.0d0/dx
         temp2=temp2+nyp*nzp
-        
+
         row2=[nxp+(tempy-1)*nxp+(tempz-1)*nxp*nyp]
         col2=[nxp-1+(tempy-1)*nxp+(tempz-1)*nxp*nyp]
         !call print_mat(float(row))
@@ -368,7 +368,7 @@
         jj(temp2:temp2+nyp*nzp-1)=col2
         vv(temp2:temp2+nyp*nzp-1)=-1.0d0/dx
         temp2=temp2+nyp*nzp
-        
+
     else if (pbc_x==4) then ! Dirichlet on ghost cell
 
         row1=[1+(tempy-1)*nxp+(tempz-1)*nxp*nyp]
@@ -382,7 +382,7 @@
         jj(temp2:temp2+nyp*nzp-1)=row1
         vv(temp2:temp2+nyp*nzp-1)=1.0d0
         temp2=temp2+nyp*nzp
-        
+
         row2=[nxp+(tempy-1)*nxp+(tempz-1)*nxp*nyp]
         !call print_mat(float(row))
         do i=1,size(row2)
@@ -394,7 +394,7 @@
         jj(temp2:temp2+nyp*nzp-1)=row2
         vv(temp2:temp2+nyp*nzp-1)=1.0d0
         temp2=temp2+nyp*nzp
-        
+
     end if
 
     tempx=spread( [(i, i=1, nxp)], 2, nzp )
@@ -436,7 +436,7 @@
         temp2=temp2+nxp*nzp
 
     else if (pbc_y==2) then
-        
+
         row3=[tempx+(1-1)*nxp+(tempz-1)*nxp*nyp]
         col3=[tempx+(2-1)*nxp+(tempz-1)*nxp*nyp]
         !call print_mat(float(row))
@@ -470,9 +470,9 @@
         jj(temp2:temp2+nxp*nzp-1)=col4
         vv(temp2:temp2+nxp*nzp-1)=0.5d0
         temp2=temp2+nxp*nzp
-        
+
     else if (pbc_y==3) then
-        
+
         row3=[tempx+(1-1)*nxp+(tempz-1)*nxp*nyp]
         col3=[tempx+(2-1)*nxp+(tempz-1)*nxp*nyp]
         !call print_mat(float(row))
@@ -506,9 +506,9 @@
         jj(temp2:temp2+nxp*nzp-1)=col4
         vv(temp2:temp2+nxp*nzp-1)=-1.0d0/dy
         temp2=temp2+nxp*nzp
-        
+
     else if (pbc_y==4) then
-        
+
         row3=[tempx+(1-1)*nxp+(tempz-1)*nxp*nyp]
         !call print_mat(float(row))
         do i=1,size(row3)
@@ -574,7 +574,7 @@
         temp2=temp2+nxp*nyp
 
     else if (pbc_z==2) then
-        
+
         row5=[tempx+(tempy-1)*nxp+(1-1)*nxp*nyp]
         col5=[tempx+(tempy-1)*nxp+(2-1)*nxp*nyp]
         !call print_mat(float(row))
@@ -608,9 +608,9 @@
         jj(temp2:temp2+nxp*nyp-1)=col6
         vv(temp2:temp2+nxp*nyp-1)=0.5d0
         temp2=temp2+nxp*nyp
-        
+
     else if (pbc_z==3) then
-        
+
         row5=[tempx+(tempy-1)*nxp+(1-1)*nxp*nyp]
         col5=[tempx+(tempy-1)*nxp+(2-1)*nxp*nyp]
         !call print_mat(float(row))
@@ -644,9 +644,9 @@
         jj(temp2:temp2+nxp*nyp-1)=col6
         vv(temp2:temp2+nxp*nyp-1)=-1.0d0/dz
         temp2=temp2+nxp*nyp
-        
+
     else if (pbc_z==4) then
-        
+
         row5=[tempx+(tempy-1)*nxp+(1-1)*nxp*nyp]
         !call print_mat(float(row))
         do i=1,size(row5)
@@ -683,11 +683,62 @@
 
     LHS_poisson=add( co1%to_csr(), co2%to_csr() )
     CALL SYSTEM_CLOCK(c2)
-    print '("   LHS_poisson completed: " (f6.4) " second")', (c2-c1)/system_clock_rate
+    print '("   LHS_poisson completed: ", F6.4, " second")', (c2-c1)/system_clock_rate
     print *, "**************************************"
 
     end function Poisson_LHS_staggered
 
+    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    subroutine mat_CN(nx, bc_x, dx2, dx, A_mat, B_mat, dt0, nu)
+
+    implicit none
+
+    integer, intent(in) :: nx, bc_x
+    real(8), intent(in) :: dx2, dx, dt0, nu
+    real(8), intent(out) :: A_mat(nx+1,nx+1), B_mat(nx+2,nx+2)
+
+    integer :: i
+    real(8) :: idx2, idx
+
+    idx2=1.0d0/dx2; idx=1.0/dx;
+
+    A_mat=0; B_mat=0;
+
+    do i=2,nx
+        A_mat(i,i)=1.0d0+0.5d0*dt0*nu*2.0d0*idx2
+        A_mat(i,i-1)=-0.5d0*dt0*nu*1.0d0*idx2
+        A_mat(i,i+1)=-0.5d0*dt0*nu*1.0d0*idx2
+    end do
+
+    do i=2,nx+1
+        B_mat(i,i)=1.0d0+0.5d0*dt0*nu*2.0d0*idx2;
+        B_mat(i,i-1)=-0.5d0*dt0*nu*1.0d0*idx2;
+        B_mat(i,i+1)=-0.5d0*dt0*nu*1.0d0*idx2;
+    end do
+
+    ! pbc=1 Periodic; pbc=2 Dirichlet on boundary (cell wall); pbc=3 Neumann on boundary (cell wall); pbc=4 Dirichlet on ghost cell
+    if (bc_x==1) then
+        A_mat(1,1)=1.0d0+0.5d0*dt0*nu*2.0d0*idx2; A_mat(1,2)=-0.5d0*dt0*nu*1.0d0*idx2; A_mat(1,nx+1)=-0.5d0*dt0*nu*1.0d0*idx2;
+        A_mat(nx+1,nx+1)=1.0d0; A_mat(nx+1,1)=-1.0d0;
+
+        B_mat(1,1)=1.0d0;       B_mat(1,nx+1)=-1.0d0;
+        B_mat(nx+2,nx+2)=1.0d0; B_mat(nx+2,2)=-1.0d0;
+        
+    else if (bc_x==2) then
+        A_mat(1,1)=1.0d0;       A_mat(nx+1,nx+1)=1.0d0;
+        
+        B_mat(1,1)=0.5d0;       B_mat(1,2)=0.5d0;
+        B_mat(nx+2,nx+2)=0.5d0; B_mat(nx+2,nx+1)=0.5d0;
+        
+    else if (bc_x==3) then
+        
+    else if (bc_x==4) then
+        A_mat(1,1)=1.0d0;       A_mat(nx+1,nx+1)=1.0d0;
+        
+        B_mat(1,1)=1.0d0;       B_mat(nx+2,nx+2)=1.0d0;
+    end if
+
+    end subroutine mat_CN
 
     end module NS_functions
 

@@ -74,7 +74,7 @@
     
     call mkl_dcsradd("N", 0, 0, a%shape(1), a%shape(2), a%value, a%ja, a%ia, 1.0d0, b%value, b%ja, b%ia, value, ja, ia, int(2e9), info)
     
-    print '("      nnz: " (I8))', maxval(ia)
+    print '("      nnz: ", I8)', maxval(ia)
     add%value=value(1:ia(a%shape(1)+1)-1)
     add%ja=ja(1:ia(a%shape(1)+1)-1)
     add%ia=ia
