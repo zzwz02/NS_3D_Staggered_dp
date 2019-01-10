@@ -211,7 +211,7 @@
     print *, (a_rowind==a_colind)
 
     dft_in_r_test=RHS_poisson(1:10,4,4)
-    dft_in_c_test=cmplx(dft_in_r_test)
+    dft_in_c_test=dcmplx(dft_in_r_test)
     print *, "dft_in"
     print *, dft_in_c_test
     print *, "**************************************"
@@ -227,7 +227,7 @@
     print *, "**************************************"
 
     dft_in_r_test=RHS_poisson(1:10,4,4)
-    dft_in_c_test=cmplx(dft_in_r_test)
+    dft_in_c_test=dcmplx(dft_in_r_test)
     ! Configure a Descriptor
     hand => null()
     !3D MKL dft = fft_z( fft_y (fft_x) ), same in MATLAB

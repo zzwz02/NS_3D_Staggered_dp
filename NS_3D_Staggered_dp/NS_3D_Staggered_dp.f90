@@ -27,7 +27,7 @@
     real(8), parameter :: pi = 3.1415926535897932_8
     integer :: i=0,j=0,k=0,ll=0,mm=0
 
-    logical, parameter :: init=.true., plot_output=.true., save_output=.true.
+    logical, parameter :: init=.true., plot_output=.false., save_output=.false.
     real(8), parameter :: Re=1.0d0, nu=0.0008d0, t_end=20.0d0, dt0=0.005d0
     real(8), parameter :: t_start=0.0d0
     integer, parameter :: nx_file=256
@@ -98,8 +98,10 @@
     !INTEL mkl_dft
     integer :: cstrides(4)=0, rstrides(4)=0
     type(DFTI_DESCRIPTOR), POINTER :: hand_f, hand_b
-    real(8) :: dft_out_r(nx,ny,nz), poisson_eigv(nx,ny,nz)=0
-    complex*16 :: dft_out_c(nx,ny,nz)
+    !real(8) :: dft_out_r(nx,ny,nz), poisson_eigv(nx,ny,nz)=0
+    !complex(8) :: dft_out_c(nx,ny,nz)
+    real(8) :: dft_out_r1(nx,ny,nz), poisson_eigv(INT(nx/2.0)+1,ny,nz)=0
+    complex(8) :: dft_out_c1(INT(nx/2.0)+1,ny,nz)
     integer :: status
 
     !post-processing
@@ -112,7 +114,7 @@
     INTEGER :: c01,c02,c1,c2,cr,cm
 
     !simulation parameters
-    character(*), parameter :: timescheme="AB2-CN"
+    character(*), parameter :: timescheme="AB2"
     ! pbc=1 Periodic; pbc=2 Dirichlet on boundary (cell wall); pbc=3 Neumann on boundary (cell wall); pbc=4 Dirichlet on ghost cell
     integer, parameter :: bc_x=1, bc_y=bc_x, bc_z=bc_x, pbc_x=1, pbc_y=pbc_x, pbc_z=pbc_x
 
@@ -211,27 +213,26 @@
     rstrides = [0, 1, nx,     ny*nx]
     !3D MKL dft = fft_z( fft_y (fft_x) ), same in MATLAB
     print *,"Configure DFTI descriptor for fordward transform"
-    !status = DftiCreateDescriptor(hand_f, DFTI_DOUBLE, DFTI_REAL, 3, [nx,ny,nz])
-    !status = DftiSetValue(hand_f, DFTI_BACKWARD_SCALE, 1.0d0/(nx*ny*nz))
-    !status = DftiSetValue(hand_f, DFTI_PLACEMENT, DFTI_NOT_INPLACE)
-    !status = DftiSetValue(hand_f, DFTI_CONJUGATE_EVEN_STORAGE, DFTI_COMPLEX_COMPLEX)
-    !status = DftiSetValue(hand_f, DFTI_INPUT_STRIDES, rstrides)
-    !status = DftiSetValue(hand_f, DFTI_OUTPUT_STRIDES, cstrides)
-    status = DftiCreateDescriptor(hand_f, DFTI_DOUBLE, DFTI_COMPLEX, 3, [nx,ny,nz])
+    !status = DftiCreateDescriptor(hand_f, DFTI_DOUBLE, DFTI_COMPLEX, 3, [nx,ny,nz])
+    status = DftiCreateDescriptor(hand_f, DFTI_DOUBLE, DFTI_REAL, 3, [nx,ny,nz])
+    status = DftiSetValue(hand_f, DFTI_PLACEMENT, DFTI_NOT_INPLACE)
+    status = DftiSetValue(hand_f, DFTI_CONJUGATE_EVEN_STORAGE, DFTI_COMPLEX_COMPLEX)
+    status = DftiSetValue(hand_f, DFTI_INPUT_STRIDES, rstrides)
+    status = DftiSetValue(hand_f, DFTI_OUTPUT_STRIDES, cstrides)
+    status = DftiSetValue(hand_f, DFTI_BACKWARD_SCALE, 1.0d0/(nx*ny*nz))
     status = DftiCommitDescriptor(hand_f)
 
     print *,"Configure DFTI descriptor for backward transform"
-    !status = DftiCreateDescriptor(hand_b, DFTI_DOUBLE, DFTI_REAL, 3, [nx,ny,nz])
-    !status = DftiSetValue(hand_b, DFTI_BACKWARD_SCALE, 1.0d0/(nx*ny*nz))
-    !status = DftiSetValue(hand_b, DFTI_PLACEMENT, DFTI_NOT_INPLACE)
-    !status = DftiSetValue(hand_b, DFTI_CONJUGATE_EVEN_STORAGE, DFTI_COMPLEX_COMPLEX)
-    !status = DftiSetValue(hand_b, DFTI_INPUT_STRIDES, cstrides)
-    !status = DftiSetValue(hand_b, DFTI_OUTPUT_STRIDES, rstrides)
-    status = DftiCreateDescriptor(hand_b, DFTI_DOUBLE, DFTI_COMPLEX, 3, [nx,ny,nz])
+    !status = DftiCreateDescriptor(hand_b, DFTI_DOUBLE, DFTI_COMPLEX, 3, [nx,ny,nz])
+    status = DftiCreateDescriptor(hand_b, DFTI_DOUBLE, DFTI_REAL, 3, [nx,ny,nz])
+    status = DftiSetValue(hand_b, DFTI_PLACEMENT, DFTI_NOT_INPLACE)
+    status = DftiSetValue(hand_b, DFTI_CONJUGATE_EVEN_STORAGE, DFTI_COMPLEX_COMPLEX)
+    status = DftiSetValue(hand_b, DFTI_INPUT_STRIDES, cstrides)
+    status = DftiSetValue(hand_b, DFTI_OUTPUT_STRIDES, rstrides)
     status = DftiSetValue(hand_b, DFTI_BACKWARD_SCALE, 1.0d0/(nx*ny*nz))
     status = DftiCommitDescriptor(hand_b)
 
-    do i=1,nx
+    do i=1,nx/2+1
         poisson_eigv(i,:,:)=(sin(pi*(i-1)/nx)/dx)**2
     end do
 
@@ -287,25 +288,25 @@
             !p(:,1,:)=p(:,ny+1,:); p(:,ny+2,:)=p(:,2,:)
             !p(:,:,1)=p(:,:,nz+1); p(:,:,nz+2)=p(:,:,2)
             
-            if (allocated(temp11)) deallocate(temp11)
-            allocate(temp11(sizeof_record))
-            write (string_var,'("D:\Documents\source\repos\NS_3D_Staggered_dp\NS_3D_Staggered_dp\HIT_128^3_decay_5e-3_AB2_dp_init.dat")') 
-            open(20, file=string_var, form='unformatted', status='old', action='read', &
-                access='direct', recl=sizeof_record*2) !variables are double precision
-            read(20, rec=1) temp11
-            close(20)
-            
-            tempi1=1;        tempi2=size(u);        u=reshape(temp11(tempi1:tempi2), [nx+1,ny+2,nz+2]);
-            tempi1=tempi2+1; tempi2=tempi2+size(v); v=reshape(temp11(tempi1:tempi2), [nx+2,ny+1,nz+2]);
-            tempi1=tempi2+1; tempi2=tempi2+size(w); w=reshape(temp11(tempi1:tempi2), [nx+2,ny+2,nz+1]);
-            tempi1=tempi2+1; tempi2=tempi2+size(p); p=reshape(temp11(tempi1:tempi2), [nx+2,ny+2,nz+2]);
-            tempi1=tempi2+1; tempi2=tempi2+size(rhs_x_previous); rhs_x_previous=reshape(temp11(tempi1:tempi2), [nx+1,ny+2,nz+2]);
-            tempi1=tempi2+1; tempi2=tempi2+size(rhs_y_previous); rhs_y_previous=reshape(temp11(tempi1:tempi2), [nx+2,ny+1,nz+2]);
-            tempi1=tempi2+1; tempi2=tempi2+size(rhs_z_previous); rhs_z_previous=reshape(temp11(tempi1:tempi2), [nx+2,ny+2,nz+1]);
+            !if (allocated(temp11)) deallocate(temp11)
+            !allocate(temp11(sizeof_record))
+            !write (string_var,'("D:\Documents\source\repos\NS_3D_Staggered_dp\NS_3D_Staggered_dp\HIT_128^3_decay_5e-3_AB2_dp_init.dat")') 
+            !open(20, file=string_var, form='unformatted', status='old', action='read', &
+            !    access='direct', recl=sizeof_record*2) !variables are double precision
+            !read(20, rec=1) temp11
+            !close(20)
+            !
+            !tempi1=1;        tempi2=size(u);        u=reshape(temp11(tempi1:tempi2), [nx+1,ny+2,nz+2]);
+            !tempi1=tempi2+1; tempi2=tempi2+size(v); v=reshape(temp11(tempi1:tempi2), [nx+2,ny+1,nz+2]);
+            !tempi1=tempi2+1; tempi2=tempi2+size(w); w=reshape(temp11(tempi1:tempi2), [nx+2,ny+2,nz+1]);
+            !tempi1=tempi2+1; tempi2=tempi2+size(p); p=reshape(temp11(tempi1:tempi2), [nx+2,ny+2,nz+2]);
+            !tempi1=tempi2+1; tempi2=tempi2+size(rhs_x_previous); rhs_x_previous=reshape(temp11(tempi1:tempi2), [nx+1,ny+2,nz+2]);
+            !tempi1=tempi2+1; tempi2=tempi2+size(rhs_y_previous); rhs_y_previous=reshape(temp11(tempi1:tempi2), [nx+2,ny+1,nz+2]);
+            !tempi1=tempi2+1; tempi2=tempi2+size(rhs_z_previous); rhs_z_previous=reshape(temp11(tempi1:tempi2), [nx+2,ny+2,nz+1]);
 
-            !call TGV(xu, yu, zu, 0.0d0, nu, u)
-            !call TGV(xv, yv, zv, 0.0d0, nu, v=v)
-            !call TGV(xp, yp, zp, 0.0d0, nu, p=p)
+            call TGV(xu, yu, zu, 0.0d0, nu, u)
+            call TGV(xv, yv, zv, 0.0d0, nu, v=v)
+            call TGV(xp, yp, zp, 0.0d0, nu, p=p)
         else
             !!! Convection
             ux=avg(u,1,bc_x); uy=avg(u,2,0);    uz=avg(u,3,0);
@@ -604,20 +605,19 @@
             CALL SYSTEM_CLOCK(c1)
             !print *, "**************************************"
             !print *, "   Solve Poisson (FFT-based FD) start..."
-            !dft_in_r=RHS_poisson(2:nxp-1,2:nyp-1,2:nzp-1)
-            dft_out_c=cmplx(RHS_poisson_internal)
+            !dft_out_c=dcmplx(RHS_poisson_internal)
 
             !print *, "   Forward FFT..."
-            !status = DftiComputeForward(hand_f, dft_in_r(:,1,1), dft_out_c(:,1,1))
-            status = DftiComputeForward(hand_f, dft_out_c(:,1,1))
+            status = DftiComputeForward(hand_f, RHS_poisson_internal(:,1,1), dft_out_c1(:,1,1))
+            !status = DftiComputeForward(hand_f, dft_out_c(:,1,1))
 
-            dft_out_c=dft_out_c/poisson_eigv
-            dft_out_c(1,1,1)=0
+            dft_out_c1=dft_out_c1/poisson_eigv
+            dft_out_c1(1,1,1)=0
             !print *, "   Backward FFT..."
-            !status = DftiComputeBackward(hand_b, dft_out_c(:,1,1), dft_out_r(:,1,1))
-            status = DftiComputeBackward(hand_b, dft_out_c(:,1,1))
-            dft_out_r=real(dft_out_c)
-            dp(2:nxp-1,2:nyp-1,2:nzp-1)=dft_out_r
+            status = DftiComputeBackward(hand_b, dft_out_c1(:,1,1), dft_out_r1(:,1,1))
+            !status = DftiComputeBackward(hand_b, dft_out_c(:,1,1))
+            !dft_out_r=dble(dft_out_c)
+            dp(2:nxp-1,2:nyp-1,2:nzp-1)=dft_out_r1
             dp(1,:,:)=dp(nxp-1,:,:); dp(nxp,:,:)=dp(2,:,:)
             dp(:,1,:)=dp(:,nyp-1,:); dp(:,nyp,:)=dp(:,2,:)
             dp(:,:,1)=dp(:,:,nzp-1); dp(:,:,nzp)=dp(:,:,2)
