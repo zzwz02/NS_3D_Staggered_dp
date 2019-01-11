@@ -162,9 +162,9 @@
     ! ogpf Configuration parameters
     ! The terminal and font have been set for Windows operating system
     ! Correct to meet the requirements on other OS like Linux and Mac.
-    character(len=*), parameter ::  gnuplot_term_type = 'pdf'                      ! Output terminal
+    character(len=*), parameter ::  gnuplot_term_type = 'png'                      ! Output terminal
     character(len=*), parameter ::  gnuplot_term_font = 'verdana,16'               ! font
-    character(len=*), parameter ::  gnuplot_term_size = '16cm,16cm'   !'960,840'                  ! plot window size
+    character(len=*), parameter ::  gnuplot_term_size = '1000,1000'   !'960,840'                  ! plot window size
     character(len=*), parameter ::  gnuplot_output_filename='ogpf_temp_script.gp' ! temporary file for output
     ! extra configuration can be set using ogpf object
 
@@ -1171,7 +1171,7 @@
     end subroutine splot
 
 
-    subroutine cplot(this, x, y, z, lspec, palette)
+    subroutine cplot(this, x, y, z, lspec, palette, cbrange)
     !..............................................................................
     !   Rev 0.19
     !   cplot creates a contour plot based on the three dimensional data
@@ -1184,6 +1184,7 @@
     real(wp),  intent(in), optional  :: z(:,:)
     character(len=*),  intent(in), optional   ::  lspec
     character(len=*),  intent(in), optional   ::  palette
+    real(wp),  intent(in), optional  :: cbrange(2)
 
     !   Local variables
     !----------------------------------------------------------------------
@@ -1244,12 +1245,16 @@
     ! create the contour lines
     write ( this%file_unit, '(a)' ) ! empty line
     write ( this%file_unit, '(a)' ) '# create the contour'
-    write ( this%file_unit, '(a)' ) 'set contour base'
-    write ( this%file_unit, '(a)' ) 'set cntrparam levels 14'
+    write ( this%file_unit, '(a)' ) '#set contour base'
+    write ( this%file_unit, '(a)' ) '#set cntrparam levels 14'
     write ( this%file_unit, '(a)' ) 'unset surface'
     write ( this%file_unit, '(a)' ) 'set view map'
-
-
+    
+    !write the color bar range into gnuplot script file
+    if (present(cbrange)) then
+        write ( this%file_unit, '("set cbrange [", es10.2e2, ":", es10.2e2, "]")' ) cbrange(1), cbrange(2)
+    end if
+    
     !write the color palette into gnuplot script file
     if (present(palette)) then
         write ( this%file_unit, '(a)' )  color_palettes(palette)

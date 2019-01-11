@@ -62,9 +62,6 @@
     real(8), dimension (:,:,:), allocatable :: temp31!, temp32, temp33, temp34, temp35, temp36
     real(4) :: ini_vel(3,nx_file,nx_file,nx_file), ini_pr(nx_file,nx_file,nx_file)
     real(8) :: div(nx,ny,nz)
-    real(8), dimension (:,:,:), allocatable :: ux, uy, uz
-    real(8), dimension (:,:,:), allocatable :: vx, vy, vz
-    real(8), dimension (:,:,:), allocatable :: wx, wy, wz
     real(8), dimension (:,:,:), allocatable :: conv_x, conv_y, conv_z
     real(8), dimension (:,:,:), allocatable :: diff_x, diff_y, diff_z
     real(8) :: RHS_poisson_internal(nx,ny,nz)
@@ -95,7 +92,7 @@
     character(*), parameter :: timescheme="AB2"
     ! pbc=1 Periodic; pbc=2 Dirichlet on boundary (cell wall); pbc=3 Neumann on boundary (cell wall); pbc=4 Dirichlet on ghost cell
     integer, parameter :: bc_x=2, bc_y=bc_x, bc_z=bc_x, pbc_x=2, pbc_y=pbc_x, pbc_z=pbc_x
-    logical, parameter :: using_Ustar=.true., TOffset=.false., restart=.true.
+    logical, parameter :: using_Ustar=.true., TOffset=.true., restart=.true.
     real(8), parameter :: noise=0;
     real(8), dimension (:,:), allocatable :: err_vel, err_grad, rms_vel, rms_grad
 
@@ -135,23 +132,23 @@
         !allocate( z_range0(nx-1) )
         z_range0=[ (i, i=2, nz) ]
     end if
-    
+
     if (bc_x==1) then
-        allocate( ux(nx+1,ny+2,nz+2), uy(nx+1,ny+1,nz+2), uz(nx+1,ny+2,nz+1), conv_x(nx,ny,nz),   diff_x(nx,ny,nz)   )
+        allocate( conv_x(nx,ny,nz),   diff_x(nx,ny,nz)   )
     else
-        allocate( ux(nx,  ny+2,nz+2), uy(nx+1,ny+1,nz+2), uz(nx+1,ny+2,nz+1), conv_x(nx-1,ny,nz), diff_x(nx-1,ny,nz) )
+        allocate( conv_x(nx-1,ny,nz), diff_x(nx-1,ny,nz) )
     end if
-    
+
     if (bc_y==1) then
-        allocate( vx(nx+1,ny+1,nz+2), vy(nx+2,ny+1,nz+2), vz(nx+2,ny+1,nz+1), conv_y(nx,ny,nz),   diff_y(nx,ny,nz)   )
+        allocate( conv_y(nx,ny,nz),   diff_y(nx,ny,nz)   )
     else
-        allocate( vx(nx+1,ny+1,nz+2), vy(nx+2,ny  ,nz+2), vz(nx+2,ny+1,nz+1), conv_y(nx,ny-1,nz), diff_y(nx,ny-1,nz) )
+        allocate( conv_y(nx,ny-1,nz), diff_y(nx,ny-1,nz) )
     end if
-    
+
     if (bc_z==1) then
-        allocate( wx(nx+1,ny+2,nz+1), wy(nx+2,ny+1,nz+1), wz(nx+2,ny+2,nz+1), conv_z(nx,ny,nz),   diff_z(nx,ny,nz)   )
+        allocate( conv_z(nx,ny,nz),   diff_z(nx,ny,nz)   )
     else
-        allocate( wx(nx+1,ny+2,nz+1), wy(nx+2,ny+1,nz+1), wz(nx+2,ny+2,nz  ), conv_z(nx,ny,nz-1), diff_z(nx,ny,nz-1) )
+        allocate( conv_z(nx,ny,nz-1), diff_z(nx,ny,nz-1) )
     end if
 
     if (LU_poisson) then
@@ -211,7 +208,7 @@
     status = DftiSetValue(hand_b, DFTI_BACKWARD_SCALE, 1.0d0/(nx*ny*nz))
     status = DftiCommitDescriptor(hand_b)
 
-    do i=1,nx+1
+    do i=1,nx/2+1
         poisson_eigv(i,:,:)=(sin(pi*(i-1)/nx)/dx)**2
     end do
 
@@ -238,7 +235,7 @@
         if (t_step==0) then
             if (allocated(temp11)) deallocate(temp11)
             allocate(temp11(sizeof_record))
-            write (string_var,'("result_AB2\HIT_128^3_decay_", ES5.0E1, "_", A ,"_dp_t_" , F0.4, ".dat")') dt0, trim(timescheme), tGet
+            write (string_var,'("AB2_result\HIT_128^3_decay_", ES5.0E1, "_", A ,"_dp_t_" , F0.4, ".dat")') dt0, trim(timescheme), tGet
             open(20, file=string_var, form='unformatted', status='old', action='read', &
                 access='direct', recl=sizeof_record*2) !variables are double precision
             read(20, rec=1) temp11
@@ -262,7 +259,7 @@
             end if
             if (.not. allocated(temp11)) allocate(temp11(sizeof_record_sub))
 
-            write (string_var,'("result_AB2\HIT_128^3_decay_", ES5.0E1, "_", A , "_dp_x0_", I0, "_nx0_", I0, "_t_", F0.4, ".dat")') dt0, trim(timescheme), x0, nx0, tGet
+            write (string_var,'("AB2_result\HIT_128^3_decay_", ES5.0E1, "_", A , "_dp_x0_", I0, "_nx0_", I0, "_t_", F0.4, ".dat")') dt0, trim(timescheme), x0, nx, tGet
             open(20, file=string_var, form='unformatted', status='old', action='read', &
                 access='direct', recl=sizeof_record_sub*2) !variables are double precision
             read(20, rec=1) temp11
@@ -277,6 +274,10 @@
             tempi1=tempi2+1; tempi2=tempi2+size(w_star); w_star_sub=reshape(temp11(tempi1:tempi2), (/nx+2,ny+2,nz+1/));
             tempi1=tempi2+1; tempi2=tempi2+size(dp);     dp_sub=reshape(temp11(tempi1:tempi2), (/nx+2,ny+2,nz+2/));
             tempi1=tempi2+1; tempi2=tempi2+size(RHS_poisson_sub);     RHS_poisson_sub=reshape(temp11(tempi1:tempi2), (/nx+2,ny+2,nz+2/));
+
+            if (.not. using_Ustar) then
+                u_star_sub=u_sub; v_star_sub=v_sub; w_star_sub=w_sub
+            end if
 
             if (bc_x==2) then
                 bx_u_1 =u_star_sub(1,:,:);
@@ -346,58 +347,7 @@
             end if
 
             !!! Convection
-            ux=avg(u,1,bc_x); uy=avg(u,2,0);    uz=avg(u,3,0);
-            vx=avg(v,1,0);    vy=avg(v,2,bc_y); vz=avg(v,3,0);
-            wx=avg(w,1,0);    wy=avg(w,2,0);    wz=avg(w,3,bc_z);
-
-            if (bc_x==1) then
-                conv_x=diff(ux(:,2:ubound(ux,2)-1,2:ubound(ux,3)-1)*ux(:,2:ubound(ux,2)-1,2:ubound(ux,3)-1),1,1)/dx
-                conv_x=conv_x + diff(uy(1:ubound(uy,1)-1,:,2:ubound(uy,3)-1)*vx(1:ubound(vx,1)-1,:,2:ubound(vx,3)-1),1,2)/dy
-                conv_x=conv_x + diff(uz(1:ubound(uz,1)-1,2:ubound(uz,2)-1,:)*wx(1:ubound(wx,1)-1,2:ubound(wx,2)-1,:),1,3)/dz
-                !conv_x=diff(ux(:,2:ubound(ux,2)-1,2:ubound(ux,3)-1)*ux(:,2:ubound(ux,2)-1,2:ubound(ux,3)-1),1,1)/dx + &
-                !    diff(uy(1:ubound(uy,1)-1,:,2:ubound(uy,3)-1)*vx(1:ubound(vx,1)-1,:,2:ubound(vx,3)-1),1,2)/dy + &
-                !    diff(uz(1:ubound(uz,1)-1,2:ubound(uz,2)-1,:)*wx(1:ubound(wx,1)-1,2:ubound(wx,2)-1,:),1,3)/dz
-            else
-                conv_x=diff(ux(:,2:ubound(ux,2)-1,2:ubound(ux,3)-1)*ux(:,2:ubound(ux,2)-1,2:ubound(ux,3)-1),1,1)/dx
-                !conv_x=diff(ux(:,2:ubound(ux,2)-1,2:ubound(ux,3)-1)*ux(:,2:ubound(ux,2)-1,2:ubound(ux,3)-1),1,1)/dx
-                conv_x=conv_x + diff(uy(2:ubound(uy,1)-1,:,2:ubound(uy,3)-1)*vx(2:ubound(vx,1)-1,:,2:ubound(vx,3)-1),1,2)/dy
-                conv_x=conv_x + diff(uz(2:ubound(uz,1)-1,2:ubound(uz,2)-1,:)*wx(2:ubound(wx,1)-1,2:ubound(wx,2)-1,:),1,3)/dz
-                !conv_x=diff(ux(:,2:ubound(ux,2)-1,2:ubound(ux,3)-1)*ux(:,2:ubound(ux,2)-1,2:ubound(ux,3)-1),1,1)/dx + &
-                !    diff(uy(2:ubound(uy,1)-1,:,2:ubound(uy,3)-1)*vx(2:ubound(vx,1)-1,:,2:ubound(vx,3)-1),1,2)/dy + &
-                !    diff(uz(2:ubound(uz,1)-1,2:ubound(uz,2)-1,:)*wx(2:ubound(wx,1)-1,2:ubound(wx,2)-1,:),1,3)/dz
-            end if
-
-            if (bc_y==1) then
-                conv_y=diff(vx(:,1:ubound(vx,2)-1,2:ubound(vx,3)-1)*uy(:,1:ubound(uy,2)-1,2:ubound(uy,3)-1),1,1)/dx
-                conv_y=conv_y + diff(vy(2:ubound(vy,1)-1,:,2:ubound(vy,3)-1)*vy(2:ubound(vy,1)-1,:,2:ubound(vy,3)-1),1,2)/dy
-                conv_y=conv_y + diff(vz(2:ubound(vz,1)-1,1:ubound(vz,2)-1,:)*wy(2:ubound(wy,1)-1,1:ubound(wy,2)-1,:),1,3)/dz
-                !conv_y=diff(vx(:,1:ubound(vx,2)-1,2:ubound(vx,3)-1)*uy(:,1:ubound(uy,2)-1,2:ubound(uy,3)-1),1,1)/dx + &
-                !    diff(vy(2:ubound(vy,1)-1,:,2:ubound(vy,3)-1)*vy(2:ubound(vy,1)-1,:,2:ubound(vy,3)-1),1,2)/dy + &
-                !    diff(vz(2:ubound(vz,1)-1,1:ubound(vz,2)-1,:)*wy(2:ubound(wy,1)-1,1:ubound(wy,2)-1,:),1,3)/dz
-            else
-                conv_y=diff(vx(:,2:ubound(vx,2)-1,2:ubound(vx,3)-1)*uy(:,2:ubound(uy,2)-1,2:ubound(uy,3)-1),1,1)/dx
-                conv_y=conv_y + diff(vy(2:ubound(vy,1)-1,:,2:ubound(vy,3)-1)*vy(2:ubound(vy,1)-1,:,2:ubound(vy,3)-1),1,2)/dy
-                conv_y=conv_y + diff(vz(2:ubound(vz,1)-1,2:ubound(vz,2)-1,:)*wy(2:ubound(wy,1)-1,2:ubound(wy,2)-1,:),1,3)/dz
-                !conv_y=diff(vx(:,2:ubound(vx,2)-1,2:ubound(vx,3)-1)*uy(:,2:ubound(uy,2)-1,2:ubound(uy,3)-1),1,1)/dx + &
-                !    diff(vy(2:ubound(vy,1)-1,:,2:ubound(vy,3)-1)*vy(2:ubound(vy,1)-1,:,2:ubound(vy,3)-1),1,2)/dy + &
-                !    diff(vz(2:ubound(vz,1)-1,2:ubound(vz,2)-1,:)*wy(2:ubound(wy,1)-1,2:ubound(wy,2)-1,:),1,3)/dz
-            end if
-
-            if (bc_z==1) then
-                conv_z=diff(wx(:,2:ubound(wx,2)-1,1:ubound(wx,3)-1)*uz(:,2:ubound(uz,2)-1,1:ubound(uz,3)-1),1,1)/dx
-                conv_z=conv_z + diff(wy(2:ubound(wy,1)-1,:,1:ubound(wy,3)-1)*vz(2:ubound(vz,1)-1,:,1:ubound(vz,3)-1),1,2)/dy
-                conv_z=conv_z + diff(wz(2:ubound(wz,1)-1,2:ubound(wz,2)-1,:)*wz(2:ubound(wz,1)-1,2:ubound(wz,2)-1,:),1,3)/dz
-                !conv_z=diff(wx(:,2:ubound(wx,2)-1,1:ubound(wx,3)-1)*uz(:,2:ubound(uz,2)-1,1:ubound(uz,3)-1),1,1)/dx + &
-                !    diff(wy(2:ubound(wy,1)-1,:,1:ubound(wy,3)-1)*vz(2:ubound(vz,1)-1,:,1:ubound(vz,3)-1),1,2)/dy + &
-                !    diff(wz(2:ubound(wz,1)-1,2:ubound(wz,2)-1,:)*wz(2:ubound(wz,1)-1,2:ubound(wz,2)-1,:),1,3)/dz
-            else
-                conv_z=diff(wx(:,2:ubound(wx,2)-1,2:ubound(wx,3)-1)*uz(:,2:ubound(uz,2)-1,2:ubound(uz,3)-1),1,1)/dx
-                conv_z=conv_z + diff(wy(2:ubound(wy,1)-1,:,2:ubound(wy,3)-1)*vz(2:ubound(vz,1)-1,:,2:ubound(vz,3)-1),1,2)/dy
-                conv_z=conv_z + diff(wz(2:ubound(wz,1)-1,2:ubound(wz,2)-1,:)*wz(2:ubound(wz,1)-1,2:ubound(wz,2)-1,:),1,3)/dz
-                !conv_z=diff(wx(:,2:ubound(wx,2)-1,2:ubound(wx,3)-1)*uz(:,2:ubound(uz,2)-1,2:ubound(uz,3)-1),1,1)/dx + &
-                !    diff(wy(2:ubound(wy,1)-1,:,2:ubound(wy,3)-1)*vz(2:ubound(vz,1)-1,:,2:ubound(vz,3)-1),1,2)/dy + &
-                !    diff(wz(2:ubound(wz,1)-1,2:ubound(wz,2)-1,:)*wz(2:ubound(wz,1)-1,2:ubound(wz,2)-1,:),1,3)/dz
-            end if
+            call cal_conv(u, v, w, bc_x, bc_y, bc_z, dx, dy, dz, conv_x, conv_y, conv_z)
 
             !!! Diffusion
             if (bc_x==1) then
@@ -463,7 +413,7 @@
                 rhs_z(x_range1,y_range1,z_range0)=nu*diff_z-conv_z;
 
                 ! prediction
-                if ((t_step==1 .or. tGet==0+dt0) .and. init) then
+                if (.not. restart) then
                     u_star=dt0*(1.0d0*rhs_x-1.0d0*dpdx+1.0d0*f_term_x)+u;
                     v_star=dt0*(1.0d0*rhs_y-1.0d0*dpdy+1.0d0*f_term_y)+v;
                     w_star=dt0*(1.0d0*rhs_z-1.0d0*dpdz+1.0d0*f_term_z)+w;

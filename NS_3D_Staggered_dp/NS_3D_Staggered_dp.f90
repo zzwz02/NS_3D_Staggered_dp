@@ -31,7 +31,7 @@
     real(8), parameter :: Re=1.0d0, nu=0.0008d0, t_end=20.0d0, dt0=0.005d0
     real(8), parameter :: t_start=0.0d0
     integer, parameter :: nx_file=256
-    integer, parameter :: nx=128, ny=nx, nz=nx, nxp=nx+2, nyp=ny+2, nzp=nz+2, sub_tstep=1
+    integer, parameter :: nx=16, ny=nx, nz=nx, nxp=nx+2, nyp=ny+2, nzp=nz+2, sub_tstep=1
     real(8), parameter :: lx=2.0d0*pi, ly=2.0d0*pi, lz=2.0d0*pi, dx=lx/nx, dy=ly/ny, dz=lz/nz, dx2=dx*dx, dy2=dy*dy, dz2=dz*dz
     real(8), parameter :: xu(nx+1)=[(i*dx, i=0, nx)],          yu(ny+2)=[((i+0.5)*dy, i=-1, ny)],   zu(nz+2)=[((i+0.5)*dz, i=-1, nz)]
     real(8), parameter :: xv(nx+2)=[((i+0.5d0)*dx, i=-1, nx)], yv(ny+1)=[(i*dy, i=0, ny)],          zv(nz+2)=[((i+0.5d0)*dz, i=-1, nz)]
@@ -69,7 +69,7 @@
     real(8) :: bx_w_1(ny+2,nz+1)=0, bx_w_nx(ny+2,nz+1)=0, by_w_1(nx+2,nz+1)=0, by_w_ny(nx+2,nz+1)=0, bz_w_1(nx+2,ny+2)=0, bz_w_nz(nx+2,ny+2)=0
     real(8) :: bx_p_1(nyp,nzp)=0,   bx_p_nx(nyp,nzp)=0,   by_p_1(nxp,nzp)=0,   by_p_ny(nxp,nzp)=0,   bz_p_1(nxp,nyp)=0,   bz_p_nz(nxp,nyp)=0
 
-    integer :: t_step, plot_step=20, slice=nz/2
+    integer :: t_step, plot_step=20, slice=nz/2+1
     real(8) :: tGet
     integer, dimension (:), allocatable :: x_range0, y_range0, z_range0
     integer :: x_range1(nx)=[(i, i=2, nx+1)], y_range1(ny)=[(i, i=2, ny+1)], z_range1(nz)=[(i, i=2, nz+1)]
@@ -77,16 +77,13 @@
     type(coo), allocatable :: LHS_poisson_coo, temp_coo
     real(8), dimension (:,:), allocatable :: LHS_poisson_den
 
-    integer(8) :: sizeof_record, sizeof_record_sub, tempi1, tempi2
+    integer(8) :: sizeof_record, sizeof_record_sub, sizeof_record_slice, tempi1, tempi2
     real(8) :: temp01, temp02, temp03!, temp04, temp05, temp06
-    real(8), dimension (:), allocatable :: temp11, temp12!, temp13, temp14, temp15, temp16
+    real(8), dimension (:), allocatable :: temp11, temp12, temp13!, temp14, temp15, temp16
     real(8), dimension (:,:), allocatable :: temp21!, temp22, temp23, temp24, temp25, temp26
     !real(8), dimension (:,:,:), allocatable :: temp31, temp32, temp33, temp34, temp35, temp36
-    !real(4) :: ini_vel(3,nx_file,nx_file,nx_file), ini_pr(nx_file,nx_file,nx_file)
+    real(4) :: ini_vel(3,nx_file,nx_file,nx_file), ini_pr(nx_file,nx_file,nx_file)
     real(8) :: div(nx,ny,nz)
-    real(8), dimension (:,:,:), allocatable :: ux, uy, uz
-    real(8), dimension (:,:,:), allocatable :: vx, vy, vz
-    real(8), dimension (:,:,:), allocatable :: wx, wy, wz
     real(8), dimension (:,:,:), allocatable :: conv_x, conv_y, conv_z
     real(8), dimension (:,:,:), allocatable :: diff_x, diff_y, diff_z
     real(8) :: RHS_poisson_internal(nx,ny,nz)
@@ -114,7 +111,7 @@
     INTEGER :: c01,c02,c1,c2,cr,cm
 
     !simulation parameters
-    character(*), parameter :: timescheme="AB2"
+    character(*), parameter :: timescheme="AB2-CN"
     ! pbc=1 Periodic; pbc=2 Dirichlet on boundary (cell wall); pbc=3 Neumann on boundary (cell wall); pbc=4 Dirichlet on ghost cell
     integer, parameter :: bc_x=1, bc_y=bc_x, bc_z=bc_x, pbc_x=1, pbc_y=pbc_x, pbc_z=pbc_x
 
@@ -147,21 +144,21 @@
     end if
 
     if (bc_x==1) then
-        allocate( ux(nx+1,ny+2,nz+2), uy(nx+1,ny+1,nz+2), uz(nx+1,ny+2,nz+1), conv_x(nx,ny,nz),   diff_x(nx,ny,nz)   )
+        allocate( conv_x(nx,ny,nz),   diff_x(nx,ny,nz)   )
     else
-        allocate( ux(nx,  ny+2,nz+2), uy(nx+1,ny+1,nz+2), uz(nx+1,ny+2,nz+1), conv_x(nx-1,ny,nz), diff_x(nx-1,ny,nz) )
+        allocate( conv_x(nx-1,ny,nz), diff_x(nx-1,ny,nz) )
     end if
 
     if (bc_y==1) then
-        allocate( vx(nx+1,ny+1,nz+2), vy(nx+2,ny+1,nz+2), vz(nx+2,ny+1,nz+1), conv_y(nx,ny,nz),   diff_y(nx,ny,nz)   )
+        allocate( conv_y(nx,ny,nz),   diff_y(nx,ny,nz)   )
     else
-        allocate( vx(nx+1,ny+1,nz+2), vy(nx+2,ny  ,nz+2), vz(nx+2,ny+1,nz+1), conv_y(nx,ny-1,nz), diff_y(nx,ny-1,nz) )
+        allocate( conv_y(nx,ny-1,nz), diff_y(nx,ny-1,nz) )
     end if
 
     if (bc_z==1) then
-        allocate( wx(nx+1,ny+2,nz+1), wy(nx+2,ny+1,nz+1), wz(nx+2,ny+2,nz+1), conv_z(nx,ny,nz),   diff_z(nx,ny,nz)   )
+        allocate( conv_z(nx,ny,nz),   diff_z(nx,ny,nz)   )
     else
-        allocate( wx(nx+1,ny+2,nz+1), wy(nx+2,ny+1,nz+1), wz(nx+2,ny+2,nz  ), conv_z(nx,ny,nz-1), diff_z(nx,ny,nz-1) )
+        allocate( conv_z(nx,ny,nz-1), diff_z(nx,ny,nz-1) )
     end if
 
     if (timescheme=="AB2-CN") then
@@ -248,6 +245,7 @@
 
     sizeof_record=size(u)+size(v)+size(w)+size(p)+size(rhs_x_previous)+size(rhs_y_previous)+size(rhs_z_previous)
     sizeof_record_sub=size(u_sub)+size(v_sub)+size(w_sub)+size(p_sub)+size(u_star_sub)+size(v_star_sub)+size(w_star_sub)+size(dp_sub)+size(RHS_poisson_sub)
+    sizeof_record_slice=size(u(:,:,slice))+size(v(:,:,slice))+size(w(:,:,slice))+size(p(:,:,slice))
 
     do t_step=0,time_length
         tGet=time_array(t_step)
@@ -287,10 +285,10 @@
             !p(1,:,:)=p(nx+1,:,:); p(ny+2,:,:)=p(2,:,:)
             !p(:,1,:)=p(:,ny+1,:); p(:,ny+2,:)=p(:,2,:)
             !p(:,:,1)=p(:,:,nz+1); p(:,:,nz+2)=p(:,:,2)
-            
+
             !if (allocated(temp11)) deallocate(temp11)
             !allocate(temp11(sizeof_record))
-            !write (string_var,'("D:\Documents\source\repos\NS_3D_Staggered_dp\NS_3D_Staggered_dp\HIT_128^3_decay_5e-3_AB2_dp_init.dat")') 
+            !write (string_var,'("D:\Documents\source\repos\NS_3D_Staggered_dp\NS_3D_Staggered_dp\HIT_128^3_decay_5.E-3_AB2_dp_t_init.dat")')
             !open(20, file=string_var, form='unformatted', status='old', action='read', &
             !    access='direct', recl=sizeof_record*2) !variables are double precision
             !read(20, rec=1) temp11
@@ -309,57 +307,7 @@
             call TGV(xp, yp, zp, 0.0d0, nu, p=p)
         else
             !!! Convection
-            ux=avg(u,1,bc_x); uy=avg(u,2,0);    uz=avg(u,3,0);
-            vx=avg(v,1,0);    vy=avg(v,2,bc_y); vz=avg(v,3,0);
-            wx=avg(w,1,0);    wy=avg(w,2,0);    wz=avg(w,3,bc_z);
-
-            if (bc_x==1) then
-                conv_x=diff(ux(:,2:ubound(ux,2)-1,2:ubound(ux,3)-1)*ux(:,2:ubound(ux,2)-1,2:ubound(ux,3)-1),1,1)/dx
-                conv_x=conv_x + diff(uy(1:ubound(uy,1)-1,:,2:ubound(uy,3)-1)*vx(1:ubound(vx,1)-1,:,2:ubound(vx,3)-1),1,2)/dy
-                conv_x=conv_x + diff(uz(1:ubound(uz,1)-1,2:ubound(uz,2)-1,:)*wx(1:ubound(wx,1)-1,2:ubound(wx,2)-1,:),1,3)/dz
-                !conv_x=diff(ux(:,2:ubound(ux,2)-1,2:ubound(ux,3)-1)*ux(:,2:ubound(ux,2)-1,2:ubound(ux,3)-1),1,1)/dx + &
-                !    diff(uy(1:ubound(uy,1)-1,:,2:ubound(uy,3)-1)*vx(1:ubound(vx,1)-1,:,2:ubound(vx,3)-1),1,2)/dy + &
-                !    diff(uz(1:ubound(uz,1)-1,2:ubound(uz,2)-1,:)*wx(1:ubound(wx,1)-1,2:ubound(wx,2)-1,:),1,3)/dz
-            else
-                conv_x=diff(ux(:,2:ubound(ux,2)-1,2:ubound(ux,3)-1)*ux(:,2:ubound(ux,2)-1,2:ubound(ux,3)-1),1,1)/dx
-                conv_x=conv_x + diff(uy(2:ubound(uy,1)-1,:,2:ubound(uy,3)-1)*vx(2:ubound(vx,1)-1,:,2:ubound(vx,3)-1),1,2)/dy
-                conv_x=conv_x + diff(uz(2:ubound(uz,1)-1,2:ubound(uz,2)-1,:)*wx(2:ubound(wx,1)-1,2:ubound(wx,2)-1,:),1,3)/dz
-                !conv_x=diff(ux(:,2:ubound(ux,2)-1,2:ubound(ux,3)-1)*ux(:,2:ubound(ux,2)-1,2:ubound(ux,3)-1),1,1)/dx + &
-                !    diff(uy(2:ubound(uy,1)-1,:,2:ubound(uy,3)-1)*vx(2:ubound(vx,1)-1,:,2:ubound(vx,3)-1),1,2)/dy + &
-                !    diff(uz(2:ubound(uz,1)-1,2:ubound(uz,2)-1,:)*wx(2:ubound(wx,1)-1,2:ubound(wx,2)-1,:),1,3)/dz
-            end if
-
-            if (bc_y==1) then
-                conv_y=diff(vx(:,1:ubound(vx,2)-1,2:ubound(vx,3)-1)*uy(:,1:ubound(uy,2)-1,2:ubound(uy,3)-1),1,1)/dx
-                conv_y=conv_y + diff(vy(2:ubound(vy,1)-1,:,2:ubound(vy,3)-1)*vy(2:ubound(vy,1)-1,:,2:ubound(vy,3)-1),1,2)/dy
-                conv_y=conv_y + diff(vz(2:ubound(vz,1)-1,1:ubound(vz,2)-1,:)*wy(2:ubound(wy,1)-1,1:ubound(wy,2)-1,:),1,3)/dz
-                !conv_y=diff(vx(:,1:ubound(vx,2)-1,2:ubound(vx,3)-1)*uy(:,1:ubound(uy,2)-1,2:ubound(uy,3)-1),1,1)/dx + &
-                !    diff(vy(2:ubound(vy,1)-1,:,2:ubound(vy,3)-1)*vy(2:ubound(vy,1)-1,:,2:ubound(vy,3)-1),1,2)/dy + &
-                !    diff(vz(2:ubound(vz,1)-1,1:ubound(vz,2)-1,:)*wy(2:ubound(wy,1)-1,1:ubound(wy,2)-1,:),1,3)/dz
-            else
-                conv_y=diff(vx(:,2:ubound(vx,2)-1,2:ubound(vx,3)-1)*uy(:,2:ubound(uy,2)-1,2:ubound(uy,3)-1),1,1)/dx
-                conv_y=conv_y + diff(vy(2:ubound(vy,1)-1,:,2:ubound(vy,3)-1)*vy(2:ubound(vy,1)-1,:,2:ubound(vy,3)-1),1,2)/dy
-                conv_y=conv_y + diff(vz(2:ubound(vz,1)-1,2:ubound(vz,2)-1,:)*wy(2:ubound(wy,1)-1,2:ubound(wy,2)-1,:),1,3)/dz
-                !conv_y=diff(vx(:,2:ubound(vx,2)-1,2:ubound(vx,3)-1)*uy(:,2:ubound(uy,2)-1,2:ubound(uy,3)-1),1,1)/dx + &
-                !    diff(vy(2:ubound(vy,1)-1,:,2:ubound(vy,3)-1)*vy(2:ubound(vy,1)-1,:,2:ubound(vy,3)-1),1,2)/dy + &
-                !    diff(vz(2:ubound(vz,1)-1,2:ubound(vz,2)-1,:)*wy(2:ubound(wy,1)-1,2:ubound(wy,2)-1,:),1,3)/dz
-            end if
-
-            if (bc_z==1) then
-                conv_z=diff(wx(:,2:ubound(wx,2)-1,1:ubound(wx,3)-1)*uz(:,2:ubound(uz,2)-1,1:ubound(uz,3)-1),1,1)/dx
-                conv_z=conv_z + diff(wy(2:ubound(wy,1)-1,:,1:ubound(wy,3)-1)*vz(2:ubound(vz,1)-1,:,1:ubound(vz,3)-1),1,2)/dy
-                conv_z=conv_z + diff(wz(2:ubound(wz,1)-1,2:ubound(wz,2)-1,:)*wz(2:ubound(wz,1)-1,2:ubound(wz,2)-1,:),1,3)/dz
-                !conv_z=diff(wx(:,2:ubound(wx,2)-1,1:ubound(wx,3)-1)*uz(:,2:ubound(uz,2)-1,1:ubound(uz,3)-1),1,1)/dx + &
-                !    diff(wy(2:ubound(wy,1)-1,:,1:ubound(wy,3)-1)*vz(2:ubound(vz,1)-1,:,1:ubound(vz,3)-1),1,2)/dy + &
-                !    diff(wz(2:ubound(wz,1)-1,2:ubound(wz,2)-1,:)*wz(2:ubound(wz,1)-1,2:ubound(wz,2)-1,:),1,3)/dz
-            else
-                conv_z=diff(wx(:,2:ubound(wx,2)-1,2:ubound(wx,3)-1)*uz(:,2:ubound(uz,2)-1,2:ubound(uz,3)-1),1,1)/dx
-                conv_z=conv_z + diff(wy(2:ubound(wy,1)-1,:,2:ubound(wy,3)-1)*vz(2:ubound(vz,1)-1,:,2:ubound(vz,3)-1),1,2)/dy
-                conv_z=conv_z + diff(wz(2:ubound(wz,1)-1,2:ubound(wz,2)-1,:)*wz(2:ubound(wz,1)-1,2:ubound(wz,2)-1,:),1,3)/dz
-                !conv_z=diff(wx(:,2:ubound(wx,2)-1,2:ubound(wx,3)-1)*uz(:,2:ubound(uz,2)-1,2:ubound(uz,3)-1),1,1)/dx + &
-                !    diff(wy(2:ubound(wy,1)-1,:,2:ubound(wy,3)-1)*vz(2:ubound(vz,1)-1,:,2:ubound(vz,3)-1),1,2)/dy + &
-                !    diff(wz(2:ubound(wz,1)-1,2:ubound(wz,2)-1,:)*wz(2:ubound(wz,1)-1,2:ubound(wz,2)-1,:),1,3)/dz
-            end if
+            call cal_conv(u, v, w, bc_x, bc_y, bc_z, dx, dy, dz, conv_x, conv_y, conv_z)
 
             !!! Diffusion
             if (bc_x==1) then
@@ -432,7 +380,7 @@
 
                 ! prediction
                 !if (t_step==1 .and. init) then
-                if (t_step==1 .or. t_step==nint((dt0-t_start)/(dt0))) then
+                if ( (t_step==1 .or. t_step==nint( (dt0-t_start)/dt0) ) .and. init) then
                     u_star=dt0*(1.0d0*rhs_x-1.0d0*dpdx+1.0d0*f_term_x)+u;
                     v_star=dt0*(1.0d0*rhs_y-1.0d0*dpdy+1.0d0*f_term_y)+v;
                     w_star=dt0*(1.0d0*rhs_z-1.0d0*dpdz+1.0d0*f_term_z)+w;
@@ -456,7 +404,7 @@
             else if (timescheme=="AB2-CN") then
                 ! prediction
                 !if (t_step==1 .and. init) then
-                if (t_step==1 .or. t_step==nint((dt0-t_start)/(dt0))) then
+                if ( (t_step==1 .or. t_step==nint( (dt0-t_start)/dt0) ) .and. init) then
                     ! diff terms + conv terms
                     rhs_x(x_range0,y_range1,z_range1)=0.5d0*nu*diff_x-conv_x;
                     rhs_y(x_range1,y_range0,z_range1)=0.5d0*nu*diff_y-conv_y;
@@ -510,11 +458,11 @@
                     temp21=transpose(u_star(:,:,k))
                     call getrs( D_mat, D_ipiv, temp21 )
                     u_star(:,:,k)=transpose(temp21)
-                
+
                     temp21=transpose(v_star(:,:,k))
                     call getrs( C_mat, C_ipiv, temp21 )
                     v_star(:,:,k)=transpose(temp21)
-                
+
                     if (k<=nz+1) then
                         temp21=transpose(w_star(:,:,k))
                         call getrs( D_mat, D_ipiv, temp21 )
@@ -535,13 +483,13 @@
                     temp21=transpose(u_star(:,j,:))
                     call getrs( F_mat, F_ipiv, temp21 )
                     u_star(:,j,:)=transpose(temp21)
-                
+
                     if (j<=ny+1) then
                         temp21=transpose(v_star(:,j,:))
                         call getrs( F_mat, F_ipiv, temp21 )
                         v_star(:,j,:)=transpose(temp21)
                     end if
-                
+
                     temp21=transpose(w_star(:,j,:))
                     call getrs( E_mat, E_ipiv, temp21 )
                     w_star(:,j,:)=transpose(temp21)
@@ -667,6 +615,11 @@
             end if
             if (.not. allocated(temp12)) allocate(temp12(sizeof_record_sub))
 
+            if (allocated(temp13) .and. size(temp13)/=sizeof_record_slice) then
+                deallocate(temp13)
+            end if
+            if (.not. allocated(temp13)) allocate(temp13(sizeof_record_slice))
+
             if (tGet==0 .or. tGet==1) then
                 tempi1=1;        tempi2=size(u);        temp11(tempi1:tempi2)=[u]
                 tempi1=tempi2+1; tempi2=tempi2+size(v); temp11(tempi1:tempi2)=[v]
@@ -676,14 +629,14 @@
                 tempi1=tempi2+1; tempi2=tempi2+size(rhs_y_previous); temp11(tempi1:tempi2)=[rhs_y_previous]
                 tempi1=tempi2+1; tempi2=tempi2+size(rhs_z_previous); temp11(tempi1:tempi2)=[rhs_z_previous]
 
-                write (string_var,'("result_AB2CN\HIT_128^3_decay_", ES5.0E1, "_", A ,"_dp_t_" , F0.4, ".dat")') dt0, trim(timescheme), tGet
-                open(20, file=string_var, form='unformatted', status='replace', action='write', &
+                write (string_var,'("AB2CN_result\HIT_128^3_decay_", ES5.0E1, "_", A ,"_dp_t_" , F0.4, ".dat")') dt0, trim(timescheme), tGet
+                open(20, file=string_var, form='unformatted', status='new', action='write', &
                     access='direct', recl=sizeof_record*2) !variables are double precision
                 write(20, rec=1) temp11
                 close(20)
             end if
 
-            if (tGet<=10) then
+            if (tGet<=20) then
                 u_sub=u(idx_xu,idx_yu,idx_zu); u_star_sub=u_star(idx_xu,idx_yu,idx_zu);
                 v_sub=v(idx_xv,idx_yv,idx_zv); v_star_sub=v_star(idx_xv,idx_yv,idx_zv);
                 w_sub=w(idx_xw,idx_yw,idx_zw); w_star_sub=w_star(idx_xw,idx_yw,idx_zw);
@@ -699,17 +652,30 @@
                 tempi1=tempi2+1; tempi2=tempi2+size(w_star_sub); temp12(tempi1:tempi2)=[w_star_sub]
                 tempi1=tempi2+1; tempi2=tempi2+size(dp_sub);     temp12(tempi1:tempi2)=[dp_sub]
                 tempi1=tempi2+1; tempi2=tempi2+size(RHS_poisson_sub);     temp12(tempi1:tempi2)=[RHS_poisson_sub]
-                write (string_var,'("result_AB2CN\HIT_128^3_decay_", ES5.0E1, "_", A , "_dp_x0_", I0, "_nx0_", I0, "_t_", F0.4, ".dat")') dt0, trim(timescheme), x0, nx0, tGet
-                open(20, file=string_var, form='unformatted', status='replace', action='write', &
+                write (string_var,'("AB2CN_result\HIT_128^3_decay_", ES5.0E1, "_", A , "_dp_x0_", I0, "_nx0_", I0, "_t_", F0.4, ".dat")') dt0, trim(timescheme), x0, nx0, tGet
+                open(20, file=string_var, form='unformatted', status='new', action='write', &
                     access='direct', recl=sizeof_record_sub*2) !variables are double precision
                 write(20, rec=1) temp12
                 close(20)
             end if
+
+            if (mod(t_step,plot_step)==0 .and. tGet<=20) then
+                tempi1=1;        tempi2=size(u(:,:,slice));        temp13(tempi1:tempi2)=[u(:,:,slice)]
+                tempi1=tempi2+1; tempi2=tempi2+size(v(:,:,slice)); temp13(tempi1:tempi2)=[v(:,:,slice)]
+                tempi1=tempi2+1; tempi2=tempi2+size(w(:,:,slice)); temp13(tempi1:tempi2)=[w(:,:,slice)]
+                tempi1=tempi2+1; tempi2=tempi2+size(p(:,:,slice)); temp13(tempi1:tempi2)=[p(:,:,slice)]
+
+                write (string_var,'("AB2CN_result\HIT_128^3_decay_", ES5.0E1, "_", A , "_slice_", I0, "_t_", F0.4, ".dat")') dt0, trim(timescheme), slice, tGet
+                open(20, file=string_var, form='unformatted', status='new', action='write', &
+                    access='direct', recl=sizeof_record_slice*2) !variables are double precision
+                write(20, rec=1) temp13
+                close(20)
+            end if
+
         end if
 
         if (mod(t_step,plot_step)==0 .and. plot_output) then
             plot_block: block
-
                 !real(8), dimension (:,:), allocatable :: xx, yy
 
                 !call meshgrid( xx, yy, yu(2:ubound(yu,1)-1), xu )
@@ -718,6 +684,7 @@
                 call gp%multiplot(2,2)
 
                 write (string_var,'("U @ ",i7)') t_step
+                call gp%title(string_var)
                 call gp%title(string_var)
                 !call gp%xlabel('x1, ...')
                 !call gp%ylabel('y1, ...')
