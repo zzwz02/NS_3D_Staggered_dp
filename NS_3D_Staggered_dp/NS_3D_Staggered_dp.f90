@@ -28,32 +28,35 @@
     integer :: i=0,j=0,k=0,ll=0,mm=0
 
     logical, parameter :: init=.true., plot_output=.false., save_output=.false.
-    real(8), parameter :: Re=1.0d0, nu=0.0008d0, t_end=20.0d0, dt0=0.005d0
-    real(8), parameter :: t_start=0.0d0
-    integer, parameter :: nx_file=256
-    integer, parameter :: nx=16, ny=nx, nz=nx, nxp=nx+2, nyp=ny+2, nzp=nz+2, sub_tstep=1
+    real(8), parameter :: Re=1.0d0, nu=0.002d0, t_end=20.0d0, dt0=0.004d0
+    real(8), parameter :: t_start=-1.0d0
+    !integer, parameter :: nx_file=256
+    integer, parameter :: nx=256, ny=nx, nz=nx, nxp=nx+2, nyp=ny+2, nzp=nz+2, sub_tstep=1
     real(8), parameter :: lx=2.0d0*pi, ly=2.0d0*pi, lz=2.0d0*pi, dx=lx/nx, dy=ly/ny, dz=lz/nz, dx2=dx*dx, dy2=dy*dy, dz2=dz*dz
     real(8), parameter :: xu(nx+1)=[(i*dx, i=0, nx)],          yu(ny+2)=[((i+0.5)*dy, i=-1, ny)],   zu(nz+2)=[((i+0.5)*dz, i=-1, nz)]
     real(8), parameter :: xv(nx+2)=[((i+0.5d0)*dx, i=-1, nx)], yv(ny+1)=[(i*dy, i=0, ny)],          zv(nz+2)=[((i+0.5d0)*dz, i=-1, nz)]
     real(8), parameter :: xw(nx+2)=[((i+0.5d0)*dx, i=-1, nx)], yw(ny+2)=[((i+0.5d0)*dy, i=-1, ny)], zw(nz+1)=[(i*dz, i=0, nz)]
     real(8), parameter :: xp(nx+2)=[((i+0.5d0)*dx, i=-1, nx)], yp(ny+2)=[((i+0.5d0)*dy, i=-1, ny)], zp(nz+2)=[((i+0.5d0)*dz, i=-1, nz)]
 
-    integer, parameter :: nx0=8, ny0=nx0, nz0=nx0
+    integer, parameter :: nx0=32, ny0=nx0, nz0=nx0
     integer, parameter :: x0=16, y0=16, z0=16
     integer, parameter :: idx_xu(nx0+1)=[(x0+i, i=0, nx0)],   idx_yu(ny0+2)=[(y0+i, i=0, ny0+1)], idx_zu(nz0+2)=[(z0+i, i=0, nz0+1)]
     integer, parameter :: idx_xv(nx0+2)=[(x0+i, i=0, nx0+1)], idx_yv(ny0+1)=[(y0+i, i=0, ny0)],   idx_zv(nz0+2)=[(z0+i, i=0, nz0+1)]
     integer, parameter :: idx_xw(nx0+2)=[(x0+i, i=0, nx0+1)], idx_yw(ny0+2)=[(y0+i, i=0, ny0+1)], idx_zw(nz0+1)=[(z0+i, i=0, nz0)]
     integer, parameter :: idx_xp(nx0+2)=[(x0+i, i=0, nx0+1)], idx_yp(ny0+2)=[(y0+i, i=0, ny0+1)], idx_zp(nz0+2)=[(z0+i, i=0, nz0+1)]
 
-    logical, parameter :: LU_poisson=(nxp*nyp*nzp<=34**3)
+    logical, parameter :: LU_poisson=(nxp*nyp*nzp<=(32+2)**3)
 
     integer, parameter :: time_length=nint((t_end-t_start)/(dt0))
     real(8), dimension (0:time_length), parameter :: time_array=[(t_start+dt0*i, i=0, time_length)]
     real(8) :: u(nx+1,ny+2,nz+2)=0,              v(nx+2,ny+1,nz+2)=0,              w(nx+2,ny+2,nz+1)=0,       p(nxp,nyp,nzp)=0
     real(8) :: u_star(nx+1,ny+2,nz+2)=0,         v_star(nx+2,ny+1,nz+2)=0,         w_star(nx+2,ny+2,nz+1)=0,  dp(nxp,nyp,nzp)=0
-    real(8) :: rhs_x(nx+1,ny+2,nz+2)=0,          rhs_y(nx+2,ny+1,nz+2)=0,          rhs_z(nx+2,ny+2,nz+1)=0,   RHS_poisson(nxp,nyp,nzp)=0,   RHS_poisson0(nxp*nyp*nzp)=0
-    real(8) :: rhs_x_previous(nx+1,ny+2,nz+2)=0, rhs_y_previous(nx+2,ny+1,nz+2)=0, rhs_z_previous(nx+2,ny+2,nz+1)=0, dp_vec(nxp*nyp*nzp)=0, dp_lu(nxp,nyp,nzp)=0
-    real(8) :: dpdx(nx+1,ny+2,nz+2)=0,           dpdy(nx+2,ny+1,nz+2)=0,           dpdz(nx+2,ny+2,nz+1)=0
+    real(8) :: rhs_x(nx+1,ny+2,nz+2)=0,          rhs_y(nx+2,ny+1,nz+2)=0,          rhs_z(nx+2,ny+2,nz+1)=0
+    !real(8) :: rhs_x_previous(nx+1,ny+2,nz+2)=0, rhs_y_previous(nx+2,ny+1,nz+2)=0, rhs_z_previous(nx+2,ny+2,nz+1)=0
+    !real(8) :: dpdx(nx+1,ny+2,nz+2)=0,           dpdy(nx+2,ny+1,nz+2)=0,           dpdz(nx+2,ny+2,nz+1)=0
+    real(8), dimension (:,:,:), allocatable :: rhs_x_previous, rhs_y_previous, rhs_z_previous, dpdx, dpdy, dpdz
+    real(8), allocatable :: RHS_poisson(:,:,:), dp_lu(:,:,:), RHS_poisson0(:), dp_vec(:)
+
     real(8) :: u_sub(nx0+1,ny0+2,nz0+2)=0,       v_sub(nx0+2,ny0+1,nz0+2)=0,       w_sub(nx0+2,ny0+2,nz0+1)=0,       p_sub(nx0+2,ny0+2,nz0+2)=0
     real(8) :: u_star_sub(nx0+1,ny0+2,nz0+2)=0,  v_star_sub(nx0+2,ny0+1,nz0+2)=0,  w_star_sub(nx0+2,ny0+2,nz0+1)=0,  dp_sub(nx0+2,ny0+2,nz0+2)=0
     real(8) :: f_term_x=0,                       f_term_y=0,                       f_term_z=0
@@ -82,7 +85,8 @@
     real(8), dimension (:), allocatable :: temp11, temp12, temp13!, temp14, temp15, temp16
     real(8), dimension (:,:), allocatable :: temp21!, temp22, temp23, temp24, temp25, temp26
     !real(8), dimension (:,:,:), allocatable :: temp31, temp32, temp33, temp34, temp35, temp36
-    real(4) :: ini_vel(3,nx_file,nx_file,nx_file), ini_pr(nx_file,nx_file,nx_file)
+    !real(4) :: ini_vel(3,nx_file,nx_file,nx_file), ini_pr(nx_file,nx_file,nx_file)
+    real(4), dimension (:), allocatable :: temp11s
     real(8) :: div(nx,ny,nz)
     real(8), dimension (:,:,:), allocatable :: conv_x, conv_y, conv_z
     real(8), dimension (:,:,:), allocatable :: diff_x, diff_y, diff_z
@@ -111,7 +115,7 @@
     INTEGER :: c01,c02,c1,c2,cr,cm
 
     !simulation parameters
-    character(*), parameter :: timescheme="AB2-CN"
+    character(*), parameter :: timescheme="AB2"
     ! pbc=1 Periodic; pbc=2 Dirichlet on boundary (cell wall); pbc=3 Neumann on boundary (cell wall); pbc=4 Dirichlet on ghost cell
     integer, parameter :: bc_x=1, bc_y=bc_x, bc_z=bc_x, pbc_x=1, pbc_y=pbc_x, pbc_z=pbc_x
 
@@ -178,8 +182,10 @@
         call getrf( E_mat, E_ipiv )
         call getrf( F_mat, F_ipiv )
     end if
-
+    
     if (LU_poisson) then
+        allocate(RHS_poisson(nxp,nyp,nzp), RHS_poisson0(nxp*nyp*nzp), dp_vec(nxp*nyp*nzp), dp_lu(nxp,nyp,nzp))
+
         LHS_poisson=Poisson_LHS_staggered(nxp, nyp, nzp, dx2, dy2, dz2, pbc_x, pbc_y, pbc_z, dx, dy, dz)
         DO i = 1, 64
             pt(i)%DUMMY = 0
@@ -198,7 +204,7 @@
         call pardiso (pt, maxfct, mnum, mtype, phase, n, LHS_poisson%value, LHS_poisson%ia, LHS_poisson%ja, &
             idum, nrhs, iparm, msglvl, RHS_poisson0, dp_vec, error)
         CALL SYSTEM_CLOCK(c2)
-        print '(" LU of LHS_poisson completed: ", F6.4, " second")', (c2-c1)/system_clock_rate
+        print '(" LU of LHS_poisson completed: ", F8.4, " second")', (c2-c1)/system_clock_rate
         print *, "**************************************"
     end if
 
@@ -243,7 +249,7 @@
     poisson_eigv(1,1,1)=1.0d0
     poisson_eigv=-poisson_eigv*4.0d0
 
-    sizeof_record=size(u)+size(v)+size(w)+size(p)+size(rhs_x_previous)+size(rhs_y_previous)+size(rhs_z_previous)
+    sizeof_record=size(u)+size(v)+size(w)+size(p)+size(u)+size(v)+size(w)  !size(rhs_x_previous)+size(rhs_y_previous)+size(rhs_z_previous)
     sizeof_record_sub=size(u_sub)+size(v_sub)+size(w_sub)+size(p_sub)+size(u_star_sub)+size(v_star_sub)+size(w_star_sub)+size(dp_sub)+size(RHS_poisson_sub)
     sizeof_record_slice=size(u(:,:,slice))+size(v(:,:,slice))+size(w(:,:,slice))+size(p(:,:,slice))
 
@@ -256,12 +262,12 @@
         if (t_step==0) then
             !!!!!!!!!!!!!!!!!!!!!!!!load(['D:\Documents\HIT_32^3_data_staggered\HIT_32^3_init.mat'],'u','v','w','p');!!!!!!!!!!!!!!!!!!!!!!!!
             !open(20, file="D:\Downloads\iso1024_256_cOrder_Velocity.bin", form='unformatted', status='old', action='read', &
-            !    access='direct', recl=3*nx_file**3)
+            !    access='direct', recl=3*nx_file**3) !variables are single precision
             !READ(20, rec=1) ini_vel
             !close(20)
             !
             !open(20, file="D:\Downloads\iso1024_256_cOrder_Pressure.bin", form='unformatted', status='old', action='read', &
-            !    access='direct', recl=nx_file**3)
+            !    access='direct', recl=nx_file**3) !variables are single precision
             !READ(20, rec=1) ini_pr
             !close(20)
             !
@@ -286,65 +292,46 @@
             !p(:,1,:)=p(:,ny+1,:); p(:,ny+2,:)=p(:,2,:)
             !p(:,:,1)=p(:,:,nz+1); p(:,:,nz+2)=p(:,:,2)
 
-            !if (allocated(temp11)) deallocate(temp11)
-            !allocate(temp11(sizeof_record))
-            !write (string_var,'("D:\Documents\source\repos\NS_3D_Staggered_dp\NS_3D_Staggered_dp\HIT_128^3_decay_5.E-3_AB2_dp_t_init.dat")')
+            !if (allocated(temp11s)) deallocate(temp11s)
+            !allocate(temp11s(size(u)+size(v)+size(w)+size(p)))
+            !write (string_var,'("D:\Documents\source\repos\NS_3D_Staggered_dp\NS_3D_Staggered_dp\256^3_init_from_JHTDB.dat")')
             !open(20, file=string_var, form='unformatted', status='old', action='read', &
-            !    access='direct', recl=sizeof_record*2) !variables are double precision
-            !read(20, rec=1) temp11
+            !    access='direct', recl=size(u)+size(v)+size(w)+size(p)) !variables are single precision
+            !read(20, rec=1) temp11s
             !close(20)
             !
-            !tempi1=1;        tempi2=size(u);        u=reshape(temp11(tempi1:tempi2), [nx+1,ny+2,nz+2]);
-            !tempi1=tempi2+1; tempi2=tempi2+size(v); v=reshape(temp11(tempi1:tempi2), [nx+2,ny+1,nz+2]);
-            !tempi1=tempi2+1; tempi2=tempi2+size(w); w=reshape(temp11(tempi1:tempi2), [nx+2,ny+2,nz+1]);
-            !tempi1=tempi2+1; tempi2=tempi2+size(p); p=reshape(temp11(tempi1:tempi2), [nx+2,ny+2,nz+2]);
-            !tempi1=tempi2+1; tempi2=tempi2+size(rhs_x_previous); rhs_x_previous=reshape(temp11(tempi1:tempi2), [nx+1,ny+2,nz+2]);
-            !tempi1=tempi2+1; tempi2=tempi2+size(rhs_y_previous); rhs_y_previous=reshape(temp11(tempi1:tempi2), [nx+2,ny+1,nz+2]);
-            !tempi1=tempi2+1; tempi2=tempi2+size(rhs_z_previous); rhs_z_previous=reshape(temp11(tempi1:tempi2), [nx+2,ny+2,nz+1]);
+            !tempi1=1;        tempi2=size(u);        u=reshape(dble(temp11s(tempi1:tempi2)), [nx+1,ny+2,nz+2]);
+            !tempi1=tempi2+1; tempi2=tempi2+size(v); v=reshape(dble(temp11s(tempi1:tempi2)), [nx+2,ny+1,nz+2]);
+            !tempi1=tempi2+1; tempi2=tempi2+size(w); w=reshape(dble(temp11s(tempi1:tempi2)), [nx+2,ny+2,nz+1]);
+            !tempi1=tempi2+1; tempi2=tempi2+size(p); p=reshape(dble(temp11s(tempi1:tempi2)), [nx+2,ny+2,nz+2]);
+            !
+            !deallocate(temp11s)
 
-            call TGV(xu, yu, zu, 0.0d0, nu, u)
-            call TGV(xv, yv, zv, 0.0d0, nu, v=v)
-            call TGV(xp, yp, zp, 0.0d0, nu, p=p)
+            if (allocated(temp11)) deallocate(temp11)
+            allocate(temp11(sizeof_record))
+            write (string_var,'("D:\Documents\source\repos\NS_3D_Staggered_dp\NS_3D_Staggered_dp\HIT_256^3_decay_4.E-3_AB2_dp_init.dat")')
+            open(20, file=string_var, form='unformatted', status='old', action='read', &
+                access='direct', recl=sizeof_record*2) !variables are double precision
+            read(20, rec=1) temp11
+            close(20)
+            
+            tempi1=1;        tempi2=size(u);        u=reshape(temp11(tempi1:tempi2), [nx+1,ny+2,nz+2]);
+            tempi1=tempi2+1; tempi2=tempi2+size(v); v=reshape(temp11(tempi1:tempi2), [nx+2,ny+1,nz+2]);
+            tempi1=tempi2+1; tempi2=tempi2+size(w); w=reshape(temp11(tempi1:tempi2), [nx+2,ny+2,nz+1]);
+            tempi1=tempi2+1; tempi2=tempi2+size(p); p=reshape(temp11(tempi1:tempi2), [nx+2,ny+2,nz+2]);
+            tempi1=tempi2+1; tempi2=tempi2+size(rhs_x_previous); rhs_x_previous=reshape(temp11(tempi1:tempi2), [nx+1,ny+2,nz+2]);
+            tempi1=tempi2+1; tempi2=tempi2+size(rhs_y_previous); rhs_y_previous=reshape(temp11(tempi1:tempi2), [nx+2,ny+1,nz+2]);
+            tempi1=tempi2+1; tempi2=tempi2+size(rhs_z_previous); rhs_z_previous=reshape(temp11(tempi1:tempi2), [nx+2,ny+2,nz+1]);
+
+            !call TGV(xu, yu, zu, 0.0d0, nu, u)
+            !call TGV(xv, yv, zv, 0.0d0, nu, v=v)
+            !call TGV(xp, yp, zp, 0.0d0, nu, p=p)
         else
             !!! Convection
             call cal_conv(u, v, w, bc_x, bc_y, bc_z, dx, dy, dz, conv_x, conv_y, conv_z)
 
             !!! Diffusion
-            if (bc_x==1) then
-                diff_x=diff2(u(:,2:ubound(u,2)-1,2:ubound(u,3)-1),1,bc_x)/dx2
-                diff_x=diff_x + diff2(u(1:ubound(u,1)-1,:,2:ubound(u,3)-1),2,0)/dy2
-                diff_x=diff_x + diff2(u(1:ubound(u,1)-1,2:ubound(u,2)-1,:),3,0)/dz2
-                !diff_x=diff2(u(:,2:ubound(u,2)-1,2:ubound(u,3)-1),1,bc_x)/dx2+diff2(u(1:ubound(u,1)-1,:,2:ubound(u,3)-1),2,0)/dy2+diff2(u(1:ubound(u,1)-1,2:ubound(u,2)-1,:),3,0)/dz2
-            else
-                diff_x=diff2(u(:,2:ubound(u,2)-1,2:ubound(u,3)-1),1,bc_x)/dx2
-                diff_x=diff_x + diff2(u(2:ubound(u,1)-1,:,2:ubound(u,3)-1),2,0)/dy2
-                diff_x=diff_x + diff2(u(2:ubound(u,1)-1,2:ubound(u,2)-1,:),3,0)/dz2
-                !diff_x=diff2(u(:,2:ubound(u,2)-1,2:ubound(u,3)-1),1,bc_x)/dx2+diff2(u(2:ubound(u,1)-1,:,2:ubound(u,3)-1),2,0)/dy2+diff2(u(2:ubound(u,1)-1,2:ubound(u,2)-1,:),3,0)/dz2
-            end if
-
-            if (bc_y==1) then
-                diff_y=diff2(v(:,1:ubound(v,2)-1,2:ubound(v,3)-1),1,0)/dx2
-                diff_y=diff_y + diff2(v(2:ubound(v,1)-1,:,2:ubound(v,3)-1),2,bc_y)/dy2
-                diff_y=diff_y + diff2(v(2:ubound(v,1)-1,1:ubound(v,2)-1,:),3,0)/dz2
-                !diff_y=diff2(v(:,1:ubound(v,2)-1,2:ubound(v,3)-1),1,0)/dx2+diff2(v(2:ubound(v,1)-1,:,2:ubound(v,3)-1),2,bc_y)/dy2+diff2(v(2:ubound(v,1)-1,1:ubound(v,2)-1,:),3,0)/dz2
-            else
-                diff_y=diff2(v(:,2:ubound(v,2)-1,2:ubound(v,3)-1),1,0)/dx2
-                diff_y=diff_y + diff2(v(2:ubound(v,1)-1,:,2:ubound(v,3)-1),2,bc_y)/dy2
-                diff_y=diff_y + diff2(v(2:ubound(v,1)-1,2:ubound(v,2)-1,:),3,0)/dz2
-                !diff_y=diff2(v(:,2:ubound(v,2)-1,2:ubound(v,3)-1),1,0)/dx2+diff2(v(2:ubound(v,1)-1,:,2:ubound(v,3)-1),2,bc_y)/dy2+diff2(v(2:ubound(v,1)-1,2:ubound(v,2)-1,:),3,0)/dz2
-            end if
-
-            if (bc_z==1) then
-                diff_z=diff2(w(:,2:ubound(w,2)-1,1:ubound(w,3)-1),1,0)/dx2
-                diff_z=diff_z +diff2(w(2:ubound(w,1)-1,:,1:ubound(w,3)-1),2,0)/dy2
-                diff_z=diff_z +diff2(w(2:ubound(w,1)-1,2:ubound(w,2)-1,:),3,bc_z)/dz2
-                !diff_z=diff2(w(:,2:ubound(w,2)-1,1:ubound(w,3)-1),1,0)/dx2+diff2(w(2:ubound(w,1)-1,:,1:ubound(w,3)-1),2,0)/dy2+diff2(w(2:ubound(w,1)-1,2:ubound(w,2)-1,:),3,bc_z)/dz2
-            else
-                diff_z=diff2(w(:,2:ubound(w,2)-1,2:ubound(w,3)-1),1,0)/dx2
-                diff_z=diff_z + diff2(w(2:ubound(w,1)-1,:,2:ubound(w,3)-1),2,0)/dy2
-                diff_z=diff_z + diff2(w(2:ubound(w,1)-1,2:ubound(w,2)-1,:),3,bc_z)/dz2
-                !diff_z=diff2(w(:,2:ubound(w,2)-1,2:ubound(w,3)-1),1,0)/dx2+diff2(w(2:ubound(w,1)-1,:,2:ubound(w,3)-1),2,0)/dy2+diff2(w(2:ubound(w,1)-1,2:ubound(w,2)-1,:),3,bc_z)/dz2
-            end if
+            call cal_diff(u, v, w, bc_x, bc_y, bc_z, dx2, dy2, dz2, diff_x, diff_y, diff_z)
 
             !!! Time-advancement
             f_term_x=0; f_term_y=0; f_term_z=0;
@@ -508,10 +495,9 @@
             RHS_poisson_internal = RHS_poisson_internal + diff(v_star(2:ubound(v_star,1)-1,:,2:ubound(v_star,3)-1),1,2)/dy
             RHS_poisson_internal = RHS_poisson_internal + diff(w_star(2:ubound(w_star,1)-1,2:ubound(w_star,2)-1,:),1,3)/dz
             RHS_poisson_internal = RHS_poisson_internal/dt0
-            RHS_poisson(2:nxp-1,2:nyp-1,2:nzp-1)=RHS_poisson_internal
 
             if (LU_poisson) then
-                !RHS_poisson(2:nxp-1,2:nyp-1,2:nzp-1)=RHS_poisson_internal
+                RHS_poisson(2:nxp-1,2:nyp-1,2:nzp-1)=RHS_poisson_internal
                 if (pbc_x==1) then
                     RHS_poisson(1,:,:)=0;      RHS_poisson(nxp,:,:)=0;
                 else if (pbc_x==2 .or. pbc_x==4) then
@@ -545,7 +531,7 @@
                 call pardiso (pt, maxfct, mnum, mtype, phase, n, LHS_poisson%value, LHS_poisson%ia, LHS_poisson%ja, &
                     idum, nrhs, iparm, msglvl, RHS_poisson0, dp_vec, error)
                 CALL SYSTEM_CLOCK(c2)
-                print '("    Solve Poisson (LU decomp) completed: ", F6.4, " second")', (c2-c1)/system_clock_rate
+                print '("    Solve Poisson (LU decomp) completed: ", F8.4, " second")', (c2-c1)/system_clock_rate
                 !print *, "**************************************"
                 dp_lu=reshape(dp_vec,([nxp,nyp,nzp]))
             end if
@@ -571,7 +557,7 @@
             dp(:,:,1)=dp(:,:,nzp-1); dp(:,:,nzp)=dp(:,:,2)
 
             CALL SYSTEM_CLOCK(c2)
-            print '("    Solve Poisson (FFT-based FD) completed: ", F6.4, " second")', (c2-c1)/system_clock_rate
+            print '("    Solve Poisson (FFT-based FD) completed: ", F8.4, " second")', (c2-c1)/system_clock_rate
             !print *, "**************************************"
 
             !print *, maxval(abs(dp-dp(1,1,1)-dp_lu+dp_lu(1,1,1)))
@@ -585,7 +571,7 @@
             !dp=LHS_poisson\RHS_poisson(:);
             !dp=reshape(dp,nxp,nyp,nzp);
 
-            if (LU_poisson) dp=dp_lu
+            !if (LU_poisson) dp=dp_lu
             dp=dp-dp(1,1,1)
             u=-dt0*diff(dp,1,1)/dx+u_star
             v=-dt0*diff(dp,1,2)/dy+v_star
@@ -593,17 +579,17 @@
             p=p+dp
 
         end if
-        !print *, p(3,4,5)
+        print *, u(nx/2,ny/2,nz/2)
         CALL SYSTEM_CLOCK(c02)
 
         !!!!!!!!!!!!!!!!!!!!!!!!!! post-processing !!!!!!!!!!!!!!!!!!!!!!!!!!
         div=diff_old(u(:,2:ubound(u,2)-1,2:ubound(u,3)-1),1,1)/dx + &
             diff_old(v(2:ubound(v,1)-1,:,2:ubound(v,3)-1),1,2)/dy + &
             diff_old(w(2:ubound(w,1)-1,2:ubound(w,2)-1,:),1,3)/dz;
-        print '("Complete: ", F6.4, " second. MAX Div: ", E13.6)', (c02-c01)/system_clock_rate, maxval(abs(div))
+        print '("Complete: ", F8.4, " second. MAX Div: ", E13.6)', (c02-c01)/system_clock_rate, maxval(abs(div))
         print *, "**************************************"
 
-        if (tGet>=0 .and. save_output) then
+        if (tGet>=-1 .and. save_output) then
 
             if (allocated(temp11) .and. size(temp11)/=sizeof_record) then
                 deallocate(temp11)
@@ -620,7 +606,7 @@
             end if
             if (.not. allocated(temp13)) allocate(temp13(sizeof_record_slice))
 
-            if (tGet==0 .or. tGet==1) then
+            if (abs(mod(tGet,0.25d0)) < dt0/sub_tstep/100.0d0) then
                 tempi1=1;        tempi2=size(u);        temp11(tempi1:tempi2)=[u]
                 tempi1=tempi2+1; tempi2=tempi2+size(v); temp11(tempi1:tempi2)=[v]
                 tempi1=tempi2+1; tempi2=tempi2+size(w); temp11(tempi1:tempi2)=[w]
@@ -629,7 +615,7 @@
                 tempi1=tempi2+1; tempi2=tempi2+size(rhs_y_previous); temp11(tempi1:tempi2)=[rhs_y_previous]
                 tempi1=tempi2+1; tempi2=tempi2+size(rhs_z_previous); temp11(tempi1:tempi2)=[rhs_z_previous]
 
-                write (string_var,'("AB2CN_result\HIT_128^3_decay_", ES5.0E1, "_", A ,"_dp_t_" , F0.4, ".dat")') dt0, trim(timescheme), tGet
+                write (string_var,'(A, "_result\HIT_", I0, "^3_decay_", ES5.0E1, "_", A ,"_dp_t_" , F0.4, ".dat")') trim(timescheme), nx, dt0, trim(timescheme), tGet
                 open(20, file=string_var, form='unformatted', status='new', action='write', &
                     access='direct', recl=sizeof_record*2) !variables are double precision
                 write(20, rec=1) temp11
@@ -641,7 +627,7 @@
                 v_sub=v(idx_xv,idx_yv,idx_zv); v_star_sub=v_star(idx_xv,idx_yv,idx_zv);
                 w_sub=w(idx_xw,idx_yw,idx_zw); w_star_sub=w_star(idx_xw,idx_yw,idx_zw);
                 p_sub=p(idx_xp,idx_yp,idx_zp); dp_sub=dp(idx_xp,idx_yp,idx_zp)
-                RHS_poisson_sub=RHS_poisson(idx_xp,idx_yp,idx_zp)
+                RHS_poisson_sub=RHS_poisson_internal(idx_xp-1,idx_yp-1,idx_zp-1) !RHS_poisson(idx_xp,idx_yp,idx_zp)
 
                 tempi1=1;        tempi2=size(u_sub);             temp12(tempi1:tempi2)=[u_sub]
                 tempi1=tempi2+1; tempi2=tempi2+size(v_sub);      temp12(tempi1:tempi2)=[v_sub]
@@ -652,7 +638,7 @@
                 tempi1=tempi2+1; tempi2=tempi2+size(w_star_sub); temp12(tempi1:tempi2)=[w_star_sub]
                 tempi1=tempi2+1; tempi2=tempi2+size(dp_sub);     temp12(tempi1:tempi2)=[dp_sub]
                 tempi1=tempi2+1; tempi2=tempi2+size(RHS_poisson_sub);     temp12(tempi1:tempi2)=[RHS_poisson_sub]
-                write (string_var,'("AB2CN_result\HIT_128^3_decay_", ES5.0E1, "_", A , "_dp_x0_", I0, "_nx0_", I0, "_t_", F0.4, ".dat")') dt0, trim(timescheme), x0, nx0, tGet
+                write (string_var,'(A, "_result\HIT_", I0, "^3_decay_", ES5.0E1, "_", A , "_dp_x0_", I0, "_nx0_", I0, "_t_", F0.4, ".dat")') trim(timescheme), nx, dt0, trim(timescheme), x0, nx0, tGet
                 open(20, file=string_var, form='unformatted', status='new', action='write', &
                     access='direct', recl=sizeof_record_sub*2) !variables are double precision
                 write(20, rec=1) temp12
@@ -665,7 +651,7 @@
                 tempi1=tempi2+1; tempi2=tempi2+size(w(:,:,slice)); temp13(tempi1:tempi2)=[w(:,:,slice)]
                 tempi1=tempi2+1; tempi2=tempi2+size(p(:,:,slice)); temp13(tempi1:tempi2)=[p(:,:,slice)]
 
-                write (string_var,'("AB2CN_result\HIT_128^3_decay_", ES5.0E1, "_", A , "_slice_", I0, "_t_", F0.4, ".dat")') dt0, trim(timescheme), slice, tGet
+                write (string_var,'(A, "_result\HIT_", I0,"^3_decay_", ES5.0E1, "_", A , "_slice_", I0, "_t_", F0.4, ".dat")') trim(timescheme), nx, dt0, trim(timescheme), slice, tGet
                 open(20, file=string_var, form='unformatted', status='new', action='write', &
                     access='direct', recl=sizeof_record_slice*2) !variables are double precision
                 write(20, rec=1) temp13
@@ -752,7 +738,7 @@
     end subroutine big_periodic_3D
 
     include 're_simulation.f90'
-    include 'test_subroutine.f90'
+    !include 'test_subroutine.f90'
 
     end module NS_3D_Staggered_dp
 

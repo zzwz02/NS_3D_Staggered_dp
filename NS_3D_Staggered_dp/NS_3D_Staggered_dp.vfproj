@@ -4,7 +4,7 @@
 		<Platform Name="x64"/></Platforms>
 	<Configurations>
 		<Configuration Name="Debug|x64">
-				<Tool Name="VFFortranCompilerTool" SuppressStartupBanner="true" DebugInformationFormat="debugEnabled" Optimization="optimizeDisabled" AdditionalIncludeDirectories="C:\Program Files (x86)\IntelSWTools\compilers_and_libraries_2019.1.144\windows\mkl\include" OpenMP="OpenMPParallelCode" DebugParameter="debugParameterAll" WarnInterfaces="true" LocalSavedScalarsSNaN="true" InitArrays="true" ExtendSinglePrecisionConstants="true" Traceback="true" BoundsCheck="true" StackFrameCheck="true" RuntimeLibrary="rtMultiThreadedDebugDLL" UseMkl="mklParallel"/>
+				<Tool Name="VFFortranCompilerTool" SuppressStartupBanner="true" DebugInformationFormat="debugEnabled" Optimization="optimizeDisabled" AdditionalIncludeDirectories="C:\Program Files (x86)\IntelSWTools\compilers_and_libraries_2019.1.144\windows\mkl\include" DebugParameter="debugParameterAll" WarnInterfaces="true" LocalSavedScalarsSNaN="true" InitArrays="true" ExtendSinglePrecisionConstants="true" Traceback="true" NullPointerCheck="true" BoundsCheck="true" StackFrameCheck="true" RuntimeLibrary="rtMultiThreadedDebugDLL" UseMkl="mklParallel"/>
 				<Tool Name="VFLinkerTool" LinkIncremental="linkIncrementalNo" SuppressStartupBanner="true" AdditionalLibraryDirectories="C:\Program Files (x86)\IntelSWTools\compilers_and_libraries_2019.1.144\windows\mkl\lib\intel64_win" GenerateDebugInformation="true" SubSystem="subSystemConsole" StackReserveSize="2000000000" AdditionalDependencies="mkl_blas95_lp64.lib mkl_lapack95_lp64.lib mkl_intel_lp64_dll.lib mkl_intel_thread_dll.lib mkl_core_dll.lib libiomp5md.lib"/>
 				<Tool Name="VFResourceCompilerTool"/>
 				<Tool Name="VFMidlTool" SuppressStartupBanner="true" TargetEnvironment="midlTargetAMD64"/>
@@ -14,7 +14,7 @@
 				<Tool Name="VFPostBuildEventTool"/>
 				<Tool Name="VFManifestTool" SuppressStartupBanner="true"/></Configuration>
 		<Configuration Name="Release|x64">
-				<Tool Name="VFFortranCompilerTool" SuppressStartupBanner="true" DebugInformationFormat="debugEnabled" MatrixLibrary="mlYes" AdditionalIncludeDirectories="C:\Program Files (x86)\IntelSWTools\compilers_and_libraries_2019.1.144\windows\mkl\include" OpenMP="OpenMPParallelCode" DebugParameter="debugParameterAll" LocalSavedScalarsSNaN="true" InitArrays="true" ExtendSinglePrecisionConstants="true" RuntimeLibrary="rtMultiThreadedDLL" UseMkl="mklParallel"/>
+				<Tool Name="VFFortranCompilerTool" SuppressStartupBanner="true" DebugInformationFormat="debugEnabled" MatrixLibrary="mlYes" AdditionalIncludeDirectories="C:\Program Files (x86)\IntelSWTools\compilers_and_libraries_2019.1.144\windows\mkl\include" OpenMP="OpenMPParallelCode" DebugParameter="debugParameterAll" LocalSavedScalarsSNaN="true" InitArrays="true" ExtendSinglePrecisionConstants="true" RuntimeLibrary="rtMultiThreadedDLL" UseMkl="mklSequential"/>
 				<Tool Name="VFLinkerTool" LinkIncremental="linkIncrementalNo" SuppressStartupBanner="true" AdditionalLibraryDirectories="C:\Program Files (x86)\IntelSWTools\compilers_and_libraries_2019.1.144\windows\mkl\lib\intel64_win" GenerateDebugInformation="true" SubSystem="subSystemConsole" StackReserveSize="2000000000" AdditionalDependencies="mkl_blas95_lp64.lib mkl_lapack95_lp64.lib mkl_intel_lp64.lib mkl_intel_thread.lib mkl_core.lib libiomp5md.lib"/>
 				<Tool Name="VFResourceCompilerTool"/>
 				<Tool Name="VFMidlTool" SuppressStartupBanner="true" TargetEnvironment="midlTargetAMD64"/>

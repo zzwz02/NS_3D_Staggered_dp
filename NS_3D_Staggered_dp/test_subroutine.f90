@@ -106,7 +106,7 @@
     call pardiso (pt, maxfct, mnum, mtype, phase, n, LHS_poisson%value, LHS_poisson%ia, LHS_poisson%ja, &
         idum, nrhs, iparm, msglvl, RHS_poisson0, dp_vec, error)
     CALL SYSTEM_CLOCK(c2)
-    print '(" LU of LHS_poisson completed: ", F6.4, " second")', (c2-c1)/system_clock_rate
+    print '(" LU of LHS_poisson completed: ", F8.4, " second")', (c2-c1)/system_clock_rate
     print *, "**************************************"
 
     call TGV(xu, yu, zu, 0.0d0, nu, u)
@@ -119,7 +119,7 @@
         u=-dt0*dpdx+u
     end do
     CALL SYSTEM_CLOCK(c02)
-    print '(" time 1: ", F6.4, " second")', (c02-c01)/system_clock_rate
+    print '(" time 1: ", F8.4, " second")', (c02-c01)/system_clock_rate
 
 
     CALL SYSTEM_CLOCK(c01)
@@ -127,14 +127,14 @@
         temp31=diff(p, 1, 1)
     end do
     CALL SYSTEM_CLOCK(c02)
-    print '(" timing 1: ", F6.4, " second")', (c02-c01)/system_clock_rate
+    print '(" timing 1: ", F8.4, " second")', (c02-c01)/system_clock_rate
 
     CALL SYSTEM_CLOCK(c02)
     do i=1,10
         temp32=diff_old(p, 1, 1)
     end do
     CALL SYSTEM_CLOCK(c02)
-    print '(" timing 2: ", F6.4, " second")', (c02-c01)/system_clock_rate
+    print '(" timing 2: ", F8.4, " second")', (c02-c01)/system_clock_rate
 
     temp33=diff(p, 1, 2)
     temp34=diff_old(p, 1, 2)
@@ -222,7 +222,7 @@
     call dfftw_execute(fwd)
     CALL SYSTEM_CLOCK(c2)
     print *, "**************************************"
-    print '("    dft_forward FFTW3: ", F6.4, " second")', (c2-c1)/system_clock_rate
+    print '("    dft_forward FFTW3: ", F8.4, " second")', (c2-c1)/system_clock_rate
     print *, dft_out_c_test
     print *, "**************************************"
 
@@ -238,7 +238,7 @@
     stat = DftiComputeForward(hand, dft_in_c_test)
     CALL SYSTEM_CLOCK(c2)
     print *, "**************************************"
-    print '("    dft_forward MKL: ", F6.4, " second")', (c2-c1)/system_clock_rate
+    print '("    dft_forward MKL: ", F8.4, " second")', (c2-c1)/system_clock_rate
     print *, dft_in_c_test
     print *, "**************************************"
 
@@ -246,7 +246,7 @@
     stat = DftiComputeBackward(hand, dft_in_c_test)
     CALL SYSTEM_CLOCK(c2)
     print *, "**************************************"
-    print '("    dft_backward MKL: ", F6.4, " second")', (c2-c1)/system_clock_rate
+    print '("    dft_backward MKL: ", F8.4, " second")', (c2-c1)/system_clock_rate
     print *, dft_in_c_test
     print *, "**************************************"
     print *, maxval(abs(dft_in_c_test-dft_in_r_test))

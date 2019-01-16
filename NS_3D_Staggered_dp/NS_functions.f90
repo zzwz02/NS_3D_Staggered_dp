@@ -2,6 +2,7 @@
 
     use FD_functions
     use coo_mod
+    use csr_mod
     use other_utility
 
     implicit none
@@ -27,7 +28,7 @@
     nz=size(z)
 
     nu=exp(-2*nu*t)
-
+    !$omp parallel do
     do j=1, ny
         do i=1, nx
             if (Present (u)) then
@@ -41,6 +42,7 @@
             end if
         end do
     end do
+    !$omp end parallel do
 
     end subroutine TGV
 
@@ -55,6 +57,29 @@
     real(8), dimension (:,:,:), allocatable :: ux, uy, uz
     real(8), dimension (:,:,:), allocatable :: vx, vy, vz
     real(8), dimension (:,:,:), allocatable :: wx, wy, wz
+    integer :: nx, ny, nz
+
+    nx=size(u,1)-1; ny=size(v,2)-1; nz=size(w,3)-1
+    if (.not. allocated(uy)) then
+        allocate(uy(nx+1,ny+1,nz+2), uz(nx+1,ny+2,nz+1), vx(nx+1,ny+1,nz+2), vz(nx+2,ny+1,nz+1), wx(nx+1,ny+2,nz+1), wy(nx+2,ny+1,nz+1))
+        if (bc_x==1) then
+            allocate( ux(nx+1,ny+2,nz+2) )
+        else
+            allocate( ux(nx+0,ny+2,nz+2) )
+        end if
+
+        if (bc_y==1) then
+            allocate( vy(nx+2,ny+1,nz+2) )
+        else
+            allocate( vy(nx+2,ny+0,nz+2) )
+        end if
+
+        if (bc_z==1) then
+            allocate( wz(nx+2,ny+2,nz+1) )
+        else
+            allocate( wz(nx+2,ny+2,nz+0) )
+        end if
+    end if
 
     ux=avg(u,1,bc_x); uy=avg(u,2,0);    uz=avg(u,3,0);
     vx=avg(v,1,0);    vy=avg(v,2,bc_y); vz=avg(v,3,0);
@@ -109,6 +134,53 @@
     end if
 
     end subroutine cal_conv
+
+    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    subroutine cal_diff(u, v, w, bc_x, bc_y, bc_z, dx2, dy2, dz2, diff_x, diff_y, diff_z)
+    implicit none
+
+    integer, intent(in) :: bc_x, bc_y, bc_z
+    real(8), intent(in) :: dx2, dy2, dz2
+    real(8), dimension (:,:,:), intent(in) :: u, v, w
+    real(8), dimension (:,:,:), intent(out), optional :: diff_x, diff_y, diff_z
+
+    if (bc_x==1) then
+        diff_x=diff2(u(:,2:ubound(u,2)-1,2:ubound(u,3)-1),1,bc_x)/dx2
+        diff_x=diff_x + diff2(u(1:ubound(u,1)-1,:,2:ubound(u,3)-1),2,0)/dy2
+        diff_x=diff_x + diff2(u(1:ubound(u,1)-1,2:ubound(u,2)-1,:),3,0)/dz2
+        !diff_x=diff2(u(:,2:ubound(u,2)-1,2:ubound(u,3)-1),1,bc_x)/dx2+diff2(u(1:ubound(u,1)-1,:,2:ubound(u,3)-1),2,0)/dy2+diff2(u(1:ubound(u,1)-1,2:ubound(u,2)-1,:),3,0)/dz2
+    else
+        diff_x=diff2(u(:,2:ubound(u,2)-1,2:ubound(u,3)-1),1,bc_x)/dx2
+        diff_x=diff_x + diff2(u(2:ubound(u,1)-1,:,2:ubound(u,3)-1),2,0)/dy2
+        diff_x=diff_x + diff2(u(2:ubound(u,1)-1,2:ubound(u,2)-1,:),3,0)/dz2
+        !diff_x=diff2(u(:,2:ubound(u,2)-1,2:ubound(u,3)-1),1,bc_x)/dx2+diff2(u(2:ubound(u,1)-1,:,2:ubound(u,3)-1),2,0)/dy2+diff2(u(2:ubound(u,1)-1,2:ubound(u,2)-1,:),3,0)/dz2
+    end if
+
+    if (bc_y==1) then
+        diff_y=diff2(v(:,1:ubound(v,2)-1,2:ubound(v,3)-1),1,0)/dx2
+        diff_y=diff_y + diff2(v(2:ubound(v,1)-1,:,2:ubound(v,3)-1),2,bc_y)/dy2
+        diff_y=diff_y + diff2(v(2:ubound(v,1)-1,1:ubound(v,2)-1,:),3,0)/dz2
+        !diff_y=diff2(v(:,1:ubound(v,2)-1,2:ubound(v,3)-1),1,0)/dx2+diff2(v(2:ubound(v,1)-1,:,2:ubound(v,3)-1),2,bc_y)/dy2+diff2(v(2:ubound(v,1)-1,1:ubound(v,2)-1,:),3,0)/dz2
+    else
+        diff_y=diff2(v(:,2:ubound(v,2)-1,2:ubound(v,3)-1),1,0)/dx2
+        diff_y=diff_y + diff2(v(2:ubound(v,1)-1,:,2:ubound(v,3)-1),2,bc_y)/dy2
+        diff_y=diff_y + diff2(v(2:ubound(v,1)-1,2:ubound(v,2)-1,:),3,0)/dz2
+        !diff_y=diff2(v(:,2:ubound(v,2)-1,2:ubound(v,3)-1),1,0)/dx2+diff2(v(2:ubound(v,1)-1,:,2:ubound(v,3)-1),2,bc_y)/dy2+diff2(v(2:ubound(v,1)-1,2:ubound(v,2)-1,:),3,0)/dz2
+    end if
+
+    if (bc_z==1) then
+        diff_z=diff2(w(:,2:ubound(w,2)-1,1:ubound(w,3)-1),1,0)/dx2
+        diff_z=diff_z +diff2(w(2:ubound(w,1)-1,:,1:ubound(w,3)-1),2,0)/dy2
+        diff_z=diff_z +diff2(w(2:ubound(w,1)-1,2:ubound(w,2)-1,:),3,bc_z)/dz2
+        !diff_z=diff2(w(:,2:ubound(w,2)-1,1:ubound(w,3)-1),1,0)/dx2+diff2(w(2:ubound(w,1)-1,:,1:ubound(w,3)-1),2,0)/dy2+diff2(w(2:ubound(w,1)-1,2:ubound(w,2)-1,:),3,bc_z)/dz2
+    else
+        diff_z=diff2(w(:,2:ubound(w,2)-1,2:ubound(w,3)-1),1,0)/dx2
+        diff_z=diff_z + diff2(w(2:ubound(w,1)-1,:,2:ubound(w,3)-1),2,0)/dy2
+        diff_z=diff_z + diff2(w(2:ubound(w,1)-1,2:ubound(w,2)-1,:),3,bc_z)/dz2
+        !diff_z=diff2(w(:,2:ubound(w,2)-1,2:ubound(w,3)-1),1,0)/dx2+diff2(w(2:ubound(w,1)-1,:,2:ubound(w,3)-1),2,0)/dy2+diff2(w(2:ubound(w,1)-1,2:ubound(w,2)-1,:),3,bc_z)/dz2
+    end if
+
+    end subroutine cal_diff
 
     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     subroutine vel_bc_staggered(u_star, v_star, w_star,&
@@ -209,6 +281,93 @@
 
     end subroutine vel_bc_staggered
 
+    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+    subroutine get_velpr_bc(u_bc, v_bc, w_bc, p_bc, bc_x, bc_y, bc_z, pbc_x, pbc_y, pbc_z, nx, ny, nz, dx, dy, dz, &
+        bx_u_1, bx_u_nx, by_u_1, by_u_ny, bz_u_1, bz_u_nz, bx_v_1, bx_v_nx, by_v_1, by_v_ny, bz_v_1, bz_v_nz, &
+        bx_w_1, bx_w_nx, by_w_1, by_w_ny, bz_w_1, bz_w_nz, bx_p_1, bx_p_nx, by_p_1, by_p_ny, bz_p_1, bz_p_nz)
+    implicit none
+
+    integer, intent(in) :: bc_x, bc_y, bc_z, pbc_x, pbc_y, pbc_z, nx, ny, nz
+    real(8), intent(in) :: dx, dy, dz
+    real(8), dimension (:,:,:), intent(in) :: u_bc, v_bc, w_bc, p_bc
+    real(8), intent(out) :: bx_u_1(ny+2,nz+2), bx_u_nx(ny+2,nz+2), by_u_1(nx+1,nz+2), by_u_ny(nx+1,nz+2), bz_u_1(nx+1,ny+2), bz_u_nz(nx+1,ny+2)
+    real(8), intent(out) :: bx_v_1(ny+1,nz+2), bx_v_nx(ny+1,nz+2), by_v_1(nx+2,nz+2), by_v_ny(nx+2,nz+2), bz_v_1(nx+2,ny+1), bz_v_nz(nx+2,ny+1)
+    real(8), intent(out) :: bx_w_1(ny+2,nz+1), bx_w_nx(ny+2,nz+1), by_w_1(nx+2,nz+1), by_w_ny(nx+2,nz+1), bz_w_1(nx+2,ny+2), bz_w_nz(nx+2,ny+2)
+    real(8), intent(out) :: bx_p_1(ny+2,nz+2), bx_p_nx(ny+2,nz+2), by_p_1(nx+2,nz+2), by_p_ny(nx+2,nz+2), bz_p_1(nx+2,ny+2), bz_p_nz(nx+2,ny+2)
+
+    integer :: nxp, nyp, nzp
+
+    nxp=nx+2; nyp=ny+2; nzp=nz+2
+
+    if (bc_x==2) then
+        bx_u_1 =u_bc(1,:,:);
+        bx_u_nx=u_bc(nx+1,:,:);
+        by_u_1 =(u_bc(:,1,:)+u_bc(:,2,:))/2;
+        by_u_ny=(u_bc(:,ny+2,:)+u_bc(:,ny+2-1,:))/2;
+        bz_u_1 =(u_bc(:,:,1)+u_bc(:,:,2))/2;
+        bz_u_nz=(u_bc(:,:,nz+2)+u_bc(:,:,nz+2-1))/2;
+
+        bx_v_1 =(v_bc(1,:,:)+v_bc(2,:,:))/2;
+        bx_v_nx=(v_bc(nx+2,:,:)+v_bc(nx+2-1,:,:))/2;
+        by_v_1 =v_bc(:,1,:);
+        by_v_ny=v_bc(:,ny+1,:);
+        bz_v_1 =(v_bc(:,:,1)+v_bc(:,:,2))/2;
+        bz_v_nz=(v_bc(:,:,nz+2)+v_bc(:,:,nz+2-1))/2;
+
+        bx_w_1 =(w_bc(1,:,:)+w_bc(2,:,:))/2;
+        bx_w_nx=(w_bc(nx+2,:,:)+w_bc(nx+2-1,:,:))/2;
+        by_w_1 =(w_bc(:,1,:)+w_bc(:,2,:))/2;
+        by_w_ny=(w_bc(:,ny+2,:)+w_bc(:,ny+2-1,:))/2;
+        bz_w_1 =w_bc(:,:,1);
+        bz_w_nz=w_bc(:,:,nz+1);
+    else if (bc_x==4) then
+        bx_u_1 =u_bc(1,:,:);
+        bx_u_nx=u_bc(nx+1,:,:);
+        by_u_1 =u_bc(:,1,:);
+        by_u_ny=u_bc(:,ny+2,:);
+        bz_u_1 =u_bc(:,:,1);
+        bz_u_nz=u_bc(:,:,nz+2);
+
+        bx_v_1 =v_bc(1,:,:);
+        bx_v_nx=v_bc(nx+2,:,:);
+        by_v_1 =v_bc(:,1,:);
+        by_v_ny=v_bc(:,ny+1,:);
+        bz_v_1 =v_bc(:,:,1);
+        bz_v_nz=v_bc(:,:,nz+2);
+
+        bx_w_1 =w_bc(1,:,:);
+        bx_w_nx=w_bc(nx+2,:,:);
+        by_w_1 =w_bc(:,1,:);
+        by_w_ny=w_bc(:,ny+2,:);
+        bz_w_1 =w_bc(:,:,1);
+        bz_w_nz=w_bc(:,:,nz+1);
+    end if
+
+    if (pbc_x==2) then
+        bx_p_1 =(p_bc(1,:,:)  +p_bc(2,:,:))/2;
+        bx_p_nx=(p_bc(nxp,:,:)+p_bc(nxp-1,:,:))/2;
+        by_p_1 =(p_bc(:,1,:)  +p_bc(:,2,:))/2;
+        by_p_ny=(p_bc(:,nyp,:)+p_bc(:,ny+2-1,:))/2;
+        bz_p_1 =(p_bc(:,:,1)  +p_bc(:,:,2))/2;
+        bz_p_nz=(p_bc(:,:,nzp)+p_bc(:,:,nz+2-1))/2;
+    else if (pbc_x==4) then
+        bx_p_1 =p_bc(1,:,:);
+        bx_p_nx=p_bc(nxp,:,:);
+        by_p_1 =p_bc(:,1,:);
+        by_p_ny=p_bc(:,nyp,:);
+        bz_p_1 =p_bc(:,:,1);
+        bz_p_nz=p_bc(:,:,nzp);
+    else if (pbc_x==3) then
+        bx_p_1 =reshape([diff(p_bc(1:2,:,:),1,1)/dx]      , (/nyp,nzp/))
+        bx_p_nx=reshape([diff(p_bc(nxp-1:nxp,:,:),1,1)/dx], (/nyp,nzp/))
+        by_p_1 =reshape([diff(p_bc(:,1:2,:),1,1)/dy]      , (/nxp,nzp/))
+        by_p_ny=reshape([diff(p_bc(:,nyp-1:nyp,:),1,1)/dy], (/nxp,nzp/))
+        bz_p_1 =reshape([diff(p_bc(:,:,1:2),1,1)/dz]      , (/nxp,nyp/))
+        bz_p_nz=reshape([diff(p_bc(:,:,nzp-1:nzp),1,1)/dz], (/nxp,nyp/))
+    end if
+
+    end subroutine get_velpr_bc
 
     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     function Poisson_LHS_staggered(nxp, nyp, nzp, dx2, dy2, dz2, pbc_x, pbc_y, pbc_z, dx, dy, dz) result(LHS_poisson)
@@ -296,7 +455,7 @@
     Ax=Ax/dx2; Ay=Ay/dy2; Az=Az/dz2;
 
     CALL SYSTEM_CLOCK(c2)
-    print '("   Get Ax/Ay/Az: ", F6.4, " second")', (c2-c1)/system_clock_rate
+    print '("   Get Ax/Ay/Az: ", F8.4, " second")', (c2-c1)/system_clock_rate
 
     !LHS_poisson = -kron(kron(Iz,Iy),Ax)-kron(kron(Iz,Ay),Ix)-kron(kron(Az,Iy),Ix);
 
@@ -321,7 +480,7 @@
     LHS_poisson=add( add(t4%to_csr(), t5%to_csr()), t6%to_csr() )
     LHS_poisson_coo=from_csr(LHS_poisson)
     CALL SYSTEM_CLOCK(c2)
-    print '("   Kron product: ", F6.4, " second")', (c2-c1)/system_clock_rate
+    print '("   Kron product: ", F8.4, " second")', (c2-c1)/system_clock_rate
 
     vv=0.0d0; ii=0; jj=0;
 
@@ -750,7 +909,7 @@
 
     LHS_poisson=add( co1%to_csr(), co2%to_csr() )
     CALL SYSTEM_CLOCK(c2)
-    print '("   LHS_poisson completed: ", F6.4, " second")', (c2-c1)/system_clock_rate
+    print '("   LHS_poisson completed: ", F8.4, " second")', (c2-c1)/system_clock_rate
     print *, "**************************************"
 
     end function Poisson_LHS_staggered

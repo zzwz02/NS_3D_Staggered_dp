@@ -101,7 +101,7 @@
     real(8) function mean(a)
     real(8), intent(in) :: a(:,:,:)
 
-    mean=sum(a)!/size(a)
+    mean=sum(a)/size(a)
     
     end function mean
     
