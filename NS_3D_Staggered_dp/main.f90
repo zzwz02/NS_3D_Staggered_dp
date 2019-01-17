@@ -20,7 +20,6 @@
     implicit none
     include 'omp_lib.h'
 
-    logical, parameter :: running_all=.true.
     integer :: i
 
     write (*,*) "Choose:"
@@ -29,11 +28,11 @@
     write (*,*) "(3): both"
     read (*,'(i1)') i
 
-    if (i==1 .or. i==3) then
+    if (i==1) then
         call big_periodic_3D
     end if
     
-    if (i==2 .or. i==3) then
+    if (i==2) then
         call re_simulation
     end if
 

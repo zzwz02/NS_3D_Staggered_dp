@@ -81,7 +81,7 @@ RES_EXT=lib
 compiler=intel
 
 interface=lp64
-##threading=sequential
+threading=parallel
 
 ifneq ($(threading),sequential)
    override threading=omp
@@ -97,7 +97,7 @@ endif
 MKL_PATH = "$(MKLROOT)/lib/$(_IA)"
 CMPLR_PATH = "$(MKLROOT)/../compiler/lib/$(_IA)"
 
-FOPTS = -fpp -O2 -debug full -g -traceback -check all -fp-stack-check -qopt-matmul -init=snan -init=arrays -fpconstant -qopenmp -mkl=parallel ### compiler flag
+FOPTS = -fpp -O2 -qopt-matmul -init=snan -init=arrays -fpconstant -qopenmp -mkl=parallel ### compiler flag
 LOPTS =          ### linking flag
 
 FC=ifort

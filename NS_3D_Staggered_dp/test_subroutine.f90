@@ -186,8 +186,8 @@
     temp32=avg_old(u,3,0);
     print *, all(temp31==temp32)
 
-    a_coo=(/1,-1,-3,-2,0,4,6,4,-4,2,7,8,-5/); a_rowind=(/1,1,1,2,2,3,3,3,4,4,4,5,5/); a_colind=(/1,2,3,1,2,3,4,5,1,3,4,2,5/); a_shape=(/5,5/)
-    b_coo=(/1,2,3,4/); b_rowind=(/1,1,2,2/); b_colind=(/1,2,1,2/); b_shape=(/2,2/)
+    a_coo=[1,-1,-3,-2,0,4,6,4,-4,2,7,8,-5]; a_rowind=[1,1,1,2,2,3,3,3,4,4,4,5,5]; a_colind=[1,2,3,1,2,3,4,5,1,3,4,2,5]; a_shape=[5,5]
+    b_coo=[1,2,3,4]; b_rowind=[1,1,2,2]; b_colind=[1,2,1,2]; b_shape=[2,2]
     coo1=coo_init_or_clean(a_coo,a_rowind,a_colind,a_shape)
     coo2=coo_init_or_clean(b_coo,b_rowind,b_colind,b_shape)
     coo3=kron(coo1,coo2)

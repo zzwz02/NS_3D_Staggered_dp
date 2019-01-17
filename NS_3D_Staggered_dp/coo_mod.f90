@@ -131,7 +131,7 @@
     allocate( value(nnz), ja(nnz), ia(self0%shape(1)+1) )
     value=0; ja=0; ia=0;
     
-    job= (/2,1,1,0,1000000,0,0,0/) ! COO to CSR
+    job= [2,1,1,0,1000000,0,0,0] ! COO to CSR
     call mkl_dcsrcoo(job, self0%shape(1), value, ja, ia, nnz, self0%value, self0%row, self0%col, info)
     
     !allocate( to_csr%value(size(value)), to_csr%ja(size(ja)), to_csr%ia(size(ia)) )
@@ -161,7 +161,7 @@
     allocate( value(nnz), row(nnz), col(nnz) )
     value=0; row=0; col=0;
     
-    job= (/0,1,1,0,int(2e9),3,0,0/) ! COO to CSR
+    job= [0,1,1,0,int(2e9),3,0,0] ! COO to CSR
     call mkl_dcsrcoo(job, self%shape(1), self%value, self%ja, self%ia, nnz, value, row, col, info)
     
     !allocate( to_csr%value(size(value)), to_csr%row(size(ja)), to_csr%ia(size(ia)) )
@@ -248,21 +248,21 @@
         !row += B.row
         !col += B.col
         !row,col = row.reshape(-1),col.reshape(-1)
-        t1_row=reshape(c_rowind, (/sizeb,sizea/)); t1_col=reshape(c_colind, (/sizeb,sizea/));
+        t1_row=reshape(c_rowind, [sizeb,sizea]); t1_col=reshape(c_colind, [sizeb,sizea]);
         do i=1,sizea
             t1_row(:,i)=t1_row(:,i)+b%row-1
             t1_col(:,i)=t1_col(:,i)+b%col-1
         end do
-        c_rowind=reshape(t1_row+1, (/sizea*sizeb/)); c_colind=reshape(t1_col+1, (/sizea*sizeb/));
+        c_rowind=reshape(t1_row+1, [sizea*sizeb]); c_colind=reshape(t1_col+1, [sizea*sizeb]);
         !
         !# compute block entries
         !data = data.reshape(-1,B.nnz) * B.data
         !data = data.reshape(-1)
-        t1_coo=reshape(c_coo, (/sizeb,sizea/));
+        t1_coo=reshape(c_coo, [sizeb,sizea]);
         do i=1,sizea
             t1_coo(:,i)=t1_coo(:,i)*b%value
         end do
-        c_coo=reshape(t1_coo, (/sizea*sizeb/));
+        c_coo=reshape(t1_coo, [sizea*sizeb]);
 
         kron=coo_init_or_clean(c_coo,c_rowind,c_colind,c_shape)
     

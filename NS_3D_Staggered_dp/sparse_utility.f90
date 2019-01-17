@@ -203,21 +203,21 @@
     !row += B.row
     !col += B.col
     !row,col = row.reshape(-1),col.reshape(-1)
-    t1_row=reshape(c_rowind, (/sizeb,sizea/)); t1_col=reshape(c_colind, (/sizeb,sizea/));
+    t1_row=reshape(c_rowind, [sizeb,sizea]); t1_col=reshape(c_colind, [sizeb,sizea]);
     do i=1,sizea
         t1_row(:,i)=t1_row(:,i)+b1_rowind
         t1_col(:,i)=t1_col(:,i)+b1_colind
     end do
-    c_rowind=reshape(t1_row+1, (/sizea*sizeb/)); c_colind=reshape(t1_col+1, (/sizea*sizeb/));
+    c_rowind=reshape(t1_row+1, [sizea*sizeb]); c_colind=reshape(t1_col+1, [sizea*sizeb]);
     !
     !# compute block entries
     !data = data.reshape(-1,B.nnz) * B.data
     !data = data.reshape(-1)
-    t1_coo=reshape(c_coo, (/sizeb,sizea/));
+    t1_coo=reshape(c_coo, [sizeb,sizea]);
     do i=1,sizea
         t1_coo(:,i)=t1_coo(:,i)*b_coo
     end do
-    c_coo=reshape(t1_coo, (/sizea*sizeb/));
+    c_coo=reshape(t1_coo, [sizea*sizeb]);
 
     end subroutine coo_kron
     

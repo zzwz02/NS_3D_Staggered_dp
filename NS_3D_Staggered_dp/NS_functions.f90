@@ -199,7 +199,7 @@
     real(8), dimension (:,:), intent(in) :: bx_v_1, bx_v_nx, by_v_1, by_v_ny, bz_v_1, bz_v_nz
     real(8), dimension (:,:), intent(in) :: bx_w_1, bx_w_nx, by_w_1, by_w_ny, bz_w_1, bz_w_nz
 
-    integer, dimension (3) :: nu, nv, nw, i
+    integer, dimension (3) :: nu, nv, nw
 
     nu=ubound(u_star)
     nv=ubound(v_star)
@@ -282,6 +282,106 @@
     end subroutine vel_bc_staggered
 
     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    subroutine vel_bc_staggered_CN2(u_star, v_star, w_star, u_1, u_end, v_1, v_end, w_1, w_end, bc, dir)
+
+    ! pbc=1 Periodic; pbc=2 Dirichlet on boundary (cell wall)
+    ! pbc=3 Neumann on boundary (cell wall); pbc=4 Dirichlet on ghost cell
+
+    implicit none
+    integer, intent(in) :: bc, dir
+    real(8), dimension (:,:,:), intent(inout) :: u_star, v_star, w_star
+    real(8), dimension (:,:), intent(in) :: u_1, u_end, v_1, v_end, w_1, w_end
+
+    integer, dimension (3) :: nu, nv, nw
+
+    nu=ubound(u_star)
+    nv=ubound(v_star)
+    nw=ubound(w_star)
+
+    !!!!!!!!!!!!!! X component !!!!!!!!!!!!!!
+    if (dir==1) then
+        if (bc==1) then
+            u_star(nu(1),:,:)=0.0d0
+            v_star(1    ,:,:)=0.0d0
+            v_star(nv(1),:,:)=0.0d0
+            w_star(1    ,:,:)=0.0d0
+            w_star(nw(1),:,:)=0.0d0
+        else if (bc==2) then
+            u_star(1    ,:,:)=u_1
+            u_star(nu(1),:,:)=u_end
+            v_star(1    ,:,:)=v_1
+            v_star(nv(1),:,:)=v_end
+            w_star(1    ,:,:)=w_1
+            w_star(nw(1),:,:)=w_end
+        else if (bc==3) then
+
+        else if (bc==4) then
+            u_star(1    ,:,:)=u_1
+            u_star(nu(1),:,:)=u_end
+            v_star(1    ,:,:)=v_1
+            v_star(nv(1),:,:)=v_end
+            w_star(1    ,:,:)=w_1
+            w_star(nw(1),:,:)=w_end
+        end if
+
+        !!!!!!!!!!!!!! Y component !!!!!!!!!!!!!!
+    else if (dir==2) then
+        if (bc==1) then
+            u_star(:,1    ,:)=0.0d0
+            u_star(:,nu(2),:)=0.0d0
+            v_star(:,nv(2),:)=0.0d0
+            w_star(:,1    ,:)=0.0d0
+            w_star(:,nw(2),:)=0.0d0
+        else if (bc==2) then
+            u_star(:,1    ,:)=u_1
+            u_star(:,nu(2),:)=u_end
+            v_star(:,1    ,:)=v_1
+            v_star(:,nv(2),:)=v_end
+            w_star(:,1    ,:)=w_1
+            w_star(:,nw(2),:)=w_end
+        else if (bc==3) then
+
+        else if (bc==4) then
+            u_star(:,1    ,:)=u_1
+            u_star(:,nu(2),:)=u_end
+            v_star(:,1    ,:)=v_1
+            v_star(:,nv(2),:)=v_end
+            w_star(:,1    ,:)=w_1
+            w_star(:,nw(2),:)=w_end
+        end if
+
+        !!!!!!!!!!!!!! Z component !!!!!!!!!!!!!!
+    else if (dir==3) then
+        if (bc==1) then
+            u_star(:,:,1    )=0.0d0
+            u_star(:,:,nu(3))=0.0d0
+            v_star(:,:,1    )=0.0d0
+            v_star(:,:,nv(3))=0.0d0
+            w_star(:,:,nw(3))=0.0d0
+        else if (bc==2) then
+            u_star(:,:,1    )=u_1
+            u_star(:,:,nu(3))=u_end
+            v_star(:,:,1    )=v_1
+            v_star(:,:,nv(3))=v_end
+            w_star(:,:,1    )=w_1
+            w_star(:,:,nw(3))=w_end
+        else if (bc==3) then
+
+        else if (bc==4) then
+            u_star(:,:,1    )=u_1
+            u_star(:,:,nu(3))=u_end
+            v_star(:,:,1    )=v_1
+            v_star(:,:,nv(3))=v_end
+            w_star(:,:,1    )=w_1
+            w_star(:,:,nw(3))=w_end
+        end if
+    else
+        print *, "dir must be 1/2/3. (SUBROUTINE vel_bc_staggered_CN2)"
+    end if
+
+    end subroutine vel_bc_staggered_CN2
+
+    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
     subroutine get_velpr_bc(u_bc, v_bc, w_bc, p_bc, bc_x, bc_y, bc_z, pbc_x, pbc_y, pbc_z, nx, ny, nz, dx, dy, dz, &
         bx_u_1, bx_u_nx, by_u_1, by_u_ny, bz_u_1, bz_u_nz, bx_v_1, bx_v_nx, by_v_1, by_v_ny, bz_v_1, bz_v_nz, &
@@ -290,7 +390,7 @@
 
     integer, intent(in) :: bc_x, bc_y, bc_z, pbc_x, pbc_y, pbc_z, nx, ny, nz
     real(8), intent(in) :: dx, dy, dz
-    real(8), dimension (:,:,:), intent(in) :: u_bc, v_bc, w_bc, p_bc
+    real(8), intent(in) :: u_bc(nx+1, ny+2, nz+2), v_bc(nx+2, ny+1, nz+2), w_bc(nx+2, ny+2, nz+1), p_bc(nx+2, ny+2, nz+2)
     real(8), intent(out) :: bx_u_1(ny+2,nz+2), bx_u_nx(ny+2,nz+2), by_u_1(nx+1,nz+2), by_u_ny(nx+1,nz+2), bz_u_1(nx+1,ny+2), bz_u_nz(nx+1,ny+2)
     real(8), intent(out) :: bx_v_1(ny+1,nz+2), bx_v_nx(ny+1,nz+2), by_v_1(nx+2,nz+2), by_v_ny(nx+2,nz+2), bz_v_1(nx+2,ny+1), bz_v_nz(nx+2,ny+1)
     real(8), intent(out) :: bx_w_1(ny+2,nz+1), bx_w_nx(ny+2,nz+1), by_w_1(nx+2,nz+1), by_w_ny(nx+2,nz+1), bz_w_1(nx+2,ny+2), bz_w_nz(nx+2,ny+2)
@@ -344,6 +444,24 @@
         bz_w_nz=w_bc(:,:,nz+1);
     end if
 
+    call get_pr_bc(p_bc, pbc_x, pbc_y, pbc_z, nx, ny, nz, dx, dy, dz, bx_p_1, bx_p_nx, by_p_1, by_p_ny, bz_p_1, bz_p_nz)
+
+    end subroutine get_velpr_bc
+
+    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+    subroutine get_pr_bc(p_bc, pbc_x, pbc_y, pbc_z, nx, ny, nz, dx, dy, dz, bx_p_1, bx_p_nx, by_p_1, by_p_ny, bz_p_1, bz_p_nz)
+    implicit none
+
+    integer, intent(in) :: pbc_x, pbc_y, pbc_z, nx, ny, nz
+    real(8), intent(in) :: dx, dy, dz
+    real(8), dimension (nx+2,ny+2,nz+2), intent(in) :: p_bc
+    real(8), intent(out) :: bx_p_1(ny+2,nz+2), bx_p_nx(ny+2,nz+2), by_p_1(nx+2,nz+2), by_p_ny(nx+2,nz+2), bz_p_1(nx+2,ny+2), bz_p_nz(nx+2,ny+2)
+
+    integer :: nxp, nyp, nzp
+
+    nxp=nx+2; nyp=ny+2; nzp=nz+2
+
     if (pbc_x==2) then
         bx_p_1 =(p_bc(1,:,:)  +p_bc(2,:,:))/2;
         bx_p_nx=(p_bc(nxp,:,:)+p_bc(nxp-1,:,:))/2;
@@ -359,15 +477,15 @@
         bz_p_1 =p_bc(:,:,1);
         bz_p_nz=p_bc(:,:,nzp);
     else if (pbc_x==3) then
-        bx_p_1 =reshape([diff(p_bc(1:2,:,:),1,1)/dx]      , (/nyp,nzp/))
-        bx_p_nx=reshape([diff(p_bc(nxp-1:nxp,:,:),1,1)/dx], (/nyp,nzp/))
-        by_p_1 =reshape([diff(p_bc(:,1:2,:),1,1)/dy]      , (/nxp,nzp/))
-        by_p_ny=reshape([diff(p_bc(:,nyp-1:nyp,:),1,1)/dy], (/nxp,nzp/))
-        bz_p_1 =reshape([diff(p_bc(:,:,1:2),1,1)/dz]      , (/nxp,nyp/))
-        bz_p_nz=reshape([diff(p_bc(:,:,nzp-1:nzp),1,1)/dz], (/nxp,nyp/))
+        bx_p_1 =reshape([diff(p_bc(1:2,:,:),1,1)/dx]      , [nyp,nzp])
+        bx_p_nx=reshape([diff(p_bc(nxp-1:nxp,:,:),1,1)/dx], [nyp,nzp])
+        by_p_1 =reshape([diff(p_bc(:,1:2,:),1,1)/dy]      , [nxp,nzp])
+        by_p_ny=reshape([diff(p_bc(:,nyp-1:nyp,:),1,1)/dy], [nxp,nzp])
+        bz_p_1 =reshape([diff(p_bc(:,:,1:2),1,1)/dz]      , [nxp,nyp])
+        bz_p_nz=reshape([diff(p_bc(:,:,nzp-1:nzp),1,1)/dz], [nxp,nyp])
     end if
 
-    end subroutine get_velpr_bc
+    end subroutine get_pr_bc
 
     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     function Poisson_LHS_staggered(nxp, nyp, nzp, dx2, dy2, dz2, pbc_x, pbc_y, pbc_z, dx, dy, dz) result(LHS_poisson)
@@ -965,6 +1083,54 @@
     end if
 
     end subroutine mat_CN
+
+    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    subroutine mat_CN_tridiagonal(nx, bc_x, dx2, dx, A_low, A_d, A_up, B_low, B_d, B_up, dt0, nu)
+
+    implicit none
+
+    integer, intent(in) :: nx, bc_x
+    real(8), intent(in) :: dx2, dx, dt0, nu
+    real(8), intent(out) :: A_low(nx), A_d(nx+1), A_up(nx), B_low(nx+1), B_d(nx+2), B_up(nx+1)
+
+    integer :: i
+    real(8) :: idx2, idx
+
+    idx2=1.0d0/dx2; idx=1.0/dx;
+
+    do i=2,nx
+        A_d(i)=1.0d0+0.5d0*dt0*nu*2.0d0*idx2
+        A_low(i-1)= -0.5d0*dt0*nu*1.0d0*idx2
+        A_up(i)=    -0.5d0*dt0*nu*1.0d0*idx2
+    end do
+
+    do i=2,nx+1
+        B_d(i)=1.0d0+0.5d0*dt0*nu*2.0d0*idx2;
+        B_low(i-1)= -0.5d0*dt0*nu*1.0d0*idx2;
+        B_up(i)=    -0.5d0*dt0*nu*1.0d0*idx2;
+    end do
+
+    ! pbc=1 Periodic; pbc=2 Dirichlet on boundary (cell wall); pbc=3 Neumann on boundary (cell wall); pbc=4 Dirichlet on ghost cell
+    if (bc_x==1) then
+
+
+    else if (bc_x==2) then
+        A_d(1)=1.0d0;    A_up(1)=0.0d0;
+        A_d(nx+1)=1.0d0; A_low(nx)=0.0d0;
+
+        B_d(1)=0.5d0;    B_up(1)=0.5d0;
+        B_d(nx+2)=0.5d0; B_low(nx+1)=0.5d0;
+    else if (bc_x==3) then
+
+    else if (bc_x==4) then
+        A_d(1)=1.0d0;    A_up(1)=0.0d0;
+        A_d(nx+1)=1.0d0; A_low(nx)=0.0d0;
+
+        B_d(1)=1.0d0;    B_up(1)=0.0d0;
+        B_d(nx+2)=1.0d0; B_low(nx+1)=0.0d0;
+    end if
+
+    end subroutine mat_CN_tridiagonal
 
     end module NS_functions
 
