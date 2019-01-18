@@ -15,7 +15,7 @@ bc_x=1; bc_y=1; bc_z=1;
 pbc_x=1; pbc_y=1; pbc_z=1;
 
 %%
-filename='D:\Documents\source\repos\NS_3D_Staggered_dp\NS_3D_Staggered_dp\AB2_result\HIT_128^3_decay_4.E-3_AB2_dp_t_.0000.dat';
+filename='D:\Documents\source\repos\NS_3D_Staggered_dp\NS_3D_Staggered_dp\AB2_result\HIT_256^3_decay_4.E-3_AB2_dp_t_.0000.dat';
 disp(filename);
 
 tic
@@ -36,11 +36,16 @@ w_p=(w(2:end-1,2:end-1,1:end-1)+w(2:end-1,2:end-1,2:end))/2;
 
 2*pi/nx/eta
 
+subplot(1,2,1)
 loglog(k, spectrum)
 hold on;
 %plot(k, 4e-1*k.^(-5/3))
+
+subplot(1,2,2)
+loglog(k*eta,2*nu*k.^2.*spectrum')
+hold on;
 %%
-filename='D:\Documents\source\repos\NS_3D_Staggered_dp\NS_3D_Staggered_dp\AB2_result\HIT_128^3_decay_4.E-3_AB2_dp_t_20.0000.dat';
+filename='D:\Documents\source\repos\NS_3D_Staggered_dp\NS_3D_Staggered_dp\AB2_result\HIT_256^3_decay_4.E-3_AB2_dp_t_20.0000.dat';
 disp(filename);
 
 tic
@@ -61,8 +66,15 @@ w_p=(w(2:end-1,2:end-1,1:end-1)+w(2:end-1,2:end-1,2:end))/2;
 
 2*pi/nx/eta1
 
+subplot(1,2,1)
 loglog(k, spectrum)
 hold on;
 plot(k, 4e-1*k.^(-5/3))
-legend('t=0','t=1')
+legend('time step=0.       dx/\eta=1.33','time step=5000. dx/\eta=0.58')
 xlabel('k'); ylabel('E(k)')
+
+subplot(1,2,2)
+loglog(k*eta1,2*nu*k.^2.*spectrum')
+legend('time step=0.       dx/\eta=1.33','time step=5000. dx/\eta=0.58')
+xlabel('k\eta'); ylabel('D(k)')
+

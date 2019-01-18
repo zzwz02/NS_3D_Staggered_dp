@@ -27,8 +27,8 @@
     real(8), parameter :: pi = 3.1415926535897932_8
     integer :: i=0,j=0,k=0,ll=0,mm=0
 
-    logical, parameter :: init=.true., plot_output=.false., save_output=.true.
-    real(8), parameter :: Re=1.0d0, nu=0.002d0, t_end=2.0d0, dt0=0.004d0
+    logical, parameter :: init=.true., plot_output=.true., save_output=.true.
+    real(8), parameter :: Re=1.0d0, nu=0.002d0, t_end=20.0d0, dt0=0.004d0
     real(8), parameter :: t_start=0.0d0
     !integer, parameter :: nx_file=256
     integer, parameter :: nx=256, ny=nx, nz=nx, nxp=nx+2, nyp=ny+2, nzp=nz+2, sub_tstep=1
@@ -97,7 +97,7 @@
     real(8) :: temp01, temp02, temp03!, temp04, temp05, temp06
     real(8), dimension (:), allocatable :: temp11, temp12, temp13!, temp14, temp15, temp16
     real(8), dimension (:,:), allocatable :: temp21!, temp22, temp23, temp24, temp25, temp26
-    real(8), dimension (:,:,:), allocatable :: temp31, temp32, temp33!, temp34, temp35, temp36
+    !real(8), dimension (:,:,:), allocatable :: temp31, temp32, temp33, temp34, temp35, temp36
     !real(4) :: ini_vel(3,nx_file,nx_file,nx_file), ini_pr(nx_file,nx_file,nx_file)
     real(4), dimension (:), allocatable :: temp11s
 
@@ -177,7 +177,6 @@
     allocate( rhs_x_previous(nx+1,ny+2,nz+2), rhs_y_previous(nx+2,ny+1,nz+2), rhs_z_previous(nx+2,ny+2,nz+1) )
     allocate( dpdx(nx+1,ny+2,nz+2),           dpdy(nx+2,ny+1,nz+2),           dpdz(nx+2,ny+2,nz+1))
     allocate( div(nx,ny,nz), RHS_poisson_internal(nx,ny,nz) )
-    rhs_x=0; rhs_y=0; rhs_z=0;
 
     if (timescheme=="AB2-CN") then
         if (allocated(A_mat)) deallocate(A_mat, B_mat, C_mat, D_mat, E_mat, F_mat)
@@ -267,12 +266,12 @@
     sizeof_record_sub=size(u_sub)+size(v_sub)+size(w_sub)+size(p_sub)+size(u_star_sub)+size(v_star_sub)+size(w_star_sub)+size(dp_sub)+size(RHS_poisson_sub)
     sizeof_record_slice=size(u(:,:,slice))+size(v(:,:,slice))+size(w(:,:,slice))+size(p(:,:,slice))
     if (timescheme=="AB2-CN") then
-        allocate(temp31(nx0+1,ny0+2,nz0+2), temp32(nx0+2,ny0+1,nz0+2), temp33(nx0+2,ny0+2,nz0+1))
-        temp31=0; temp32=0; temp33=0;
-        sizeof_record_sub=sizeof_record_sub+size(u_sub)+size(v_sub)+size(w_sub)+ &
+        !allocate(temp31(nx0+1,ny0+2,nz0+2), temp32(nx0+2,ny0+1,nz0+2), temp33(nx0+2,ny0+2,nz0+1))
+        !temp31=0; temp32=0; temp33=0;
+        sizeof_record_sub=sizeof_record_sub+&
             size(bx_u_1s)+size(bx_u_nxs)+size(bx_v_1s)+size(bx_v_nxs)+size(bx_w_1s)+size(bx_w_nxs)+ &
             size(by_u_1s)+size(by_u_nys)+size(by_v_1s)+size(by_v_nys)+size(by_w_1s)+size(by_w_nys)+ &
-            size(bz_u_1s)+size(bz_u_nzs)+size(bz_v_1s)+size(bz_v_nzs)+size(bz_w_1s)+size(bz_w_nzs)
+            size(bz_u_1s)+size(bz_u_nzs)+size(bz_v_1s)+size(bz_v_nzs)+size(bz_w_1s)+size(bz_w_nzs) !+size(u_sub)+size(v_sub)+size(w_sub)+
     end if
 
     do t_step=0,time_length
@@ -451,7 +450,7 @@
                 bx_v_nxs=(v_star(idx_xv(nx0+1), idx_yv, idx_zv) + v_star(idx_xv(nx0+2), idx_yv, idx_zv))*0.5d0
                 bx_w_1s =(w_star(idx_xw(1),     idx_yw, idx_zw) + w_star(idx_xw(2),     idx_yw, idx_zw))*0.5d0
                 bx_w_nxs=(w_star(idx_xw(nx0+1), idx_yw, idx_zw) + w_star(idx_xw(nx0+2), idx_yw, idx_zw))*0.5d0
-                temp31=u_star(idx_xu,idx_yu,idx_zu); temp32=v_star(idx_xv,idx_yv,idx_zv); temp33=w_star(idx_xw,idx_yw,idx_zw);
+                !temp31=u_star(idx_xu,idx_yu,idx_zu); temp32=v_star(idx_xv,idx_yv,idx_zv); temp33=w_star(idx_xw,idx_yw,idx_zw);
 
                 call vel_bc_staggered_CN2(u_star, v_star, w_star, by_u_1, by_u_ny, by_v_1, by_v_ny, by_w_1, by_w_ny, bc_y, 2)
                 !!$omp parallel do
@@ -477,10 +476,6 @@
                 by_v_nys= v_star(idx_xv, idx_yv(ny0+1), idx_zv)
                 by_w_1s =(w_star(idx_xw, idx_yw(1),     idx_zw) + w_star(idx_xw, idx_yw(2),     idx_zw))*0.5d0
                 by_w_nys=(w_star(idx_xw, idx_yw(ny0+1), idx_zw) + w_star(idx_xw, idx_yw(ny0+2), idx_zw))*0.5d0
-                !temp31=u_star(idx_xu,idx_yu,idx_zu); temp32=v_star(idx_xv,idx_yv,idx_zv); temp33=w_star(idx_xw,idx_yw,idx_zw);
-                !temp31(:,[1, 2, ny0+1, ny0+2],:)=u_star(idx_xu,idx_yu([1, 2, ny0+1, ny0+2]),  idx_zu)
-                !temp32(:,[1, 2, ny0,   ny0+1],:)=v_star(idx_xv,idx_yv([1, 2, ny0,   ny0+1]),  idx_zv)
-                !temp33(:,[1, 2, ny0+1, ny0+2],:)=w_star(idx_xw,idx_yw([1, 2, ny0+1, ny0+2]),  idx_zw)
 
                 call vel_bc_staggered_CN2(u_star, v_star, w_star, bz_u_1, bz_u_nz, bz_v_1, bz_v_nz, bz_w_1, bz_w_nz, bc_z, 3)
                 !!$omp parallel do
@@ -506,9 +501,6 @@
                 bz_v_nzs=(v_star(idx_xv, idx_yv, idx_zv(nz0+1)) + v_star(idx_xv, idx_yv, idx_zv(nz0+2)))*0.5d0
                 bz_w_1s = w_star(idx_xw, idx_yw, idx_zw(1))
                 bz_w_nzs= w_star(idx_xw, idx_yw, idx_zw(nz0+1))
-                !temp31(:,:,[1, 2, nz0+1, nz0+2])=u_star(idx_xu, idx_yu, idx_zu([1, 2, nz0+1, nz0+2]))
-                !temp32(:,:,[1, 2, nz0+1, nz0+2])=v_star(idx_xv, idx_yv, idx_zv([1, 2, nz0+1, nz0+2]))
-                !temp33(:,:,[1, 2, nz0,   nz0+1])=w_star(idx_xw, idx_yw, idx_zw([1, 2, nz0,   nz0+1]))
             end if
 
             !RHS_poisson(2:ubound(RHS_poisson,1)-1,2:ubound(RHS_poisson,2)-1,2:ubound(RHS_poisson,3)-1) = &
@@ -662,35 +654,32 @@
                 tempi1=tempi2+1; tempi2=tempi2+size(w_star_sub); temp12(tempi1:tempi2)=[w_star_sub]
                 tempi1=tempi2+1; tempi2=tempi2+size(dp_sub);     temp12(tempi1:tempi2)=[dp_sub]
                 tempi1=tempi2+1; tempi2=tempi2+size(RHS_poisson_sub);     temp12(tempi1:tempi2)=[RHS_poisson_sub]
-                !sizeof_record_sub=sizeof_record_sub+size(u)+size(v)+size(w)+ &
-                !   size(bx_u_1s)+size(bx_u_nxs)+size(bx_v_1s)+size(bx_v_nxs)+size(bx_w_1s)+size(bx_w_nxs)+ &
-                !   size(by_u_1s)+size(by_u_nys)+size(by_v_1s)+size(by_v_nys)+size(by_w_1s)+size(by_w_nys)+ &
-                !   size(bz_u_1s)+size(bz_u_nzs)+size(bz_v_1s)+size(bz_v_nzs)+size(bz_w_1s)+size(bz_w_nzs)
                 if (timescheme=="AB2-CN") then
-                    tempi1=tempi2+1; tempi2=tempi2+size(u_sub); temp12(tempi1:tempi2)=[temp31]
-                    tempi1=tempi2+1; tempi2=tempi2+size(v_sub); temp12(tempi1:tempi2)=[temp32]
-                    tempi1=tempi2+1; tempi2=tempi2+size(w_sub); temp12(tempi1:tempi2)=[temp33]
                     tempi1=tempi2+1; tempi2=tempi2+size(bx_u_1s); temp12(tempi1:tempi2)=[bx_u_1s]
                     tempi1=tempi2+1; tempi2=tempi2+size(bx_u_nxs); temp12(tempi1:tempi2)=[bx_u_nxs]
                     tempi1=tempi2+1; tempi2=tempi2+size(bx_v_1s); temp12(tempi1:tempi2)=[bx_v_1s]
                     tempi1=tempi2+1; tempi2=tempi2+size(bx_v_nxs); temp12(tempi1:tempi2)=[bx_v_nxs]
                     tempi1=tempi2+1; tempi2=tempi2+size(bx_w_1s); temp12(tempi1:tempi2)=[bx_w_1s]
                     tempi1=tempi2+1; tempi2=tempi2+size(bx_w_nxs); temp12(tempi1:tempi2)=[bx_w_nxs]
-                    
+
                     tempi1=tempi2+1; tempi2=tempi2+size(by_u_1s); temp12(tempi1:tempi2)=[by_u_1s]
                     tempi1=tempi2+1; tempi2=tempi2+size(by_u_nys); temp12(tempi1:tempi2)=[by_u_nys]
                     tempi1=tempi2+1; tempi2=tempi2+size(by_v_1s); temp12(tempi1:tempi2)=[by_v_1s]
                     tempi1=tempi2+1; tempi2=tempi2+size(by_v_nys); temp12(tempi1:tempi2)=[by_v_nys]
                     tempi1=tempi2+1; tempi2=tempi2+size(by_w_1s); temp12(tempi1:tempi2)=[by_w_1s]
                     tempi1=tempi2+1; tempi2=tempi2+size(by_w_nys); temp12(tempi1:tempi2)=[by_w_nys]
-                    
+
                     tempi1=tempi2+1; tempi2=tempi2+size(bz_u_1s); temp12(tempi1:tempi2)=[bz_u_1s]
                     tempi1=tempi2+1; tempi2=tempi2+size(bz_u_nzs); temp12(tempi1:tempi2)=[bz_u_nzs]
                     tempi1=tempi2+1; tempi2=tempi2+size(bz_v_1s); temp12(tempi1:tempi2)=[bz_v_1s]
                     tempi1=tempi2+1; tempi2=tempi2+size(bz_v_nzs); temp12(tempi1:tempi2)=[bz_v_nzs]
                     tempi1=tempi2+1; tempi2=tempi2+size(bz_w_1s); temp12(tempi1:tempi2)=[bz_w_1s]
                     tempi1=tempi2+1; tempi2=tempi2+size(bz_w_nzs); temp12(tempi1:tempi2)=[bz_w_nzs]
+                    !tempi1=tempi2+1; tempi2=tempi2+size(u_sub); temp12(tempi1:tempi2)=[temp31]
+                    !tempi1=tempi2+1; tempi2=tempi2+size(v_sub); temp12(tempi1:tempi2)=[temp32]
+                    !tempi1=tempi2+1; tempi2=tempi2+size(w_sub); temp12(tempi1:tempi2)=[temp33]
                 end if
+                
                 write (string_var,'(A, "_result\HIT_", I0, "^3_decay_", ES5.0E1, "_", A , "_dp_x0_", I0, "_nx0_", I0, "_t_", F0.4, ".dat")') trim(timescheme), nx, dt0, trim(timescheme), x0, nx0, tGet
                 open(20, file=string_var, form='unformatted', status='new', action='write', &
                     access='direct', recl=sizeof_record_sub*2) !variables are double precision

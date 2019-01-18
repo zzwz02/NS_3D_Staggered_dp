@@ -19,7 +19,7 @@
     real(8), parameter :: xw(nx0+2)=[((i+0.5d0)*dx, i=-1, nx0)], yw(ny0+2)=[((i+0.5d0)*dy, i=-1, ny0)], zw(nz0+1)=[(i*dz, i=0, nz0)]
     real(8), parameter :: xp(nx0+2)=[((i+0.5d0)*dx, i=-1, nx0)], yp(ny0+2)=[((i+0.5d0)*dy, i=-1, ny0)], zp(nz0+2)=[((i+0.5d0)*dz, i=-1, nz0)]
 
-    integer, parameter :: nx=8, ny=nx, nz=nx, nxp=nx+2, nyp=ny+2, nzp=nz+2
+    integer, parameter :: nx=32, ny=nx, nz=nx, nxp=nx+2, nyp=ny+2, nzp=nz+2
     integer, parameter :: x0=16, y0=16, z0=16
     integer, parameter :: idx_xu(nx+1)=[(x0+i, i=0, nx)],   idx_yu(ny+2)=[(y0+i, i=0, ny+1)], idx_zu(nz+2)=[(z0+i, i=0, nz+1)]
     integer, parameter :: idx_xv(nx+2)=[(x0+i, i=0, nx+1)], idx_yv(ny+1)=[(y0+i, i=0, ny)],   idx_zv(nz+2)=[(z0+i, i=0, nz+1)]
@@ -255,10 +255,10 @@
         (nx0+1)*(ny0+2)*(nz0+2) + (nx0+2)*(ny0+1)*(nz0+2) + (nx0+2)*(ny0+2)*(nz0+1)
     sizeof_record_sub=size(u_sub)+size(v_sub)+size(w_sub)+size(p_sub)+size(u_star_sub)+size(v_star_sub)+size(w_star_sub)+size(dp_sub)+size(RHS_poisson_sub)
     if (timescheme=="AB2-CN") then
-        sizeof_record_sub=sizeof_record_sub+size(u_sub)+size(v_sub)+size(w_sub)+ &
+        sizeof_record_sub=sizeof_record_sub+ &
             size(bx_u_1)+size(bx_u_nx)+size(bx_v_1)+size(bx_v_nx)+size(bx_w_1)+size(bx_w_nx)+ &
             size(by_u_1)+size(by_u_ny)+size(by_v_1)+size(by_v_ny)+size(by_w_1)+size(by_w_ny)+ &
-            size(bz_u_1)+size(bz_u_nz)+size(bz_v_1)+size(bz_v_nz)+size(bz_w_1)+size(bz_w_nz)
+            size(bz_u_1)+size(bz_u_nz)+size(bz_v_1)+size(bz_v_nz)+size(bz_w_1)+size(bz_w_nz) !+size(u_sub)+size(v_sub)+size(w_sub)
     end if
 
     do t_step=0,time_length
@@ -310,13 +310,6 @@
             tempi1=tempi2+1; tempi2=tempi2+size(dp_sub);     dp_sub=reshape(temp11(tempi1:tempi2), [nx+2,ny+2,nz+2]);
             tempi1=tempi2+1; tempi2=tempi2+size(RHS_poisson_sub);     RHS_poisson_sub=reshape(temp11(tempi1:tempi2), [nx+2,ny+2,nz+2]);
             if (timescheme=="AB2-CN") then
-                tempi1=tempi2+1; tempi2=tempi2+size(u_sub);   temp31=reshape(temp11(tempi1:tempi2), [nx+1,ny+2,nz+2]);
-                tempi1=tempi2+1; tempi2=tempi2+size(v_sub);   temp32=reshape(temp11(tempi1:tempi2), [nx+2,ny+1,nz+2]);
-                tempi1=tempi2+1; tempi2=tempi2+size(w_sub);   temp33=reshape(temp11(tempi1:tempi2), [nx+2,ny+2,nz+1]);
-
-                !real(8) :: bx_u_1(ny+2,nz+2)=0, bx_u_nx(ny+2,nz+2)=0, by_u_1(nx+1,nz+2)=0, by_u_ny(nx+1,nz+2)=0, bz_u_1(nx+1,ny+2)=0, bz_u_nz(nx+1,ny+2)=0
-                !real(8) :: bx_v_1(ny+1,nz+2)=0, bx_v_nx(ny+1,nz+2)=0, by_v_1(nx+2,nz+2)=0, by_v_ny(nx+2,nz+2)=0, bz_v_1(nx+2,ny+1)=0, bz_v_nz(nx+2,ny+1)=0
-                !real(8) :: bx_w_1(ny+2,nz+1)=0, bx_w_nx(ny+2,nz+1)=0, by_w_1(nx+2,nz+1)=0, by_w_ny(nx+2,nz+1)=0, bz_w_1(nx+2,ny+2)=0, bz_w_nz(nx+2,ny+2)=0
                 tempi1=tempi2+1; tempi2=tempi2+size(bx_u_1);  bx_u_1 =reshape(temp11(tempi1:tempi2), [ny+2,nz+2]);
                 tempi1=tempi2+1; tempi2=tempi2+size(bx_u_nx); bx_u_nx=reshape(temp11(tempi1:tempi2), [ny+2,nz+2]);
                 tempi1=tempi2+1; tempi2=tempi2+size(bx_v_1);  bx_v_1 =reshape(temp11(tempi1:tempi2), [ny+1,nz+2]);
@@ -337,6 +330,10 @@
                 tempi1=tempi2+1; tempi2=tempi2+size(bz_v_nz); bz_v_nz=reshape(temp11(tempi1:tempi2), [nx+2,ny+1]);
                 tempi1=tempi2+1; tempi2=tempi2+size(bz_w_1);  bz_w_1 =reshape(temp11(tempi1:tempi2), [nx+2,ny+2]);
                 tempi1=tempi2+1; tempi2=tempi2+size(bz_w_nz); bz_w_nz=reshape(temp11(tempi1:tempi2), [nx+2,ny+2]);
+                
+                !tempi1=tempi2+1; tempi2=tempi2+size(u_sub);   temp31=reshape(temp11(tempi1:tempi2), [nx+1,ny+2,nz+2]);
+                !tempi1=tempi2+1; tempi2=tempi2+size(v_sub);   temp32=reshape(temp11(tempi1:tempi2), [nx+2,ny+1,nz+2]);
+                !tempi1=tempi2+1; tempi2=tempi2+size(w_sub);   temp33=reshape(temp11(tempi1:tempi2), [nx+2,ny+2,nz+1]);
             end if
 
             if (timescheme=="AB2-CN") then
@@ -350,7 +347,6 @@
                     bx_u_1, bx_u_nx, by_u_1, by_u_ny, bz_u_1, bz_u_nz, bx_v_1, bx_v_nx, by_v_1, by_v_ny, bz_v_1, bz_v_nz, &
                     bx_w_1, bx_w_nx, by_w_1, by_w_ny, bz_w_1, bz_w_nz, bx_p_1, bx_p_nx, by_p_1, by_p_ny, bz_p_1, bz_p_nz)
             end if
-
 
             !!! Convection
             call cal_conv(u, v, w, bc_x, bc_y, bc_z, dx, dy, dz, conv_x, conv_y, conv_z)
@@ -440,29 +436,22 @@
                     call gttrs( A_low, A_d, A_up, A_up2, u_star(:,:,k), A_ipiv )
                     call gttrs( B_low, B_d, B_up, B_up2, v_star(:,:,k), B_ipiv )
                     if (k<=nz+1) call gttrs( B_low, B_d, B_up, B_up2, w_star(:,:,k), B_ipiv )
-
-                    !call getrs( A_mat, A_ipiv, u_star(:,:,k) )
-                    !call getrs( B_mat, B_ipiv, v_star(:,:,k) )
-                    !if (k<=nz+1) call getrs( B_mat, B_ipiv, w_star(:,:,k) )
                 end do
                 !!$omp end parallel do
-                print *, maxval(abs(u_star(:,2:ny+1,2:nz+1)-temp31(:,2:ny+1,2:nz+1))), maxval(abs(v_star(:,2:ny,2:nz+1)-temp32(:,2:ny,2:nz+1))), maxval(abs(w_star(:,2:ny+1,2:nz)-temp33(:,2:ny+1,2:nz)))
+                
                 call vel_bc_staggered_CN2(u_star, v_star, w_star, by_u_1, by_u_ny, by_v_1, by_v_ny, by_w_1, by_w_ny, bc_y, 2)
                 !!$omp parallel do
                 do k=1,nz+2
                     temp21=transpose(u_star(:,:,k))
-                    !call getrs( D_mat, D_ipiv, temp21 )
                     call gttrs( D_low, D_d, D_up, D_up2, temp21, D_ipiv )
                     u_star(:,:,k)=transpose(temp21)
 
                     temp21=transpose(v_star(:,:,k))
-                    !call getrs( C_mat, C_ipiv, temp21 )
                     call gttrs( C_low, C_d, C_up, C_up2, temp21, C_ipiv )
                     v_star(:,:,k)=transpose(temp21)
 
                     if (k<=nz+1) then
                         temp21=transpose(w_star(:,:,k))
-                        !call getrs( D_mat, D_ipiv, temp21 )
                         call gttrs( D_low, D_d, D_up, D_up2, temp21, D_ipiv )
                         w_star(:,:,k)=transpose(temp21)
                     end if
@@ -473,19 +462,16 @@
                 !!$omp parallel do
                 do j=1,ny+2
                     temp21=transpose(u_star(:,j,:))
-                    !call getrs( F_mat, F_ipiv, temp21 )
                     call gttrs( F_low, F_d, F_up, F_up2, temp21, F_ipiv )
                     u_star(:,j,:)=transpose(temp21)
 
                     if (j<=ny+1) then
                         temp21=transpose(v_star(:,j,:))
-                        !call getrs( F_mat, F_ipiv, temp21 )
                         call gttrs( F_low, F_d, F_up, F_up2, temp21, F_ipiv )
                         v_star(:,j,:)=transpose(temp21)
                     end if
 
                     temp21=transpose(w_star(:,j,:))
-                    !call getrs( E_mat, E_ipiv, temp21 )
                     call gttrs( E_low, E_d, E_up, E_up2, temp21, E_ipiv )
                     w_star(:,j,:)=transpose(temp21)
                 end do
