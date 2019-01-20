@@ -1,6 +1,7 @@
     subroutine test_subroutine
-
     use MKL_DFTI, forget => DFTI_DOUBLE, DFTI_DOUBLE => DFTI_DOUBLE_R
+    USE lapack95
+    !use f95_precision
     use FD_functions
     use NS_functions
     use coo_mod
@@ -9,8 +10,8 @@
     use ogpf
 
     implicit none
-    include 'omp_lib.h'
-    INCLUDE 'mkl_pardiso.fi'
+    include 'mkl_lapack.fi'
+    include 'mkl_pardiso.fi'
     include 'fftw/fftw3.f'
 
     ! Variables
@@ -186,8 +187,8 @@
     temp32=avg_old(u,3,0);
     print *, all(temp31==temp32)
 
-    a_coo=[1,-1,-3,-2,0,4,6,4,-4,2,7,8,-5]; a_rowind=[1,1,1,2,2,3,3,3,4,4,4,5,5]; a_colind=[1,2,3,1,2,3,4,5,1,3,4,2,5]; a_shape=[5,5]
-    b_coo=[1,2,3,4]; b_rowind=[1,1,2,2]; b_colind=[1,2,1,2]; b_shape=[2,2]
+    a_coo=(/1,-1,-3,-2,0,4,6,4,-4,2,7,8,-5/); a_rowind=(/1,1,1,2,2,3,3,3,4,4,4,5,5/); a_colind=(/1,2,3,1,2,3,4,5,1,3,4,2,5/); a_shape=(/5,5/)
+    b_coo=(/1,2,3,4/); b_rowind=(/1,1,2,2/); b_colind=(/1,2,1,2/); b_shape=(/2,2/)
     coo1=coo_init_or_clean(a_coo,a_rowind,a_colind,a_shape)
     coo2=coo_init_or_clean(b_coo,b_rowind,b_colind,b_shape)
     coo3=kron(coo1,coo2)
@@ -204,7 +205,7 @@
     LHS_poisson=Poisson_LHS_staggered(nxp, nyp, nzp, 0.01d0, 0.01d0, 0.01d0, pbc_x, pbc_y, pbc_z, 0.1d0, 0.1d0, 0.1d0)
     coo2=from_csr(LHS_poisson)
     c_mat=coo2%to_den()
-    call print_spmat(c_mat)
+    !call print_spmat(c_mat)
 
     a_rowind=[1,2,3,4,5,6,7,8]
     a_colind=[2,4,6]

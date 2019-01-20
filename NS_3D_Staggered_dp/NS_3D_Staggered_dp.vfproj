@@ -36,6 +36,7 @@
 		<File RelativePath=".\ogpf.f90"/>
 		<File RelativePath=".\other_utility.f90"/>
 		<File RelativePath=".\re_simulation.f90"/>
+		<File RelativePath=".\big_periodic_3D.f90"/>
 		<File RelativePath=".\sparse_utility.f90"/>
 		<File RelativePath=".\test_subroutine.f90"/></Filter>
 		<File RelativePath=".\ReadMe.txt"/></Files>
