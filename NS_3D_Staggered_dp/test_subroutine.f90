@@ -1,5 +1,7 @@
     subroutine test_subroutine
-    use MKL_DFTI, forget => DFTI_DOUBLE, DFTI_DOUBLE => DFTI_DOUBLE_R
+
+    use MKL_DFTI!, forget => DFTI_DOUBLE, DFTI_DOUBLE => DFTI_DOUBLE_R
+    use mkl_trig_transforms
     USE lapack95
     !use f95_precision
     use FD_functions
@@ -10,6 +12,7 @@
     use ogpf
 
     implicit none
+
     include 'mkl_lapack.fi'
     include 'mkl_pardiso.fi'
     include 'fftw/fftw3.f'
@@ -70,6 +73,14 @@
     real(8) :: dft_in_r_test(10)=0, dft_out_r_test(10)
     complex*16 :: dft_in_c_test(10), dft_out_c_test(10)
     integer :: stat
+
+    ! INTEL mkl_tt
+    integer, parameter :: nx1=1024, ny1=1024
+    real(8), parameter :: L1=1.0d0, dx1=L1/nx1, dy1=L1/ny1, dx21=dx1*dx1, dy21=dy1*dy1
+    real(8), parameter :: xp1(nx1)=[((i-0.5d0)*dx1, i=1, nx1)], yp1(ny1)=[((i-0.5d0)*dy1, i=1, ny1)]
+    integer :: tt_type, stat1, ipar_x(128), ipar_y(128)
+    real(8) :: dpar_x(5*nx1/2+2)=0, dpar_y(5*ny1/2+2)=0, rhs_tt(nx1+1, ny1+1)=0, eig_tt(nx1+1, ny1) 
+    type(dfti_descriptor), pointer :: handle_tx, handle_ty
 
     !fftw3
     integer :: fwd, bwd
@@ -251,6 +262,87 @@
     print *, dft_in_c_test
     print *, "**************************************"
     print *, maxval(abs(dft_in_c_test-dft_in_r_test))
+
+    print *, "**************************************"
+    print *,"D-D:   DST-1, Forward sine transform"
+    print *,"D-N:   DST-3, Forward staggered sine transform"
+    print *,"Ds-Ns: DST-4, Forward staggered2 sine transform"
+    print *,"N-N:   DCT-1, Forward cosine transform"
+    print *,"N-D:   DCT-3, Forward staggered cosine transform"
+    print *,"Ns-Ds: DCT-4, Forward staggered2 cosine transform"
+    print *, "**************************************"
+
+    print *,"Example:"
+    print *,"  x: Ds-Ds b.c. (DST-2)"
+    print *,"    DST-2 == flipping sign of every other input, DCT-2 (or iDCT-3 with 2/N factor), reversing the order of output"
+    print *,"    IDST-2 == reversing the order of input, iDCT-2 (or DCT-3 with 2/N factor), flipping sign of every other output"
+    print *,"  y: Ns-Ns b.c. (DCT-2)"
+    print *,"    DCT-2 == iDCT-3 with 2/N factor"
+    print *,"    IDCT-2 == DCT-3"
+
+    call d_init_trig_transform(nx1, MKL_STAGGERED_COSINE_TRANSFORM, ipar_x, dpar_x, stat)
+    call d_init_trig_transform(ny1, MKL_STAGGERED_COSINE_TRANSFORM, ipar_y, dpar_y, stat)
+    call d_commit_trig_transform(rhs_tt(:,1),handle_tx,ipar_x,dpar_x,stat)
+    call d_commit_trig_transform(rhs_tt(1,:),handle_ty,ipar_y,dpar_y,stat)
+    
+    do j=1,ny1
+        rhs_tt(1:nx1,j)=-2*(2*yp1(j)**3-3*yp1(j)**2+1)+6*(1-xp1**2)*(2*yp1(j)-1);
+    end do
+    
+    do i=1,nx1
+        eig_tt(i,:)=(sin(i*pi/2/nx1))**2/dx21
+    end do
+
+    do j=1,ny1
+        eig_tt(:,j)=eig_tt(:,j)+(sin((j-1)*pi/2/ny1))**2/dy21
+    end do
+    eig_tt=-4.0d0*eig_tt
+
+    !rhs_tt(1:nx)=[(i*sin(dble(i)), i=1,nx)]
+    rhs_tt(1,1:ny1)  =rhs_tt(1,1:ny1)  -2*(2*yp1**3-3*yp1**2+1)/dx21 !b.c condition
+    rhs_tt(nx1,1:ny1)=rhs_tt(nx1,1:ny1)-2*(0)/dx21 !b.c condition
+    rhs_tt(1:nx1,1)  =rhs_tt(1:nx1,1)  +(1)/dy1 !b.c condition
+    rhs_tt(1:nx1,ny1)=rhs_tt(1:nx1,ny1)-(0)/dy1 !b.c condition
+    
+    CALL SYSTEM_CLOCK(c1)
+    do i=1,nx1
+        call d_backward_trig_transform(rhs_tt(i,:),handle_ty,ipar_y,dpar_y,stat)
+    end do
+    !rhs_tt(:,1)=rhs_tt(:,1)/sqrt(dble(ny1))
+    !rhs_tt(:,2:ny1)=rhs_tt(:,2:ny1)/sqrt(ny1/2.0d0)
+
+    do j=1,ny1
+        rhs_tt(1:nx1:2,j)=-rhs_tt(1:nx1:2,j)
+        call d_backward_trig_transform(rhs_tt(:,j),handle_tx,ipar_x,dpar_x,stat)
+    end do
+    !rhs_tt(:,:)=rhs_tt(:,:)/sqrt(nx1/2.0d0)
+    
+    rhs_tt(1:nx1,1:ny1)=rhs_tt(1:nx1,1:ny1)/eig_tt(nx1:1:-1,:)
+    
+    do j=1,ny1
+        call d_forward_trig_transform(rhs_tt(:,j),handle_tx,ipar_x,dpar_x,stat)
+        rhs_tt(1:nx1:2,j)=-rhs_tt(1:nx1:2,j)
+    end do
+    !rhs_tt(:,:)=rhs_tt(:,:)*sqrt(nx1/2.0d0)
+    
+    do i=1,nx1
+        call d_forward_trig_transform(rhs_tt(i,:),handle_ty,ipar_y,dpar_y,stat)
+    end do
+    !rhs_tt(:,2:ny1)=rhs_tt(:,2:ny1)*sqrt(ny1/2.0d0)
+    !rhs_tt(:,1)=rhs_tt(:,1)*sqrt(dble(ny1))
+    CALL SYSTEM_CLOCK(c2)
+    print *, "**************************************"
+    print '("    dct_2D Poisson MKL: ", F8.4, " second")', (c2-c1)/system_clock_rate
+    
+    !rhs_tt(2:nx+1:2)=-rhs_tt(2:nx+1:2)
+    !eig=[(-4/dx2*(sin(i*pi/2/nx))**2, i=1,nx)]
+    !call d_init_trig_transform(nx, MKL_STAGGERED_COSINE_TRANSFORM, ipar, dpar, stat)
+    !call d_commit_trig_transform(rhs_tt,handle_tt,ipar,dpar,stat)
+    !
+    !CALL D_BACKWARD_TRIG_TRANSFORM(rhs_tt,handle_tt,ipar,dpar,stat)
+    !rhs_tt(1:nx)=rhs_tt(1:nx)/eig(nx:1:-1)
+    !CALL D_FORWARD_TRIG_TRANSFORM(rhs_tt,handle_tt,ipar,dpar,stat)
+    !rhs_tt(2:nx+1:2)=-rhs_tt(2:nx+1:2)
 
 
     end subroutine test_subroutine

@@ -1,5 +1,7 @@
     subroutine re_simulation
-    use MKL_DFTI, forget => DFTI_DOUBLE, DFTI_DOUBLE => DFTI_DOUBLE_R
+
+    use MKL_DFTI!, forget => DFTI_DOUBLE, DFTI_DOUBLE => DFTI_DOUBLE_R
+    use mkl_trig_transforms
     USE lapack95
     !use f95_precision
     use FD_functions
@@ -10,9 +12,10 @@
     use ogpf
 
     implicit none
+
     include 'mkl_lapack.fi'
     include 'mkl_pardiso.fi'
-    !include 'fftw/fftw3.f'
+    include 'fftw/fftw3.f'
 
     ! Variables
     real(8), parameter :: pi = 3.1415926535897932_8
@@ -98,6 +101,11 @@
     real(8) :: dft_out_r1(nx,ny,nz), poisson_eigv(INT(nx/2.0)+1,ny,nz)=0
     complex(8) :: dft_out_c1(INT(nx/2.0)+1,ny,nz)
     integer :: status
+
+    !!!!!!!!!!!!!!! INTEL mkl_tt !!!!!!!!!!!!!!!
+    integer :: stat, ipar_x(128), ipar_y(128)
+    real(8) :: dpar_x(5*nx/2+2), dpar_y(5*nx/2+2), dpar_z(5*nz/2+2), rhs_tt(nx+1, ny+1, nz+1), eig_tt(nx, ny, nz)
+    type(dfti_descriptor), pointer :: handle_x, handle_y, handle_z
 
     !!!!!!!!!!!!!!! post-processing !!!!!!!!!!!!!!!
     type(gpf):: gp
@@ -261,6 +269,57 @@
     poisson_eigv(1,1,1)=1.0d0
     poisson_eigv=-poisson_eigv*4.0d0
 
+    !!!! DCT-based FD poisson solver (pbc=1 and 4 are not implemented and tested)
+    if (pbc_x==4) then
+        call d_init_trig_transform(nx, MKL_SINE_TRANSFORM, ipar_x, dpar_x, status)
+    else
+        call d_init_trig_transform(nx, MKL_STAGGERED_COSINE_TRANSFORM, ipar_x, dpar_x, status)
+    end if
+    if (pbc_y==4) then
+        call d_init_trig_transform(ny, MKL_SINE_TRANSFORM, ipar_y, dpar_y, status)
+    else
+        call d_init_trig_transform(ny, MKL_STAGGERED_COSINE_TRANSFORM, ipar_y, dpar_y, status)
+    end if
+    if (pbc_z==4) then
+        call d_init_trig_transform(nz, MKL_SINE_TRANSFORM, ipar_z, dpar_z, status)
+    else
+        call d_init_trig_transform(nz, MKL_STAGGERED_COSINE_TRANSFORM, ipar_z, dpar_z, status)
+    end if
+    call d_commit_trig_transform(rhs_tt(:,1,1),handle_x,ipar_x,dpar_x,status)
+    call d_commit_trig_transform(rhs_tt(1,:,1),handle_y,ipar_y,dpar_y,status)
+    call d_commit_trig_transform(rhs_tt(1,1,:),handle_z,ipar_z,dpar_z,status)
+
+    do i=1,nx
+        if (pbc_x==2) then
+            eig_tt(i,:,:)=(sin( i   *pi/2/nx))**2/dx2
+        elseif (pbc_x==3) then
+            eig_tt(i,:,:)=(sin((i-1)*pi/2/nx))**2/dx2
+        elseif (pbc_x==4) then
+            eig_tt(i,:,:)=(sin(i*pi/2/(nx+1)))**2/dx2
+        end if
+    end do
+
+    do i=1,ny
+        if (pbc_y==2) then
+            eig_tt(:,i,:)=eig_tt(:,i,:)+(sin( i   *pi/2/ny))**2/dy2
+        elseif (pbc_y==3) then
+            eig_tt(:,i,:)=eig_tt(:,i,:)+(sin((i-1)*pi/2/ny))**2/dy2
+        elseif (pbc_y==4) then
+            eig_tt(:,i,:)=eig_tt(:,i,:)+(sin(i*pi/2/(ny+1)))**2/dy2
+        end if
+    end do
+
+    do i=1,nz
+        if (pbc_z==2) then
+            eig_tt(:,:,i)=eig_tt(:,:,i)+(sin( i   *pi/2/nz))**2/dz2
+        elseif (pbc_z==3) then
+            eig_tt(:,:,i)=eig_tt(:,:,i)+(sin((i-1)*pi/2/nz))**2/dz2
+        elseif (pbc_y==4) then
+            eig_tt(:,:,i)=eig_tt(:,:,i)+(sin(i*pi/2/(nz+1)))**2/dz2
+        end if
+    end do
+    eig_tt=-4.0d0*eig_tt
+    
     sizeof_record = (nx0+1)*(ny0+2)*(nz0+2) + (nx0+2)*(ny0+1)*(nz0+2) + (nx0+2)*(ny0+2)*(nz0+1) + (nx0+2)*(ny0+2)*(nz0+2) + &
         (nx0+1)*(ny0+2)*(nz0+2) + (nx0+2)*(ny0+1)*(nz0+2) + (nx0+2)*(ny0+2)*(nz0+1)
     sizeof_record_sub=size(u_sub)+size(v_sub)+size(w_sub)+size(p_sub)+size(u_star_sub)+size(v_star_sub)+size(w_star_sub)+size(dp_sub)+size(RHS_poisson_sub)
@@ -340,7 +399,7 @@
                 tempi1=tempi2+1; tempi2=tempi2+size(bz_v_nz); bz_v_nz=reshape(temp11(tempi1:tempi2), [nx+2,ny+1]);
                 tempi1=tempi2+1; tempi2=tempi2+size(bz_w_1);  bz_w_1 =reshape(temp11(tempi1:tempi2), [nx+2,ny+2]);
                 tempi1=tempi2+1; tempi2=tempi2+size(bz_w_nz); bz_w_nz=reshape(temp11(tempi1:tempi2), [nx+2,ny+2]);
-                
+
                 !tempi1=tempi2+1; tempi2=tempi2+size(u_sub);   temp31=reshape(temp11(tempi1:tempi2), [nx+1,ny+2,nz+2]);
                 !tempi1=tempi2+1; tempi2=tempi2+size(v_sub);   temp32=reshape(temp11(tempi1:tempi2), [nx+2,ny+1,nz+2]);
                 !tempi1=tempi2+1; tempi2=tempi2+size(w_sub);   temp33=reshape(temp11(tempi1:tempi2), [nx+2,ny+2,nz+1]);
@@ -448,7 +507,7 @@
                     if (k<=nz+1) call gttrs( B_low, B_d, B_up, B_up2, w_star(:,:,k), B_ipiv )
                 end do
                 !!$omp end parallel do
-                
+
                 call vel_bc_staggered_CN2(u_star, v_star, w_star, by_u_1, by_u_ny, by_v_1, by_v_ny, by_w_1, by_w_ny, bc_y, 2)
                 !!$omp parallel do
                 do k=1,nz+2

@@ -1,5 +1,7 @@
     subroutine big_periodic_3D
-    use MKL_DFTI, forget => DFTI_DOUBLE, DFTI_DOUBLE => DFTI_DOUBLE_R
+
+    use MKL_DFTI!, forget => DFTI_DOUBLE, DFTI_DOUBLE => DFTI_DOUBLE_R
+    use mkl_trig_transforms
     USE lapack95
     !use f95_precision
     use FD_functions
@@ -10,9 +12,9 @@
     use ogpf
 
     implicit none
+    
     include 'mkl_lapack.fi'
     include 'mkl_pardiso.fi'
-    !include 'fftw/fftw3.f'
 
     ! Variables
     real(8), parameter :: pi = 3.1415926535897932_8
@@ -251,7 +253,7 @@
         poisson_eigv(:,:,i)=poisson_eigv(:,:,i)+(sin(pi*(i-1)/nz)/dz)**2
     end do
     poisson_eigv(1,1,1)=1.0d0
-    poisson_eigv=-poisson_eigv*4.0d0
+    poisson_eigv=-4.0d0*poisson_eigv
 
     sizeof_record=size(u)+size(v)+size(w)+size(p)+size(u)+size(v)+size(w)  !size(rhs_x_previous)+size(rhs_y_previous)+size(rhs_z_previous)
     sizeof_record_sub=size(u_sub)+size(v_sub)+size(w_sub)+size(p_sub)+size(u_star_sub)+size(v_star_sub)+size(w_star_sub)+size(dp_sub)+size(RHS_poisson_sub)

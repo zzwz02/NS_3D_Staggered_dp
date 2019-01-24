@@ -32,13 +32,13 @@
     do j=1, ny
         do i=1, nx
             if (Present (u)) then
-                u(i,j,:)=+dcos(x(i))*dsin(y(j))*nu
+                u(i,j,:)=+cos(x(i))*sin(y(j))*nu
             end if
             if (Present (v)) then
-                v(i,j,:)=-dsin(x(i))*dcos(y(j))*nu
+                v(i,j,:)=-sin(x(i))*cos(y(j))*nu
             end if
             if (Present (p)) then
-                p(i,j,:)=-0.25d0*(dcos(2.0d0*x(i))+dcos(2.0d0*y(j)))*nu*nu
+                p(i,j,:)=-0.25d0*(cos(2.0d0*x(i))+cos(2.0d0*y(j)))*nu*nu
             end if
         end do
     end do

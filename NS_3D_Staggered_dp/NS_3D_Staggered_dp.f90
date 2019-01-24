@@ -1,8 +1,10 @@
     include 'mkl_dfti.f90'
+    include 'mkl_trig_transforms.f90'
     include 'lapack.f90'
     module NS_3D_Staggered_dp
 
-    use MKL_DFTI, forget => DFTI_DOUBLE, DFTI_DOUBLE => DFTI_DOUBLE_R
+    use MKL_DFTI!, forget => DFTI_DOUBLE, DFTI_DOUBLE => DFTI_DOUBLE_R
+    use mkl_trig_transforms
     USE lapack95
     !use f95_precision
     use FD_functions
@@ -13,9 +15,11 @@
     use ogpf
 
     implicit none
-
+    
+    include 'mkl_lapack.fi'
+    include 'mkl_pardiso.fi'
+    
     contains
-
 
     !include 'big_periodic_3D.f90'
     !include 're_simulation.f90'
