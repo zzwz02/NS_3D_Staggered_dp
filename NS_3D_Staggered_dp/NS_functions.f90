@@ -1,5 +1,9 @@
+    include 'mkl_dfti.f90'
+    include 'mkl_trig_transforms.f90'
+
     module NS_functions
 
+    use mkl_trig_transforms
     use FD_functions
     use coo_mod
     use csr_mod
@@ -465,24 +469,35 @@
     if (pbc_x==2) then
         bx_p_1 =(p_bc(1,:,:)  +p_bc(2,:,:))/2;
         bx_p_nx=(p_bc(nxp,:,:)+p_bc(nxp-1,:,:))/2;
-        by_p_1 =(p_bc(:,1,:)  +p_bc(:,2,:))/2;
-        by_p_ny=(p_bc(:,nyp,:)+p_bc(:,ny+2-1,:))/2;
-        bz_p_1 =(p_bc(:,:,1)  +p_bc(:,:,2))/2;
-        bz_p_nz=(p_bc(:,:,nzp)+p_bc(:,:,nz+2-1))/2;
     else if (pbc_x==4) then
         bx_p_1 =p_bc(1,:,:);
         bx_p_nx=p_bc(nxp,:,:);
-        by_p_1 =p_bc(:,1,:);
-        by_p_ny=p_bc(:,nyp,:);
-        bz_p_1 =p_bc(:,:,1);
-        bz_p_nz=p_bc(:,:,nzp);
     else if (pbc_x==3) then
         bx_p_1 =reshape([diff(p_bc(1:2,:,:),1,1)/dx]      , [nyp,nzp])
         bx_p_nx=reshape([diff(p_bc(nxp-1:nxp,:,:),1,1)/dx], [nyp,nzp])
-        by_p_1 =reshape([diff(p_bc(:,1:2,:),1,1)/dy]      , [nxp,nzp])
-        by_p_ny=reshape([diff(p_bc(:,nyp-1:nyp,:),1,1)/dy], [nxp,nzp])
-        bz_p_1 =reshape([diff(p_bc(:,:,1:2),1,1)/dz]      , [nxp,nyp])
-        bz_p_nz=reshape([diff(p_bc(:,:,nzp-1:nzp),1,1)/dz], [nxp,nyp])
+
+    end if
+    
+    if (pbc_y==2) then
+        by_p_1 =(p_bc(:,1,:)  +p_bc(:,2,:))/2;
+        by_p_ny=(p_bc(:,nyp,:)+p_bc(:,nyp-1,:))/2;
+    else if (pbc_y==4) then
+        by_p_1 =p_bc(:,1,:);
+        by_p_ny=p_bc(:,nyp,:);
+    else if (pbc_y==3) then
+        by_p_1 =reshape([diff(p_bc(:,1:2,:),1,3)/dy]      , [nxp,nzp])
+        by_p_ny=reshape([diff(p_bc(:,nyp-1:nyp,:),1,3)/dy], [nxp,nzp])
+    end if
+    
+    if (pbc_z==2) then
+        bz_p_1 =(p_bc(:,:,1)  +p_bc(:,:,2))/2;
+        bz_p_nz=(p_bc(:,:,nzp)+p_bc(:,:,nzp-1))/2;
+    else if (pbc_z==4) then
+        bz_p_1 =p_bc(:,:,1);
+        bz_p_nz=p_bc(:,:,nzp);
+    else if (pbc_z==3) then
+        bz_p_1 =reshape([diff(p_bc(:,:,1:2),1,3)/dz]      , [nxp,nyp])
+        bz_p_nz=reshape([diff(p_bc(:,:,nzp-1:nzp),1,3)/dz], [nxp,nyp])
     end if
 
     end subroutine get_pr_bc
@@ -1131,6 +1146,278 @@
     end if
 
     end subroutine mat_CN_tridiagonal
+
+    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    subroutine pr_bc_staggered_modify_rhs(RHS_poisson_internal, &
+        bx_p_1, bx_p_nx, by_p_1, by_p_ny, bz_p_1, bz_p_nz,&
+        pbc_x, pbc_y, pbc_z, dx, dy, dz, dx2, dy2, dz2)
+
+    ! pbc=1 Periodic; pbc=2 Dirichlet on boundary (cell wall)
+    ! pbc=3 Neumann on boundary (cell wall); pbc=4 Dirichlet on ghost cell
+
+    implicit none
+    integer, intent(in) :: pbc_x, pbc_y, pbc_z
+    real(8), dimension (:,:,:), intent(inout) :: RHS_poisson_internal
+    real(8), dimension (:,:), intent(in) :: bx_p_1, bx_p_nx, by_p_1, by_p_ny, bz_p_1, bz_p_nz
+    real(8), intent(in) :: dx, dy, dz, dx2, dy2, dz2
+
+    integer, dimension (3) :: np
+
+    np=ubound(RHS_poisson_internal)
+    !!!!!!!!!!!!!! X component !!!!!!!!!!!!!!
+    if (pbc_x==1) then
+    else if (pbc_x==2) then
+        RHS_poisson_internal(1    ,:,:)=RHS_poisson_internal(1    ,:,:)-2*bx_p_1/dx2
+        RHS_poisson_internal(np(1),:,:)=RHS_poisson_internal(np(1),:,:)-2*bx_p_nx/dx2
+    else if (pbc_x==3) then
+        RHS_poisson_internal(1    ,:,:)=RHS_poisson_internal(1    ,:,:)+bx_p_1/dx
+        RHS_poisson_internal(np(1),:,:)=RHS_poisson_internal(np(1),:,:)-bx_p_nx/dx
+    else if (pbc_x==4) then
+        RHS_poisson_internal(1    ,:,:)=RHS_poisson_internal(1    ,:,:)-bx_p_1/dx2
+        RHS_poisson_internal(np(1),:,:)=RHS_poisson_internal(np(1),:,:)-bx_p_nx/dx2
+    end if
+
+    !!!!!!!!!!!!!! Y component !!!!!!!!!!!!!!
+    if (pbc_y==1) then
+    else if (pbc_y==2) then
+        RHS_poisson_internal(:,1    ,:)=RHS_poisson_internal(:,1    ,:)-2*by_p_1/dy2
+        RHS_poisson_internal(:,np(2),:)=RHS_poisson_internal(:,np(2),:)-2*by_p_ny/dy2
+    else if (pbc_y==3) then
+        RHS_poisson_internal(:,1    ,:)=RHS_poisson_internal(:,1    ,:)+by_p_1/dy
+        RHS_poisson_internal(:,np(2),:)=RHS_poisson_internal(:,np(2),:)-by_p_ny/dy
+    else if (pbc_y==4) then
+        RHS_poisson_internal(:,1    ,:)=RHS_poisson_internal(:,1    ,:)-by_p_1/dy2
+        RHS_poisson_internal(:,np(2),:)=RHS_poisson_internal(:,np(2),:)-by_p_ny/dy2
+    end if
+
+    !!!!!!!!!!!!!! Z component !!!!!!!!!!!!!!
+    if (pbc_z==1) then
+    else if (pbc_z==2) then
+        RHS_poisson_internal(:,:,1    )=RHS_poisson_internal(:,:,1    )-2*bz_p_1/dz2
+        RHS_poisson_internal(:,:,np(3))=RHS_poisson_internal(:,:,np(3))-2*bz_p_nz/dz2
+    else if (pbc_z==3) then
+        RHS_poisson_internal(:,:,1    )=RHS_poisson_internal(:,:,1    )+bz_p_1/dz
+        RHS_poisson_internal(:,:,np(3))=RHS_poisson_internal(:,:,np(3))-bz_p_nz/dz
+    else if (pbc_z==4) then
+        RHS_poisson_internal(:,:,1    )=RHS_poisson_internal(:,:,1    )-bz_p_1/dz2
+        RHS_poisson_internal(:,:,np(3))=RHS_poisson_internal(:,:,np(3))-bz_p_nz/dz2
+    end if
+
+    end subroutine pr_bc_staggered_modify_rhs
+
+    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    subroutine pr_bc_staggered(dp, &
+        bx_p_1, bx_p_nx, by_p_1, by_p_ny, bz_p_1, bz_p_nz,&
+        pbc_x, pbc_y, pbc_z, dx, dy, dz)
+
+    ! pbc=1 Periodic; pbc=2 Dirichlet on boundary (cell wall)
+    ! pbc=3 Neumann on boundary (cell wall); pbc=4 Dirichlet on ghost cell
+
+    implicit none
+    integer, intent(in) :: pbc_x, pbc_y, pbc_z
+    real(8), dimension (:,:,:), intent(inout) :: dp
+    real(8), dimension (:,:), intent(in) :: bx_p_1, bx_p_nx, by_p_1, by_p_ny, bz_p_1, bz_p_nz
+    real(8), intent(in) :: dx, dy, dz
+
+    integer, dimension (3) :: np
+
+    np=ubound(dp)
+    !!!!!!!!!!!!!! X component !!!!!!!!!!!!!!
+    if (pbc_x==1) then
+        dp(1    ,:,:)=dp(np(1)-1,:,:)
+        dp(np(1),:,:)=dp(2      ,:,:)
+    else if (pbc_x==2) then
+        dp(1    ,:,:)=2*bx_p_1 -dp(2      ,:,:)
+        dp(np(1),:,:)=2*bx_p_nx-dp(np(1)-1,:,:)
+    else if (pbc_x==3) then
+        dp(1    ,:,:)=-dx*bx_p_1 +dp(2      ,:,:)
+        dp(np(1),:,:)= dx*bx_p_nx+dp(np(1)-1,:,:)
+    else if (pbc_x==4) then
+        dp(1    ,:,:)=bx_p_1
+        dp(np(1),:,:)=bx_p_nx
+    end if
+
+    !!!!!!!!!!!!!! Y component !!!!!!!!!!!!!!
+    if (pbc_y==1) then
+        dp(:,1    ,:)=dp(:,np(2)-1,:)
+        dp(:,np(2),:)=dp(:,2      ,:)
+    else if (pbc_y==2) then
+        dp(:,1    ,:)=2*by_p_1 -dp(:,2      ,:)
+        dp(:,np(2),:)=2*by_p_ny-dp(:,np(2)-1,:)
+    else if (pbc_y==3) then
+        dp(:,1    ,:)=-dy*by_p_1 +dp(:,2      ,:)
+        dp(:,np(2),:)= dy*by_p_ny+dp(:,np(2)-1,:)
+    else if (pbc_y==4) then
+        dp(:,1    ,:)=by_p_1
+        dp(:,np(2),:)=by_p_ny
+    end if
+
+    !!!!!!!!!!!!!! Z component !!!!!!!!!!!!!!
+    if (pbc_z==1) then
+        dp(:,:,1    )=dp(:,:,np(3)-1)
+        dp(:,:,np(3))=dp(:,:,2      )
+    else if (pbc_z==2) then
+        dp(:,:,1    )=2*bz_p_1 -dp(:,:,2      )
+        dp(:,:,np(3))=2*bz_p_nz-dp(:,:,np(3)-1)
+    else if (pbc_z==3) then
+        dp(:,:,1    )=-dz*bz_p_1 +dp(:,:,2      )
+        dp(:,:,np(3))= dz*bz_p_nz+dp(:,:,np(3)-1)
+    else if (pbc_z==4) then
+        dp(:,:,1    )=bz_p_1
+        dp(:,:,np(3))=bz_p_nz
+    end if
+
+    end subroutine pr_bc_staggered
+
+    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    subroutine DST_DCT_2(f, nx, handle, ipar, dpar, DST2, DCT2, forward, backward)
+
+    implicit none
+
+    logical, intent(in), optional :: DST2, DCT2, forward, backward
+    real(8), intent(inout) :: f(nx+1), dpar(5*nx/2+2)
+    !!!!!!!!!!!!!!! INTEL mkl_tt !!!!!!!!!!!!!!!
+    integer, intent(inout) :: ipar(128)!, direction
+    type(dfti_descriptor), pointer, intent(in) :: handle
+
+    integer :: nx, stat
+
+    if (present(DST2) .and. DST2) then
+
+        if (present(forward) .and. forward) then
+            f(1:nx:2)=-f(1:nx:2)
+            call d_backward_trig_transform(f,handle,ipar,dpar,stat)
+            f(1:nx)=f(nx:1:-1)
+        elseif (present(backward) .and. backward) then
+            f(1:nx)=f(nx:1:-1)
+            call d_forward_trig_transform(f,handle,ipar,dpar,stat)
+            f(1:nx:2)=-f(1:nx:2)
+        end if
+
+    elseif (present(DCT2).and. DCT2) then
+
+        if (present(forward) .and. forward) then
+            call d_backward_trig_transform(f,handle,ipar,dpar,stat)
+        elseif (present(backward) .and. backward) then
+            call d_forward_trig_transform(f,handle,ipar,dpar,stat)
+        end if
+
+    end if
+
+    end subroutine DST_DCT_2
+
+    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    subroutine DCT_poisson_solver(rhs_tt, eig_tt, handle_x, handle_y, handle_z, &
+        ipar_x, ipar_y, ipar_z, dpar_x, dpar_y, dpar_z, nx, ny, nz, pbc_x, pbc_y, pbc_z)
+
+    implicit none
+
+    integer, intent(in) :: nx, ny, nz, pbc_x, pbc_y, pbc_z
+    real(8), intent(in) :: eig_tt(nx,ny,nz), dpar_x(5*nx/2+2), dpar_y(5*nx/2+2), dpar_z(5*nz/2+2)
+    real(8), intent(out) :: rhs_tt(nx+1,ny+1,nz+1)
+    integer, intent(inout) :: ipar_x(128), ipar_y(128), ipar_z(128)
+    type(dfti_descriptor), pointer, intent(in) :: handle_x, handle_y, handle_z
+
+    integer :: stat, i, j, k
+
+    !x-direction
+    do k=1,nz
+        do j=1,ny
+            if (pbc_x==2) then ! DST-2 = flip sign of every other input, iDCT-3, reverse order of output
+                rhs_tt(1:nx:2,j,k)=-rhs_tt(1:nx:2,j,k)
+                call d_backward_trig_transform(rhs_tt(:,j,k),handle_x,ipar_x,dpar_x,stat)
+                rhs_tt(1:nx,j,k)=rhs_tt(nx:1:-1,j,k)
+            elseif (pbc_x==3) then ! DCT-2 = iDCT-3
+                call d_backward_trig_transform(rhs_tt(:,j,k),handle_x,ipar_x,dpar_x,stat)
+            elseif (pbc_x==4) then ! DST-1
+                call d_forward_trig_transform(rhs_tt(:,j,k),handle_x,ipar_x,dpar_x,stat)
+            end if
+        end do
+    end do
+
+    !y-direction
+    do k=1,nz
+        do i=1,nx
+            if (pbc_y==2) then ! DST-2 = flip sign of every other input, iDCT-3, reverse order of output
+                rhs_tt(i,1:ny:2,k)=-rhs_tt(i,1:ny:2,k)
+                call d_backward_trig_transform(rhs_tt(i,:,k),handle_y,ipar_y,dpar_y,stat)
+                rhs_tt(i,1:ny,k)=rhs_tt(i,ny:1:-1,k)
+            elseif (pbc_y==3) then ! DCT-2 = iDCT-3
+                call d_backward_trig_transform(rhs_tt(i,:,k),handle_y,ipar_y,dpar_y,stat)
+            elseif (pbc_y==4) then ! DST-1
+                call d_forward_trig_transform(rhs_tt(i,:,k),handle_y,ipar_y,dpar_y,stat)
+            end if
+        end do
+    end do
+
+    !z-direction
+    do j=1,ny
+        do i=1,nx
+            if (pbc_z==2) then ! DST-2 = flip sign of every other input, iDCT-3, reverse order of output
+                rhs_tt(i,j,1:nz:2)=-rhs_tt(i,j,1:nz:2)
+                call d_backward_trig_transform(rhs_tt(i,j,:),handle_z,ipar_z,dpar_z,stat)
+                !rhs_tt(i,j,1:nz)=rhs_tt(i,j,nz:1:-1)
+            elseif (pbc_z==3) then ! DCT-2 = iDCT-3
+                call d_backward_trig_transform(rhs_tt(i,j,:),handle_z,ipar_z,dpar_z,stat)
+            elseif (pbc_z==4) then ! DST-1
+                call d_forward_trig_transform(rhs_tt(i,j,:),handle_z,ipar_z,dpar_z,stat)
+            end if
+        end do
+    end do
+
+    !if (pbc_z==2) then
+    !    rhs_tt(1:nx,1:ny,1:nz)=rhs_tt(1:nx,1:ny,1:nz)/eig_tt(:,:,nz:1:-1)
+    !else
+    !    rhs_tt(1:nx,1:ny,1:nz)=rhs_tt(1:nx,1:ny,1:nz)/eig_tt
+    !end if
+    rhs_tt(1:nx,1:ny,1:nz)=rhs_tt(1:nx,1:ny,1:nz)/eig_tt
+
+    !z-direction
+    do j=1,ny
+        do i=1,nx
+            if (pbc_z==2) then ! iDST-2 = reverse order of input, iDCT-3, flip sign of every other output
+                !rhs_tt(i,j,1:nz)=rhs_tt(i,j,nz:1:-1)
+                call d_forward_trig_transform(rhs_tt(i,j,:),handle_z,ipar_z,dpar_z,stat)
+                rhs_tt(i,j,1:nz:2)=-rhs_tt(i,j,1:nz:2)
+            elseif (pbc_z==3) then ! iDCT-2 = DCT-3
+                call d_forward_trig_transform(rhs_tt(i,j,:),handle_z,ipar_z,dpar_z,stat)
+            elseif (pbc_z==4) then ! iDST-1
+                call d_backward_trig_transform(rhs_tt(i,j,:),handle_z,ipar_z,dpar_z,stat)
+            end if
+        end do
+    end do
+
+    !y-direction
+    do k=1,nz
+        do i=1,nx
+            if (pbc_y==2) then ! iDST-2 = reverse order of input, iDCT-3, flip sign of every other output
+                rhs_tt(i,1:ny,k)=rhs_tt(i,ny:1:-1,k)
+                call d_forward_trig_transform(rhs_tt(i,:,k),handle_y,ipar_y,dpar_y,stat)
+                rhs_tt(i,1:ny:2,k)=-rhs_tt(i,1:ny:2,k)
+            elseif (pbc_y==3) then ! iDCT-2 = DCT-3
+                call d_forward_trig_transform(rhs_tt(i,:,k),handle_y,ipar_y,dpar_y,stat)
+            elseif (pbc_y==4) then ! iDST-1
+                call d_backward_trig_transform(rhs_tt(i,:,k),handle_y,ipar_y,dpar_y,stat)
+            end if
+        end do
+    end do
+
+    !x-direction
+    do k=1,nz
+        do j=1,ny
+            if (pbc_x==2) then ! iDST-2 = reverse order of input, iDCT-3, flip sign of every other output
+                rhs_tt(1:nx,j,k)=rhs_tt(nx:1:-1,j,k)
+                call d_forward_trig_transform(rhs_tt(:,j,k),handle_x,ipar_x,dpar_x,stat)
+                rhs_tt(1:nx:2,j,k)=-rhs_tt(1:nx:2,j,k)
+            elseif (pbc_x==3) then ! iDCT-2 = DCT-3
+                call d_forward_trig_transform(rhs_tt(:,j,k),handle_x,ipar_x,dpar_x,stat)
+            elseif (pbc_x==4) then ! iDST-1
+                call d_backward_trig_transform(rhs_tt(:,j,k),handle_x,ipar_x,dpar_x,stat)
+            end if
+        end do
+    end do
+
+    end subroutine DCT_poisson_solver
 
     end module NS_functions
 

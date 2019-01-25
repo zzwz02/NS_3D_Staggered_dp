@@ -1,5 +1,5 @@
-    include 'mkl_dfti.f90'
-    include 'mkl_trig_transforms.f90'
+    !include 'mkl_dfti.f90'
+    !include 'mkl_trig_transforms.f90'
     include 'lapack.f90'
     module NS_3D_Staggered_dp
 
@@ -21,8 +21,8 @@
     
     contains
 
-    !include 'big_periodic_3D.f90'
-    !include 're_simulation.f90'
+    include 'big_periodic_3D.f90'
+    include 're_simulation.f90'
     include 'test_subroutine.f90'
 
     end module NS_3D_Staggered_dp

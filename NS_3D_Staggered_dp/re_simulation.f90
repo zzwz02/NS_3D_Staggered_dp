@@ -1,21 +1,6 @@
     subroutine re_simulation
 
-    use MKL_DFTI!, forget => DFTI_DOUBLE, DFTI_DOUBLE => DFTI_DOUBLE_R
-    use mkl_trig_transforms
-    USE lapack95
-    !use f95_precision
-    use FD_functions
-    use NS_functions
-    use coo_mod
-    use csr_mod
-    use other_utility
-    use ogpf
-
     implicit none
-
-    include 'mkl_lapack.fi'
-    include 'mkl_pardiso.fi'
-    include 'fftw/fftw3.f'
 
     ! Variables
     real(8), parameter :: pi = 3.1415926535897932_8
@@ -103,7 +88,7 @@
     integer :: status
 
     !!!!!!!!!!!!!!! INTEL mkl_tt !!!!!!!!!!!!!!!
-    integer :: stat, ipar_x(128), ipar_y(128)
+    integer :: stat, ipar_x(128), ipar_y(128), ipar_z(128)
     real(8) :: dpar_x(5*nx/2+2), dpar_y(5*nx/2+2), dpar_z(5*nz/2+2), rhs_tt(nx+1, ny+1, nz+1), eig_tt(nx, ny, nz)
     type(dfti_descriptor), pointer :: handle_x, handle_y, handle_z
 
@@ -116,7 +101,7 @@
     INTEGER :: c01,c02,c1,c2,cr,cm
 
     !!!!!!!!!!!!!!! re-simulation parameters !!!!!!!!!!!!!!!
-    character(*), parameter :: timescheme="AB2-CN"
+    character(*), parameter :: timescheme="AB2"
     ! pbc=1 Periodic; pbc=2 Dirichlet on boundary (cell wall); pbc=3 Neumann on boundary (cell wall); pbc=4 Dirichlet on ghost cell
     integer, parameter :: bc_x=2, bc_y=bc_x, bc_z=bc_x, pbc_x=2, pbc_y=pbc_x, pbc_z=pbc_x
     logical, parameter :: using_Ustar=.true., TOffset=.false., restart=.false.
@@ -198,6 +183,7 @@
         call gttrf( F_low, F_d, F_up, F_up2, F_ipiv )
     end if
 
+    !!!! LU-based FD poisson solver
     if (LU_poisson) then
         LHS_poisson=Poisson_LHS_staggered(nxp, nyp, nzp, dx2, dy2, dz2, pbc_x, pbc_y, pbc_z, dx, dy, dz)
         !LHS_poisson_coo=LHS_poisson_coo%from_csr(LHS_poisson)
@@ -229,97 +215,104 @@
     end if
 
     !!!! FFT-based FD poisson solver
-    ! Configure Forward Descriptor
-    hand_f => null()
-    hand_b => null()
-    cstrides = [0, 1, INT(nx/2.0)+1, ny*(INT(nx/2.0)+1)]
-    rstrides = [0, 1, nx,     ny*nx]
-    !3D MKL dft = fft_z( fft_y (fft_x) ), same in MATLAB
-    print *,"Configure DFTI descriptor for fordward transform"
-    !status = DftiCreateDescriptor(hand_f, DFTI_DOUBLE, DFTI_COMPLEX, 3, [nx,ny,nz])
-    status = DftiCreateDescriptor(hand_f, DFTI_DOUBLE, DFTI_REAL, 3, [nx,ny,nz])
-    status = DftiSetValue(hand_f, DFTI_PLACEMENT, DFTI_NOT_INPLACE)
-    status = DftiSetValue(hand_f, DFTI_CONJUGATE_EVEN_STORAGE, DFTI_COMPLEX_COMPLEX)
-    status = DftiSetValue(hand_f, DFTI_INPUT_STRIDES, rstrides)
-    status = DftiSetValue(hand_f, DFTI_OUTPUT_STRIDES, cstrides)
-    status = DftiSetValue(hand_f, DFTI_BACKWARD_SCALE, 1.0d0/(nx*ny*nz))
-    status = DftiCommitDescriptor(hand_f)
+    if (pbc_x==1 .and. pbc_y==1 .and. pbc_z==1) then
+        ! Configure Forward Descriptor
+        hand_f => null()
+        hand_b => null()
+        cstrides = [0, 1, INT(nx/2.0)+1, ny*(INT(nx/2.0)+1)]
+        rstrides = [0, 1, nx,     ny*nx]
+        !3D MKL dft = fft_z( fft_y (fft_x) ), same in MATLAB
+        print *,"Configure DFTI descriptor for fordward transform"
+        !status = DftiCreateDescriptor(hand_f, DFTI_DOUBLE, DFTI_COMPLEX, 3, [nx,ny,nz])
+        status = DftiCreateDescriptor(hand_f, DFTI_DOUBLE, DFTI_REAL, 3, [nx,ny,nz])
+        status = DftiSetValue(hand_f, DFTI_PLACEMENT, DFTI_NOT_INPLACE)
+        status = DftiSetValue(hand_f, DFTI_CONJUGATE_EVEN_STORAGE, DFTI_COMPLEX_COMPLEX)
+        status = DftiSetValue(hand_f, DFTI_INPUT_STRIDES, rstrides)
+        status = DftiSetValue(hand_f, DFTI_OUTPUT_STRIDES, cstrides)
+        status = DftiSetValue(hand_f, DFTI_BACKWARD_SCALE, 1.0d0/(nx*ny*nz))
+        status = DftiCommitDescriptor(hand_f)
 
-    print *,"Configure DFTI descriptor for backward transform"
-    !status = DftiCreateDescriptor(hand_b, DFTI_DOUBLE, DFTI_COMPLEX, 3, [nx,ny,nz])
-    status = DftiCreateDescriptor(hand_b, DFTI_DOUBLE, DFTI_REAL, 3, [nx,ny,nz])
-    status = DftiSetValue(hand_b, DFTI_PLACEMENT, DFTI_NOT_INPLACE)
-    status = DftiSetValue(hand_b, DFTI_CONJUGATE_EVEN_STORAGE, DFTI_COMPLEX_COMPLEX)
-    status = DftiSetValue(hand_b, DFTI_INPUT_STRIDES, cstrides)
-    status = DftiSetValue(hand_b, DFTI_OUTPUT_STRIDES, rstrides)
-    status = DftiSetValue(hand_b, DFTI_BACKWARD_SCALE, 1.0d0/(nx*ny*nz))
-    status = DftiCommitDescriptor(hand_b)
+        print *,"Configure DFTI descriptor for backward transform"
+        !status = DftiCreateDescriptor(hand_b, DFTI_DOUBLE, DFTI_COMPLEX, 3, [nx,ny,nz])
+        status = DftiCreateDescriptor(hand_b, DFTI_DOUBLE, DFTI_REAL, 3, [nx,ny,nz])
+        status = DftiSetValue(hand_b, DFTI_PLACEMENT, DFTI_NOT_INPLACE)
+        status = DftiSetValue(hand_b, DFTI_CONJUGATE_EVEN_STORAGE, DFTI_COMPLEX_COMPLEX)
+        status = DftiSetValue(hand_b, DFTI_INPUT_STRIDES, cstrides)
+        status = DftiSetValue(hand_b, DFTI_OUTPUT_STRIDES, rstrides)
+        status = DftiSetValue(hand_b, DFTI_BACKWARD_SCALE, 1.0d0/(nx*ny*nz))
+        status = DftiCommitDescriptor(hand_b)
 
-    do i=1,nx/2+1
-        poisson_eigv(i,:,:)=(sin(pi*(i-1)/nx)/dx)**2
-    end do
+        do i=1,nx/2+1
+            poisson_eigv(i,:,:)=(sin(pi*(i-1)/nx)/dx)**2
+        end do
 
-    do i=1,ny
-        poisson_eigv(:,i,:)=poisson_eigv(:,i,:)+(sin(pi*(i-1)/ny)/dy)**2
-    end do
+        do i=1,ny
+            poisson_eigv(:,i,:)=poisson_eigv(:,i,:)+(sin(pi*(i-1)/ny)/dy)**2
+        end do
 
-    do i=1,nz
-        poisson_eigv(:,:,i)=poisson_eigv(:,:,i)+(sin(pi*(i-1)/nz)/dz)**2
-    end do
-    poisson_eigv(1,1,1)=1.0d0
-    poisson_eigv=-poisson_eigv*4.0d0
+        do i=1,nz
+            poisson_eigv(:,:,i)=poisson_eigv(:,:,i)+(sin(pi*(i-1)/nz)/dz)**2
+        end do
+        poisson_eigv(1,1,1)=1.0d0
+        poisson_eigv=-poisson_eigv*4.0d0
+    end if
 
     !!!! DCT-based FD poisson solver (pbc=1 and 4 are not implemented and tested)
-    if (pbc_x==4) then
-        call d_init_trig_transform(nx, MKL_SINE_TRANSFORM, ipar_x, dpar_x, status)
-    else
-        call d_init_trig_transform(nx, MKL_STAGGERED_COSINE_TRANSFORM, ipar_x, dpar_x, status)
-    end if
-    if (pbc_y==4) then
-        call d_init_trig_transform(ny, MKL_SINE_TRANSFORM, ipar_y, dpar_y, status)
-    else
-        call d_init_trig_transform(ny, MKL_STAGGERED_COSINE_TRANSFORM, ipar_y, dpar_y, status)
-    end if
-    if (pbc_z==4) then
-        call d_init_trig_transform(nz, MKL_SINE_TRANSFORM, ipar_z, dpar_z, status)
-    else
-        call d_init_trig_transform(nz, MKL_STAGGERED_COSINE_TRANSFORM, ipar_z, dpar_z, status)
-    end if
-    call d_commit_trig_transform(rhs_tt(:,1,1),handle_x,ipar_x,dpar_x,status)
-    call d_commit_trig_transform(rhs_tt(1,:,1),handle_y,ipar_y,dpar_y,status)
-    call d_commit_trig_transform(rhs_tt(1,1,:),handle_z,ipar_z,dpar_z,status)
-
-    do i=1,nx
-        if (pbc_x==2) then
-            eig_tt(i,:,:)=(sin( i   *pi/2/nx))**2/dx2
-        elseif (pbc_x==3) then
-            eig_tt(i,:,:)=(sin((i-1)*pi/2/nx))**2/dx2
-        elseif (pbc_x==4) then
-            eig_tt(i,:,:)=(sin(i*pi/2/(nx+1)))**2/dx2
+    if (pbc_x/=1 .and. pbc_y/=1 .and. pbc_z/=1) then
+        if (pbc_x==4) then
+            call d_init_trig_transform(nx, MKL_SINE_TRANSFORM, ipar_x, dpar_x, status)
+        else
+            call d_init_trig_transform(nx, MKL_STAGGERED_COSINE_TRANSFORM, ipar_x, dpar_x, status)
         end if
-    end do
-
-    do i=1,ny
-        if (pbc_y==2) then
-            eig_tt(:,i,:)=eig_tt(:,i,:)+(sin( i   *pi/2/ny))**2/dy2
-        elseif (pbc_y==3) then
-            eig_tt(:,i,:)=eig_tt(:,i,:)+(sin((i-1)*pi/2/ny))**2/dy2
-        elseif (pbc_y==4) then
-            eig_tt(:,i,:)=eig_tt(:,i,:)+(sin(i*pi/2/(ny+1)))**2/dy2
+        if (pbc_y==4) then
+            call d_init_trig_transform(ny, MKL_SINE_TRANSFORM, ipar_y, dpar_y, status)
+        else
+            call d_init_trig_transform(ny, MKL_STAGGERED_COSINE_TRANSFORM, ipar_y, dpar_y, status)
         end if
-    end do
-
-    do i=1,nz
-        if (pbc_z==2) then
-            eig_tt(:,:,i)=eig_tt(:,:,i)+(sin( i   *pi/2/nz))**2/dz2
-        elseif (pbc_z==3) then
-            eig_tt(:,:,i)=eig_tt(:,:,i)+(sin((i-1)*pi/2/nz))**2/dz2
-        elseif (pbc_y==4) then
-            eig_tt(:,:,i)=eig_tt(:,:,i)+(sin(i*pi/2/(nz+1)))**2/dz2
+        if (pbc_z==4) then
+            call d_init_trig_transform(nz, MKL_SINE_TRANSFORM, ipar_z, dpar_z, status)
+        else
+            call d_init_trig_transform(nz, MKL_STAGGERED_COSINE_TRANSFORM, ipar_z, dpar_z, status)
         end if
-    end do
-    eig_tt=-4.0d0*eig_tt
-    
+        call d_commit_trig_transform(rhs_tt(:,1,1),handle_x,ipar_x,dpar_x,status)
+        call d_commit_trig_transform(rhs_tt(1,:,1),handle_y,ipar_y,dpar_y,status)
+        call d_commit_trig_transform(rhs_tt(1,1,:),handle_z,ipar_z,dpar_z,status)
+
+        do i=1,nx
+            if (pbc_x==2) then
+                eig_tt(i,:,:)=(sin( i   *pi/2/nx))**2/dx2
+            elseif (pbc_x==3) then
+                eig_tt(i,:,:)=(sin((i-1)*pi/2/nx))**2/dx2
+            elseif (pbc_x==4) then
+                eig_tt(i,:,:)=(sin(i*pi/2/(nx+1)))**2/dx2
+            end if
+        end do
+
+        do i=1,ny
+            if (pbc_y==2) then
+                eig_tt(:,i,:)=eig_tt(:,i,:)+(sin( i   *pi/2/ny))**2/dy2
+            elseif (pbc_y==3) then
+                eig_tt(:,i,:)=eig_tt(:,i,:)+(sin((i-1)*pi/2/ny))**2/dy2
+            elseif (pbc_y==4) then
+                eig_tt(:,i,:)=eig_tt(:,i,:)+(sin(i*pi/2/(ny+1)))**2/dy2
+            end if
+        end do
+
+        do i=1,nz
+            if (pbc_z==2) then
+                !eig_tt(:,:,i)=eig_tt(:,:,i)+(sin( i   *pi/2/nz))**2/dz2
+                eig_tt(:,:,i)=eig_tt(:,:,i)+(sin((nz-i+1)*pi/2/nz))**2/dz2 !!!hard-coded to speed up used in eigenvalue normalization
+            elseif (pbc_z==3) then
+                eig_tt(:,:,i)=eig_tt(:,:,i)+(sin((i-1)*pi/2/nz))**2/dz2
+            elseif (pbc_y==4) then
+                eig_tt(:,:,i)=eig_tt(:,:,i)+(sin(i*pi/2/(nz+1)))**2/dz2
+            end if
+        end do
+        
+        if (eig_tt(1,1,1)==0.0d0) eig_tt(1,1,1)=1.0d0
+        eig_tt=-4.0d0*eig_tt
+    end if
+
     sizeof_record = (nx0+1)*(ny0+2)*(nz0+2) + (nx0+2)*(ny0+1)*(nz0+2) + (nx0+2)*(ny0+2)*(nz0+1) + (nx0+2)*(ny0+2)*(nz0+2) + &
         (nx0+1)*(ny0+2)*(nz0+2) + (nx0+2)*(ny0+1)*(nz0+2) + (nx0+2)*(ny0+2)*(nz0+1)
     sizeof_record_sub=size(u_sub)+size(v_sub)+size(w_sub)+size(p_sub)+size(u_star_sub)+size(v_star_sub)+size(w_star_sub)+size(dp_sub)+size(RHS_poisson_sub)
@@ -566,6 +559,7 @@
             print *, [maxval(abs(u_star-u_star_sub)), maxval(abs(v_star-v_star_sub)), maxval(abs(w_star-w_star_sub)), maxval(abs(RHS_poisson_internal-RHS_poisson_sub(2:nxp-1,2:nyp-1,2:nzp-1)))]
             print *,'*****************************'
 
+            !!!!!!!!!! LU-based FD poisson solver !!!!!!!!!!
             if (LU_poisson) then
                 !RHS_poisson(2:nxp-1,2:nyp-1,2:nzp-1)=RHS_poisson_internal
                 if (pbc_x==1) then
@@ -606,31 +600,53 @@
                 dp_lu=reshape(dp_vec,([nxp,nyp,nzp]))
             end if
 
-            CALL SYSTEM_CLOCK(c1)
-            !print *, "**************************************"
-            !print *, "   Solve Poisson (FFT-based FD) start..."
-            !dft_out_c=dcmplx(RHS_poisson_internal)
+            !!!!!!!!!! FFT-based FD poisson solver !!!!!!!!!!
+            if (pbc_x==1 .and. pbc_y==1 .and. pbc_z==1) then
+                CALL SYSTEM_CLOCK(c1)
+                !print *, "**************************************"
+                !print *, "   Solve Poisson (FFT-based FD) start..."
+                !dft_out_c=dcmplx(RHS_poisson_internal)
 
-            !print *, "   Forward FFT..."
-            status = DftiComputeForward(hand_f, RHS_poisson_internal(:,1,1), dft_out_c1(:,1,1))
-            !status = DftiComputeForward(hand_f, dft_out_c(:,1,1))
+                !print *, "   Forward FFT..."
+                status = DftiComputeForward(hand_f, RHS_poisson_internal(:,1,1), dft_out_c1(:,1,1))
+                !status = DftiComputeForward(hand_f, dft_out_c(:,1,1))
 
-            dft_out_c1=dft_out_c1/poisson_eigv
-            dft_out_c1(1,1,1)=0
-            !print *, "   Backward FFT..."
-            status = DftiComputeBackward(hand_b, dft_out_c1(:,1,1), dft_out_r1(:,1,1))
-            !status = DftiComputeBackward(hand_b, dft_out_c(:,1,1))
-            !dft_out_r=dble(dft_out_c)
-            dp(2:nxp-1,2:nyp-1,2:nzp-1)=dft_out_r1
-            dp(1,:,:)=dp(nxp-1,:,:); dp(nxp,:,:)=dp(2,:,:)
-            dp(:,1,:)=dp(:,nyp-1,:); dp(:,nyp,:)=dp(:,2,:)
-            dp(:,:,1)=dp(:,:,nzp-1); dp(:,:,nzp)=dp(:,:,2)
+                dft_out_c1=dft_out_c1/poisson_eigv
+                dft_out_c1(1,1,1)=0
+                !print *, "   Backward FFT..."
+                status = DftiComputeBackward(hand_b, dft_out_c1(:,1,1), dft_out_r1(:,1,1))
+                !status = DftiComputeBackward(hand_b, dft_out_c(:,1,1))
+                !dft_out_r=dble(dft_out_c)
+                dp(2:nxp-1,2:nyp-1,2:nzp-1)=dft_out_r1
+                dp(1,:,:)=dp(nxp-1,:,:); dp(nxp,:,:)=dp(2,:,:)
+                dp(:,1,:)=dp(:,nyp-1,:); dp(:,nyp,:)=dp(:,2,:)
+                dp(:,:,1)=dp(:,:,nzp-1); dp(:,:,nzp)=dp(:,:,2)
 
-            CALL SYSTEM_CLOCK(c2)
-            print '("    Solve Poisson (FFT-based FD) completed: ", F8.4, " second")', (c2-c1)/system_clock_rate
-            !print *, "**************************************"
+                CALL SYSTEM_CLOCK(c2)
+                print '("    Solve Poisson (FFT-based FD) completed: ", F8.4, " second")', (c2-c1)/system_clock_rate
+                !print *, "**************************************"
+            end if
 
-            !print *, maxval(abs(dp-dp(1,1,1)-dp_lu+dp_lu(1,1,1)))
+            !!!!!!!!!! DCT-based FD poisson solver (pbc=1 and 4 are not implemented and tested) !!!!!!!!!!
+            if (pbc_x/=1 .and. pbc_y/=1 .and. pbc_z/=1) then
+                CALL SYSTEM_CLOCK(c1)
+                
+                call pr_bc_staggered_modify_rhs(RHS_poisson_internal, bx_p_1(2:nyp-1,2:nzp-1), bx_p_nx(2:nyp-1,2:nzp-1), &
+                    by_p_1(2:nxp-1,2:nzp-1), by_p_ny(2:nxp-1,2:nzp-1), bz_p_1(2:nxp-1,2:nyp-1), bz_p_nz(2:nxp-1,2:nyp-1), &
+                    pbc_x, pbc_y, pbc_z, dx, dy, dz, dx2, dy2, dz2)
+
+                rhs_tt(1:nx,1:ny,1:nz)=RHS_poisson_internal
+                
+                call DCT_poisson_solver(rhs_tt, eig_tt, handle_x, handle_y, handle_z, &
+                    ipar_x, ipar_y, ipar_z, dpar_x, dpar_y, dpar_z, nx, ny, nz, pbc_x, pbc_y, pbc_z)
+                
+                dp(2:nxp-1,2:nyp-1,2:nzp-1)=rhs_tt(1:nx,1:ny,1:nz)
+                call pr_bc_staggered(dp, bx_p_1, bx_p_nx, by_p_1, by_p_ny, bz_p_1, bz_p_nz, pbc_x, pbc_y, pbc_z, dx, dy, dz)
+                
+                CALL SYSTEM_CLOCK(c2)
+                print '("    Solve Poisson (DCT-based FD) completed: ", F8.4, " second")', (c2-c1)/system_clock_rate
+            end if
+            print *, maxval(abs(dp-dp(1,1,1)-dp_lu+dp_lu(1,1,1)))
             !temp31=dp-dp_lu
 
             !OPEN(10, file="poisson_eq.dat", form="unformatted")
@@ -641,7 +657,7 @@
             !dp=LHS_poisson\RHS_poisson(:);
             !dp=reshape(dp,nxp,nyp,nzp);
 
-            dp=dp_lu; !dp=dp-dp(1,1,1)+dp_sub(1,1,1)
+            !dp=dp_lu; !dp=dp-dp(1,1,1)+dp_sub(1,1,1)
             u=-dt0*diff(dp,1,1)/dx+u_star
             v=-dt0*diff(dp,1,2)/dy+v_star
             w=-dt0*diff(dp,1,3)/dz+w_star

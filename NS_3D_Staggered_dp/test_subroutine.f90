@@ -1,20 +1,7 @@
     subroutine test_subroutine
 
-    use MKL_DFTI!, forget => DFTI_DOUBLE, DFTI_DOUBLE => DFTI_DOUBLE_R
-    use mkl_trig_transforms
-    USE lapack95
-    !use f95_precision
-    use FD_functions
-    use NS_functions
-    use coo_mod
-    use csr_mod
-    use other_utility
-    use ogpf
-
     implicit none
 
-    include 'mkl_lapack.fi'
-    include 'mkl_pardiso.fi'
     include 'fftw/fftw3.f'
 
     ! Variables
@@ -79,7 +66,7 @@
     real(8), parameter :: L1=1.0d0, dx1=L1/nx1, dy1=L1/ny1, dx21=dx1*dx1, dy21=dy1*dy1
     real(8), parameter :: xp1(nx1)=[((i-0.5d0)*dx1, i=1, nx1)], yp1(ny1)=[((i-0.5d0)*dy1, i=1, ny1)]
     integer :: tt_type, stat1, ipar_x(128), ipar_y(128)
-    real(8) :: dpar_x(5*nx1/2+2)=0, dpar_y(5*ny1/2+2)=0, rhs_tt(nx1+1, ny1+1)=0, eig_tt(nx1+1, ny1) 
+    real(8) :: dpar_x(5*nx1/2+2)=0, dpar_y(5*ny1/2+2)=0, rhs_tt(nx1+1, ny1+1)=0, eig_tt(nx1, ny1), rhs_tt2(nx1+1, ny1+1)=0, rhs_tt1(nx1+1, ny1+1)=0
     type(dfti_descriptor), pointer :: handle_tx, handle_ty
 
     !fftw3
@@ -303,6 +290,8 @@
     rhs_tt(nx1,1:ny1)=rhs_tt(nx1,1:ny1)-2*(0)/dx21 !b.c condition
     rhs_tt(1:nx1,1)  =rhs_tt(1:nx1,1)  +(1)/dy1 !b.c condition
     rhs_tt(1:nx1,ny1)=rhs_tt(1:nx1,ny1)-(0)/dy1 !b.c condition
+    rhs_tt1=rhs_tt
+    rhs_tt2=rhs_tt
     
     CALL SYSTEM_CLOCK(c1)
     do i=1,nx1
@@ -314,12 +303,14 @@
     do j=1,ny1
         rhs_tt(1:nx1:2,j)=-rhs_tt(1:nx1:2,j)
         call d_backward_trig_transform(rhs_tt(:,j),handle_tx,ipar_x,dpar_x,stat)
+        rhs_tt(1:nx1,j)=rhs_tt(nx1:1:-1,j)
     end do
     !rhs_tt(:,:)=rhs_tt(:,:)/sqrt(nx1/2.0d0)
     
-    rhs_tt(1:nx1,1:ny1)=rhs_tt(1:nx1,1:ny1)/eig_tt(nx1:1:-1,:)
+    rhs_tt(1:nx1,1:ny1)=rhs_tt(1:nx1,1:ny1)/eig_tt!(nx1:1:-1,:)
     
     do j=1,ny1
+        rhs_tt(1:nx1,j)=rhs_tt(nx1:1:-1,j)
         call d_forward_trig_transform(rhs_tt(:,j),handle_tx,ipar_x,dpar_x,stat)
         rhs_tt(1:nx1:2,j)=-rhs_tt(1:nx1:2,j)
     end do
@@ -332,7 +323,61 @@
     !rhs_tt(:,1)=rhs_tt(:,1)*sqrt(dble(ny1))
     CALL SYSTEM_CLOCK(c2)
     print *, "**************************************"
-    print '("    dct_2D Poisson MKL: ", F8.4, " second")', (c2-c1)/system_clock_rate
+    print '("    dct_2D Poisson MKL1: ", F8.4, " second")', (c2-c1)/system_clock_rate
+    
+    CALL SYSTEM_CLOCK(c1)
+    do i=1,nx1
+        call d_backward_trig_transform(rhs_tt1(i,:),handle_ty,ipar_y,dpar_y,stat)
+    end do
+    !rhs_tt1(:,1)=rhs_tt1(:,1)/sqrt(dble(ny1))
+    !rhs_tt1(:,2:ny1)=rhs_tt1(:,2:ny1)/sqrt(ny1/2.0d0)
+
+    rhs_tt1(1:nx1:2,:)=-rhs_tt1(1:nx1:2,:)
+    do j=1,ny1
+        call d_backward_trig_transform(rhs_tt1(:,j),handle_tx,ipar_x,dpar_x,stat)
+    end do
+    rhs_tt1(1:nx1,:)=rhs_tt1(nx1:1:-1,:)
+    !rhs_tt1(:,:)=rhs_tt1(:,:)/sqrt(nx1/2.0d0)
+    
+    rhs_tt1(1:nx1,1:ny1)=rhs_tt1(1:nx1,1:ny1)/eig_tt
+    
+    rhs_tt1(1:nx1,:)=rhs_tt1(nx1:1:-1,:)
+    do j=1,ny1
+        call d_forward_trig_transform(rhs_tt1(:,j),handle_tx,ipar_x,dpar_x,stat)
+    end do
+    rhs_tt1(1:nx1:2,:)=-rhs_tt1(1:nx1:2,:)
+    !rhs_tt1(:,:)=rhs_tt1(:,:)*sqrt(nx1/2.0d0)
+    
+    do i=1,nx1
+        call d_forward_trig_transform(rhs_tt1(i,:),handle_ty,ipar_y,dpar_y,stat)
+    end do
+    !rhs_tt1(:,2:ny1)=rhs_tt1(:,2:ny1)*sqrt(ny1/2.0d0)
+    !rhs_tt1(:,1)=rhs_tt1(:,1)*sqrt(dble(ny1))
+    CALL SYSTEM_CLOCK(c2)
+    print *, "**************************************"
+    print '("    dct_2D Poisson MKL2: ", F8.4, " second")', (c2-c1)/system_clock_rate
+    
+    CALL SYSTEM_CLOCK(c1)
+    do i=1,nx1
+        call DST_DCT_2(rhs_tt2(i,:), ny1, handle_ty, ipar_y, dpar_y, DCT2=.true., forward=.true.)
+    end do
+
+    do j=1,ny1
+        call DST_DCT_2(rhs_tt2(:,j), nx1, handle_tx, ipar_x, dpar_x, DST2=.true., forward=.true.)
+    end do
+    
+    rhs_tt2(1:nx1,1:ny1)=rhs_tt2(1:nx1,1:ny1)/eig_tt
+    
+    do j=1,ny1
+        call DST_DCT_2(rhs_tt2(:,j), nx1, handle_tx, ipar_x, dpar_x, DST2=.true., backward=.true.)
+    end do
+    
+    do i=1,nx1
+        call DST_DCT_2(rhs_tt2(i,:), ny1, handle_ty, ipar_y, dpar_y, DCT2=.true., backward=.true.)
+    end do
+    CALL SYSTEM_CLOCK(c2)
+    print *, "**************************************"
+    print '("    dct_2D Poisson MKL3: ", F8.4, " second")', (c2-c1)/system_clock_rate
     
     !rhs_tt(2:nx+1:2)=-rhs_tt(2:nx+1:2)
     !eig=[(-4/dx2*(sin(i*pi/2/nx))**2, i=1,nx)]
