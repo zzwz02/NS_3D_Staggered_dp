@@ -1321,6 +1321,7 @@
     integer :: status, i, j, k
 
     !x-direction
+    !$omp parallel do
     do k=1,nz
         do j=1,ny
             if (pbc_x==2) then ! DST-2 = flip sign of every other input, iDCT-3, reverse order of output
@@ -1334,8 +1335,10 @@
             end if
         end do
     end do
+    !$omp end parallel do
 
     !y-direction
+    !$omp parallel do
     do k=1,nz
         do i=1,nx
             if (pbc_y==2) then ! DST-2 = flip sign of every other input, iDCT-3, reverse order of output
@@ -1349,8 +1352,10 @@
             end if
         end do
     end do
+    !$omp end parallel do
 
     !z-direction
+    !$omp parallel do
     do j=1,ny
         do i=1,nx
             if (pbc_z==2) then ! DST-2 = flip sign of every other input, iDCT-3, reverse order of output
@@ -1364,6 +1369,7 @@
             end if
         end do
     end do
+    !$omp end parallel do
 
     !if (pbc_z==2) then
     !    rhs_tt(1:nx,1:ny,1:nz)=rhs_tt(1:nx,1:ny,1:nz)/eig_tt(:,:,nz:1:-1)
@@ -1373,6 +1379,7 @@
     rhs_tt(1:nx,1:ny,1:nz)=rhs_tt(1:nx,1:ny,1:nz)/eig_tt
 
     !z-direction
+    !$omp parallel do
     do j=1,ny
         do i=1,nx
             if (pbc_z==2) then ! iDST-2 = reverse order of input, iDCT-3, flip sign of every other output
@@ -1386,8 +1393,10 @@
             end if
         end do
     end do
+    !$omp end parallel do
 
     !y-direction
+    !$omp parallel do
     do k=1,nz
         do i=1,nx
             if (pbc_y==2) then ! iDST-2 = reverse order of input, iDCT-3, flip sign of every other output
@@ -1401,8 +1410,10 @@
             end if
         end do
     end do
+    !$omp end parallel do
 
     !x-direction
+    !$omp parallel do
     do k=1,nz
         do j=1,ny
             if (pbc_x==2) then ! iDST-2 = reverse order of input, iDCT-3, flip sign of every other output
@@ -1416,6 +1427,7 @@
             end if
         end do
     end do
+    !$omp end parallel do
 
     end subroutine DCT_poisson_solver
 

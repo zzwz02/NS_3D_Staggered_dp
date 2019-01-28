@@ -121,7 +121,7 @@
     time_length=nint((t_end-t_start)/(dt0))
     allocate( time_array(0:time_length) )
     time_array=[(t_start+dt0*i, i=0, time_length)]
-    
+
     if (bc_x==1) then
         !allocate( x_range0(nx) )
         x_range0=[ (i, i=1, nx) ]
@@ -522,9 +522,7 @@
                 !status = DftiComputeBackward(hand_b, dft_out_c(:,1,1))
                 !dft_out_r=dble(dft_out_c)
                 dp(2:nxp-1,2:nyp-1,2:nzp-1)=dft_out_r1
-                dp(1,:,:)=dp(nxp-1,:,:); dp(nxp,:,:)=dp(2,:,:)
-                dp(:,1,:)=dp(:,nyp-1,:); dp(:,nyp,:)=dp(:,2,:)
-                dp(:,:,1)=dp(:,:,nzp-1); dp(:,:,nzp)=dp(:,:,2)
+                call pr_bc_staggered(dp, bx_p_1, bx_p_nx, by_p_1, by_p_ny, bz_p_1, bz_p_nz, pbc_x, pbc_y, pbc_z, dx, dy, dz)
 
                 CALL SYSTEM_CLOCK(c2)
                 print '("    Solve Poisson (FFT-based FD) completed: ", F8.4, " second")', (c2-c1)/system_clock_rate
