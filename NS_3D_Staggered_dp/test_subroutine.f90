@@ -71,11 +71,6 @@
 
     !fftw3
     integer :: fwd, bwd
-
-    !post-processing
-    type(gpf):: gp
-    character(len=1000) :: string_var
-    INTEGER :: funit, io_status
     
     !HDF5
     integer(8) :: file_id, prp_id
@@ -390,12 +385,16 @@
 
     call h5open_f(status)
     call h5pcreate_f(H5P_FILE_ACCESS_F, prp_id, status)
+    
     call h5pset_fapl_core_f(prp_id, 16, .true., status)
     call h5fcreate_f('test.h5', h5f_acc_trunc_f, file_id, status, access_prp=prp_id)
-    call h5ltmake_dataset_double_f(file_id, 'rhs_tt', 2, [nx1+1_8, ny1+1_8], rhs_tt2, status)
+    
     call h5ltset_attribute_int_f(file_id, "/", "nx0", [123], 1, status)
     call h5ltset_attribute_double_f(file_id, "/", "dt", [0.4_8], 1, status)
     call h5ltset_attribute_string_f(file_id, "/", "time_scheme", trim(timescheme), status)
+    
+    call h5ltmake_dataset_double_f(file_id, 'rhs_tt', 2, [nx1+1_8, ny1+1_8], rhs_tt2, status)
+    
     call h5fclose_f(file_id, status)
     call h5close_f(status)
 

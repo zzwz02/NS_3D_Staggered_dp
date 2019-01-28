@@ -6,8 +6,8 @@
     real(8), parameter :: pi = 3.1415926535897932_8
     integer :: i=0,j=0,k=0,ll=0,mm=0
 
-    logical, parameter :: init=.true., plot_output=.false.
-    real(8), parameter :: Re=1.0d0, nu=0.002d0, t_end=20.0d0, dt0=0.004d0
+    logical, parameter :: init=.true.
+    real(8), parameter :: Re=1.0d0, nu=0.002d0, t_end=20.0d0
     real(8) :: t_start
     !integer, parameter :: nx_file=256
     integer, parameter :: nx0=256, ny0=nx0, nz0=nx0, nxp0=nx0+2, nyp0=ny0+2, nzp0=nz0+2, sub_tstep=1
@@ -26,8 +26,6 @@
 
     logical, parameter :: LU_poisson=(nxp*nyp*nzp<=34**3)
 
-    integer :: time_length
-    real(8), dimension (:), allocatable :: time_array
     real(8) :: u(nx+1,ny+2,nz+2)=0,              v(nx+2,ny+1,nz+2)=0,              w(nx+2,ny+2,nz+1)=0,       p(nxp,nyp,nzp)=0
     real(8) :: u_star(nx+1,ny+2,nz+2)=0,         v_star(nx+2,ny+1,nz+2)=0,         w_star(nx+2,ny+2,nz+1)=0,  dp(nxp,nyp,nzp)=0
     real(8) :: rhs_x(nx+1,ny+2,nz+2)=0,          rhs_y(nx+2,ny+1,nz+2)=0,          rhs_z(nx+2,ny+2,nz+1)=0
@@ -59,8 +57,9 @@
     real(8) :: bx_w_1(ny+2,nz+1)=0, bx_w_nx(ny+2,nz+1)=0, by_w_1(nx+2,nz+1)=0, by_w_ny(nx+2,nz+1)=0, bz_w_1(nx+2,ny+2)=0, bz_w_nz(nx+2,ny+2)=0
     real(8) :: bx_p_1(nyp,nzp)=0,   bx_p_nx(nyp,nzp)=0,   by_p_1(nxp,nzp)=0,   by_p_ny(nxp,nzp)=0,   bz_p_1(nxp,nyp)=0,   bz_p_nz(nxp,nyp)=0
 
-    integer :: t_step, plot_step=20, slice=nz/2
-    real(8) :: tGet
+    real(8) :: dt0=0.004d0, tGet
+    integer :: time_length, t_step, plot_step=20, slice=nz/2+1
+    real(8), dimension (:), allocatable :: time_array
     integer, dimension (:), allocatable :: x_range0, y_range0, z_range0
     integer :: x_range1(nx)=[(i, i=2, nx+1)], y_range1(ny)=[(i, i=2, ny+1)], z_range1(nz)=[(i, i=2, nz+1)]
     type(csr), allocatable :: LHS_poisson
@@ -91,10 +90,10 @@
     integer :: ipar_x(128), ipar_y(128), ipar_z(128)
     real(8) :: dpar_x(5*nx/2+2), dpar_y(5*nx/2+2), dpar_z(5*nz/2+2), rhs_tt(nx+1, ny+1, nz+1), eig_tt(nx, ny, nz)
     type(dfti_descriptor), pointer :: handle_x, handle_y, handle_z
-
-    !!!!!!!!!!!!!!! post-processing !!!!!!!!!!!!!!!
-    type(gpf):: gp
+    
+    !!!!!!!!!!!!!!! HDF5 !!!!!!!!!!!!!!!
     character(len=1000) :: string_var
+    integer(8) :: h5f_whole, h5f_sub, h5f_slice, h5g_sub, h5g_slice, prp_id
 
     !!!!!!!!!!!!!!! system_clock !!!!!!!!!!!!!!!
     REAL(8) :: system_clock_rate
@@ -119,6 +118,10 @@
         t_start=0.0d0
     else
         t_start=1.0d0
+    end if
+    call get_command_argument (1, string_var, status=status)
+    if (status==0) then
+        read(string_var,*) dt0
     end if
     time_length=nint((t_end-t_start)/(dt0))
     allocate( time_array(0:time_length), err_vel(8,0:time_length), err_grad(24,0:time_length), rms_vel(4,0:time_length), rms_grad(12,0:time_length) )
@@ -686,75 +689,6 @@
         write(*,'("   MAX vel/pr error: ", 100g15.5)') err_vel(1:4,t_step)
         print '("Complete: ", F8.4, " second. MAX Div: ", E13.6)', (c02-c01)/system_clock_rate, maxval(abs(div))
         print *, "**************************************"
-
-        if (mod(t_step,plot_step)==0 .and. plot_output) then
-            plot_block: block
-
-                !real(8), dimension (:,:), allocatable :: xx, yy
-
-                !call meshgrid( xx, yy, yu(2:ubound(yu,1)-1), xu )
-                write (string_var,'("re-sim_t_",i0.4)') t_step
-                call gp%output_filename(string_var)
-                call gp%multiplot(2,2)
-
-                write (string_var,'("U @ ",i7)') t_step
-                call gp%title(string_var)
-                !call gp%xlabel('x1, ...')
-                !call gp%ylabel('y1, ...')
-                call gp%contour(u(:,2:ubound(u,2)-1,slice), palette='jet')
-
-                !write (string_var,'("V")') t_step
-                call gp%title("V")
-                !call gp%xlabel('x1, ...')
-                !call gp%ylabel('y1, ...')
-                call gp%contour(v(2:ubound(v,1)-1,:,slice), palette='jet')
-
-                !write (string_var,'("W")') t_step
-                call gp%title("W")
-                !call gp%xlabel('x1, ...')
-                !call gp%ylabel('y1, ...')
-                call gp%contour(w(2:ubound(w,1)-1,2:ubound(w,2)-1,slice), palette='jet')
-
-                !write (string_var,'("P")') t_step
-                call gp%title("P")
-                !call gp%xlabel('x1, ...')
-                !call gp%ylabel('y1, ...')
-                call gp%contour(p(2:ubound(p,1)-1,2:ubound(p,2)-1,slice), palette='jet')
-                if (gp%hasfileopen) call draw_now(gp)
-
-                !subplot(2,3,1)
-                !temp=squeeze(u(:,2:end-1,slice));
-                !contourf(temp',[-1e99 linspace(min(temp(:)),max(temp(:)),21)],'LineStyle','none'); colorbar;
-                !caxis([min(temp(:)),max(temp(:))]);
-                !title(['U @ ',num2str(t_step)]);
-                !set(gca,'FontSize',18);
-                !
-                !subplot(2,3,2)
-                !temp=squeeze(v(2:end-1,:,slice));
-                !contourf(temp',[-1e99 linspace(min(temp(:)),max(temp(:)),21)],'LineStyle','none'); colorbar;
-                !caxis([min(temp(:)),max(temp(:))]);
-                !title(['V']);
-                !set(gca,'FontSize',18);
-                !
-                !subplot(2,3,3)
-                !temp=squeeze(w(2:end-1,2:end-1,slice));
-                !contourf(temp',[-1e99 linspace(min(temp(:)),max(temp(:)),21)],'LineStyle','none'); colorbar;
-                !caxis([min(temp(:)),max(temp(:))]);
-                !title(['W']);
-                !set(gca,'FontSize',18);
-                !
-                !subplot(2,3,4)
-                !temp=squeeze(p(2:end-1,2:end-1,slice));
-                !contourf(temp',[-1e99 linspace(min(temp(:)),max(temp(:)),21)],'LineStyle','none'); colorbar;
-                !caxis([min(temp(:)) max(temp(:))]);
-                !title(['P']);
-                !set(gca,'FontSize',18);
-                !
-                !drawnow
-
-            end block plot_block
-        end if
-
 
     end do
 

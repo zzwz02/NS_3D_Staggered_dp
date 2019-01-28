@@ -97,7 +97,7 @@ endif
 MKL_PATH = "$(MKLROOT)/lib/$(_IA)"
 CMPLR_PATH = "$(MKLROOT)/../compiler/lib/$(_IA)"
 
-FOPTS = -fpp -O2 -qopt-matmul -init=snan -init=arrays -fpconstant -qopenmp -mkl=parallel ### compiler flag
+FOPTS = -fpp -O2 -qopt-matmul -init=zero -init=arrays -fpconstant -qopenmp -mkl=parallel ### compiler flag
 LOPTS =          ### linking flag
 
 FC=ifort
@@ -136,13 +136,16 @@ ifndef F95ROOT
 endif
 
 
-MODPATH=$(F95ROOT)/include/$(_IA)/$(interface)
+MODPATH=$(F95ROOT)/include/$(_IA)/$(interface) 
 LIB95=$(F95ROOT)/lib/$(_IA)/libmkl_lapack95_$(interface).a
+HDF5PATH="/software/apps/hdf5/1.10.4/intel/18.0/include"
+HDF5LIBPATH="/software/apps/hdf5/1.10.4/intel/18.0/lib"
+HDF5LIB=$(HDF5LIBPATH)/libhdf5.so $(HDF5LIBPATH)/libhdf5_fortran.so $(HDF5LIBPATH)/libhdf5hl_fortran.so
 
 #-------------------------------------------------------------------------------
 
 NAME :=	NS_3D_Staggered_dp
-SRCS := FD_functions.f90 csr_mod.f90 coo_mod.f90 other_utility.f90 NS_functions.f90 ogpf.f90 NS_3D_Staggered_dp.f90 sparse_utility.f90 main.f90
+SRCS := sparse_utility.f90 FD_functions.f90 other_utility.f90 csr_mod.f90 coo_mod.f90 NS_functions.f90 NS_3D_Staggered_dp.f90 main.f90
 OBJS := $(SRCS:.f90=.o)
 EXE  := $(NAME).out
 vpath %.f90 source
@@ -150,12 +153,12 @@ vpath %.f90 source
 all: $(EXE)
 
 $(EXE) : $(OBJS)
-	$(FC) $^ $(FOPTS) -I $(MODPATH) $(LIB95) $(LOPTS) $(MKL_LIBS) $(LL_THREAD_LIB) -lpthread -lm -ldl -o $(OUTPUT_DIR)/$@
+	$(FC) $^ $(FOPTS) -I $(MODPATH) -I$(HDF5PATH) $(LIB95) $(LOPTS) $(MKL_LIBS) $(LL_THREAD_LIB) -lpthread -lm -ldl $(HDF5LIB) -o $(OUTPUT_DIR)/$@
 
 %.o : %.f90 
-	$(FC) $(FOPTS) -I $(MODPATH) -c $^ -o $@
+	$(FC) $(FOPTS) -I $(MODPATH) -I$(HDF5PATH) -c $^ -o $@
 	
 clean :	
-	rm -fr $(EXE) $(OBJS) *.mod
+	rm -fr $(EXE) *.o *.mod
 	
 #-------------------------------------------------------------------------------

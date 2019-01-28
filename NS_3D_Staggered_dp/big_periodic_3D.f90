@@ -6,8 +6,8 @@
     real(8), parameter :: pi = 3.1415926535897932_8
     integer :: i=0,j=0,k=0,ll=0,mm=0
 
-    logical, parameter :: init=.true., plot_output=.false., save_output=.true.
-    real(8), parameter :: Re=1.0d0, nu=0.002d0, t_end=20.0d0, dt0=0.004d0
+    logical, parameter :: init=.true., save_output=.false.
+    real(8), parameter :: Re=1.0d0, nu=0.002d0, t_end=10.0d0!, dt0=0.004d0 !!!dt<=0.004 to be stable
     real(8), parameter :: t_start=0.0d0
     !integer, parameter :: nx_file=256
     integer, parameter :: nx=256, ny=nx, nz=nx, nxp=nx+2, nyp=ny+2, nzp=nz+2, sub_tstep=1
@@ -26,8 +26,6 @@
 
     logical, parameter :: LU_poisson=(nxp*nyp*nzp<=(32+2)**3)
 
-    integer, parameter :: time_length=nint((t_end-t_start)/(dt0))
-    real(8), dimension (0:time_length), parameter :: time_array=[(t_start+dt0*i, i=0, time_length)]
     real(8) :: u(nx+1,ny+2,nz+2)=0,              v(nx+2,ny+1,nz+2)=0,              w(nx+2,ny+2,nz+1)=0,       p(nxp,nyp,nzp)=0
     real(8) :: u_star(nx+1,ny+2,nz+2)=0,         v_star(nx+2,ny+1,nz+2)=0,         w_star(nx+2,ny+2,nz+1)=0,  dp(nxp,nyp,nzp)=0
     !real(8) :: rhs_x(nx+1,ny+2,nz+2)=0,          rhs_y(nx+2,ny+1,nz+2)=0,          rhs_z(nx+2,ny+2,nz+1)=0
@@ -37,11 +35,11 @@
     !real(8) :: rhs_x_previous0(nx+1,ny+2,nz+2)=0,rhs_y_previous0(nx+2,ny+1,nz+2)=0,rhs_z_previous0(nx+2,ny+2,nz+1)=0
     !real(8) :: f_term_x(nx+1,ny+2,nz+2)=0,       f_term_y(nx+2,ny+1,nz+2)=0,       f_term_z(nx+2,ny+2,nz+1)=0
     real(8), dimension (:,:,:), allocatable :: rhs_x, rhs_y, rhs_z, rhs_x_previous, rhs_y_previous, rhs_z_previous, dpdx, dpdy, dpdz
-    real(8), allocatable :: RHS_poisson(:,:,:), dp_lu(:,:,:), RHS_poisson0(:), dp_vec(:)
+    real(8), dimension (:,:,:), allocatable :: RHS_poisson, dp_lu
+    real(8), dimension (:    ), allocatable :: RHS_poisson0, dp_vec
     real(8), dimension (:,:,:), allocatable :: conv_x, conv_y, conv_z
     real(8), dimension (:,:,:), allocatable :: diff_x, diff_y, diff_z
     real(8), dimension (:,:,:), allocatable :: RHS_poisson_internal, div
-
 
     !!!!!!!!!!!!!!! for CN2-ADI scheme !!!!!!!!!!!!!!!
     real(8), dimension (:), allocatable :: A_low, A_d, A_up, A_up2, B_low, B_d, B_up, B_up2, C_low, C_d, C_up, C_up2
@@ -63,23 +61,24 @@
     real(8) :: bx_v_1s(ny0+1,nz0+2)=0, bx_v_nxs(ny0+1,nz0+2)=0, by_v_1s(nx0+2,nz0+2)=0, by_v_nys(nx0+2,nz0+2)=0, bz_v_1s(nx0+2,ny0+1)=0, bz_v_nzs(nx0+2,ny0+1)=0
     real(8) :: bx_w_1s(ny0+2,nz0+1)=0, bx_w_nxs(ny0+2,nz0+1)=0, by_w_1s(nx0+2,nz0+1)=0, by_w_nys(nx0+2,nz0+1)=0, bz_w_1s(nx0+2,ny0+2)=0, bz_w_nzs(nx0+2,ny0+2)=0
 
-    integer :: t_step, plot_step=20, slice=nz/2+1
-    real(8) :: tGet
+    real(8) :: dt0=0.004d0, tGet
+    integer :: time_length, t_step, plot_step=20, slice=nz/2+1
+    real(8), dimension (:), allocatable :: time_array
     integer, dimension (:), allocatable :: x_range0, y_range0, z_range0
     integer :: x_range1(nx)=[(i, i=2, nx+1)], y_range1(ny)=[(i, i=2, ny+1)], z_range1(nz)=[(i, i=2, nz+1)]
-    type(csr), allocatable :: LHS_poisson, temp_csr
-    !type(coo), allocatable :: LHS_poisson_coo, temp_coo
+    type(csr), allocatable :: LHS_poisson
+    !type(coo), allocatable :: LHS_poisson_coo
     !real(8), dimension (:,:), allocatable :: LHS_poisson_den
 
     !!!!!!!!!!!!!!! temperary variables !!!!!!!!!!!!!!!
-    integer(8) :: sizeof_record, sizeof_record_sub, sizeof_record_slice, tempi1, tempi2
-    real(8) :: temp01, temp02, temp03!, temp04, temp05, temp06
-    real(8), dimension (:), allocatable :: temp11, temp12, temp13!, temp14, temp15, temp16
+    !integer(8) :: sizeof_record, sizeof_record_sub, sizeof_record_slice, tempi1, tempi2
+    !real(8) :: temp01, temp02, temp03, temp04, temp05, temp06
+    !real(8), dimension (:), allocatable :: temp11, temp12, temp13, temp14, temp15, temp16
     real(8), dimension (:,:), allocatable :: temp21!, temp22, temp23, temp24, temp25, temp26
     !real(8), dimension (:,:,:), allocatable :: temp31, temp32, temp33, temp34, temp35, temp36
     !real(4) :: ini_vel(3,nx_file,nx_file,nx_file), ini_pr(nx_file,nx_file,nx_file)
-    real(4), dimension (:), allocatable :: temp11s
-    real(4) :: temp01s
+    !real(4), dimension (:), allocatable :: temp11s
+    !real(4) :: temp01s
 
     !!!!!!!!!!!!!!! INTEL mkl_pardiso !!!!!!!!!!!!!!!
     type(MKL_PARDISO_HANDLE) pt(64)
@@ -94,11 +93,8 @@
     complex(8) :: dft_out_c1(INT(nx/2.0)+1,ny,nz)
     integer :: status
 
-    !!!!!!!!!!!!!!! post-processing !!!!!!!!!!!!!!!
-    type(gpf):: gp
-    character(len=1000) :: string_var
-
     !!!!!!!!!!!!!!! HDF5 !!!!!!!!!!!!!!!
+    character(len=1000) :: string_var
     integer(8) :: h5f_whole, h5f_sub, h5f_slice, h5g_sub, h5g_slice, prp_id
 
     !!!!!!!!!!!!!!! system_clock !!!!!!!!!!!!!!!
@@ -118,6 +114,14 @@
     ! open HDF5 module
     call h5open_f(status)
 
+    call get_command_argument (1, string_var, status=status)
+    if (status==0) then
+        read(string_var,*) dt0
+    end if
+    time_length=nint((t_end-t_start)/(dt0))
+    allocate( time_array(0:time_length) )
+    time_array=[(t_start+dt0*i, i=0, time_length)]
+    
     if (bc_x==1) then
         !allocate( x_range0(nx) )
         x_range0=[ (i, i=1, nx) ]
@@ -249,18 +253,6 @@
         poisson_eigv=-4.0d0*poisson_eigv
     end if
 
-    sizeof_record=size(u)+size(v)+size(w)+size(p)+size(u)+size(v)+size(w)  !size(rhs_x_previous)+size(rhs_y_previous)+size(rhs_z_previous)
-    sizeof_record_sub=size(u_sub)+size(v_sub)+size(w_sub)+size(p_sub)+size(u_star_sub)+size(v_star_sub)+size(w_star_sub)+size(dp_sub)+size(RHS_poisson_sub)
-    sizeof_record_slice=size(u(:,:,slice))+size(v(:,:,slice))+size(w(:,:,slice))+size(p(:,:,slice))
-    if (timescheme=="AB2-CN") then
-        !allocate(temp31(nx0+1,ny0+2,nz0+2), temp32(nx0+2,ny0+1,nz0+2), temp33(nx0+2,ny0+2,nz0+1))
-        !temp31=0; temp32=0; temp33=0;
-        sizeof_record_sub=sizeof_record_sub+&
-            size(bx_u_1s)+size(bx_u_nxs)+size(bx_v_1s)+size(bx_v_nxs)+size(bx_w_1s)+size(bx_w_nxs)+ &
-            size(by_u_1s)+size(by_u_nys)+size(by_v_1s)+size(by_v_nys)+size(by_w_1s)+size(by_w_nys)+ &
-            size(bz_u_1s)+size(bz_u_nzs)+size(bz_v_1s)+size(bz_v_nzs)+size(bz_w_1s)+size(bz_w_nzs) !+size(u_sub)+size(v_sub)+size(w_sub)+
-    end if
-
     do t_step=0,time_length
         tGet=time_array(t_step)
         print *,''
@@ -268,38 +260,6 @@
         CALL SYSTEM_CLOCK(c01)
 
         if (t_step==0) then
-            !!!!!!!!!!!!!!!!!!!!!!!!load(['D:\Documents\HIT_32^3_data_staggered\HIT_32^3_init.mat'],'u','v','w','p');!!!!!!!!!!!!!!!!!!!!!!!!
-            !open(20, file="D:\Downloads\iso1024_256_cOrder_Velocity.bin", form='unformatted', status='old', action='read', &
-            !    access='direct', recl=3*nx_file**3) !variables are single precision
-            !READ(20, rec=1) ini_vel
-            !close(20)
-            !
-            !open(20, file="D:\Downloads\iso1024_256_cOrder_Pressure.bin", form='unformatted', status='old', action='read', &
-            !    access='direct', recl=nx_file**3) !variables are single precision
-            !READ(20, rec=1) ini_pr
-            !close(20)
-            !
-            !temp01=nx_file/nx; temp02=nx_file/ny; temp03=nx_file/nz;
-            !u(1:nx,2:ny+1,2:nz+1)=ini_vel(1,1:nx_file:temp01,2:nx_file:temp02,2:nx_file:temp03)
-            !u(nx+1,:,:)=u(1,:,:)
-            !u(:,1,:)=u(:,ny+1,:); u(:,ny+2,:)=u(:,2,:)
-            !u(:,:,1)=u(:,:,nz+1); u(:,:,nz+2)=u(:,:,2)
-            !
-            !v(2:nx+1,1:ny,2:nz+1)=ini_vel(2,2:nx_file:temp01,1:nx_file:temp02,2:nx_file:temp03)
-            !v(1,:,:)=v(nx+1,:,:); v(ny+2,:,:)=v(2,:,:)
-            !v(:,nx+1,:)=v(:,1,:);
-            !v(:,:,1)=v(:,:,nz+1); v(:,:,nz+2)=v(:,:,2)
-            !
-            !w(2:nx+1,2:ny+1,1:nz)=ini_vel(3,2:nx_file:temp01,2:nx_file:temp02,1:nx_file:temp03)
-            !w(1,:,:)=w(nx+1,:,:); w(ny+2,:,:)=w(2,:,:)
-            !w(:,1,:)=w(:,ny+1,:); w(:,ny+2,:)=w(:,2,:)
-            !w(:,:,nz+1)=w(:,:,1);
-            !
-            !p(2:nx+1,2:ny+1,2:nz+1)=ini_pr(2:nx_file:temp01,2:nx_file:temp02,2:nx_file:temp03)
-            !p(1,:,:)=p(nx+1,:,:); p(ny+2,:,:)=p(2,:,:)
-            !p(:,1,:)=p(:,ny+1,:); p(:,ny+2,:)=p(:,2,:)
-            !p(:,:,1)=p(:,:,nz+1); p(:,:,nz+2)=p(:,:,2)
-
             !if (allocated(temp11s)) deallocate(temp11s)
             !allocate(temp11s(size(u)+size(v)+size(w)+size(p)))
             !write (string_var,'("D:\Documents\source\repos\NS_3D_Staggered_dp\NS_3D_Staggered_dp\256^3_init_from_JHTDB.dat")')
@@ -315,21 +275,14 @@
             !
             !deallocate(temp11s)
 
-            if (allocated(temp11)) deallocate(temp11)
-            allocate(temp11(sizeof_record))
-            write (string_var,'("D:\Documents\source\repos\NS_3D_Staggered_dp\NS_3D_Staggered_dp\HIT_256^3_decay_4.E-3_AB2_dp_init.dat")')
-            open(20, file=string_var, form='unformatted', status='old', action='read', &
-                access='direct', recl=sizeof_record*2) !variables are double precision
-            read(20, rec=1) temp11
-            close(20)
+            call h5fopen_f("init_file/HIT_256^3_decay_4.E-3_AB2_dp_init.h5", H5F_ACC_RDONLY_F, h5f_whole, status)
 
-            tempi1=1;        tempi2=size(u);        u=reshape(temp11(tempi1:tempi2), [nx+1,ny+2,nz+2]);
-            tempi1=tempi2+1; tempi2=tempi2+size(v); v=reshape(temp11(tempi1:tempi2), [nx+2,ny+1,nz+2]);
-            tempi1=tempi2+1; tempi2=tempi2+size(w); w=reshape(temp11(tempi1:tempi2), [nx+2,ny+2,nz+1]);
-            tempi1=tempi2+1; tempi2=tempi2+size(p); p=reshape(temp11(tempi1:tempi2), [nx+2,ny+2,nz+2]);
-            tempi1=tempi2+1; tempi2=tempi2+size(rhs_x_previous); rhs_x_previous=reshape(temp11(tempi1:tempi2), [nx+1,ny+2,nz+2]);
-            tempi1=tempi2+1; tempi2=tempi2+size(rhs_y_previous); rhs_y_previous=reshape(temp11(tempi1:tempi2), [nx+2,ny+1,nz+2]);
-            tempi1=tempi2+1; tempi2=tempi2+size(rhs_z_previous); rhs_z_previous=reshape(temp11(tempi1:tempi2), [nx+2,ny+2,nz+1]);
+            call h5ltread_dataset_double_f(h5f_whole, 'u', u, [nx+1_8,ny+2_8,nz+2_8], status)
+            call h5ltread_dataset_double_f(h5f_whole, 'v', v, [nx+2_8,ny+1_8,nz+2_8], status)
+            call h5ltread_dataset_double_f(h5f_whole, 'w', w, [nx+2_8,ny+2_8,nz+1_8], status)
+            call h5ltread_dataset_double_f(h5f_whole, 'p', p, [nx+2_8,ny+2_8,nz+2_8], status)
+
+            call h5fclose_f(h5f_whole, status)
 
             !call TGV(xu, yu, zu, 0.0d0, nu, u)
             !call TGV(xv, yv, zv, 0.0d0, nu, v=v)
@@ -612,27 +565,12 @@
 
         if (tGet>=0 .and. save_output) then
 
-            if (allocated(temp11) .and. size(temp11)/=sizeof_record) then
-                deallocate(temp11)
-            end if
-            if (.not. allocated(temp11)) allocate(temp11(sizeof_record))
-
-            if (allocated(temp12) .and. size(temp12)/=sizeof_record_sub) then
-                deallocate(temp12)
-            end if
-            if (.not. allocated(temp12)) allocate(temp12(sizeof_record_sub))
-
-            if (allocated(temp13) .and. size(temp13)/=sizeof_record_slice) then
-                deallocate(temp13)
-            end if
-            if (.not. allocated(temp13)) allocate(temp13(sizeof_record_slice))
-
             if (tGet==0) then
                 !call h5pcreate_f(H5P_FILE_ACCESS_F, prp_id, status)
                 !call h5pset_fapl_core_f(prp_id, 64, .true., status)
                 !call h5pset_cache_f(prp_id, 0, 521, 16000000, 1.0, status)
 
-                write (string_var,'(A, "_result\HIT_", I0, "^3_decay_", ES5.0E1, "_", A , "_dp_x0_", I0, "_nx0_", I0, "_sub.h5")') trim(timescheme), nx, dt0, trim(timescheme), x0, nx0
+                write (string_var,'(A, "_result/HIT_", I0, "^3_decay_", ES5.0E1, "_", A , "_dp_x0_", I0, "_nx0_", I0, "_sub.h5")') trim(timescheme), nx, dt0, trim(timescheme), x0, nx0
                 call h5fcreate_f(string_var, H5F_ACC_EXCL_F, h5f_sub, status)
                 call h5ltset_attribute_int_f(h5f_sub, "/", "nx", [nx], 1, status)
                 call h5ltset_attribute_double_f(h5f_sub, "/", "dt", [dt0], 1, status)
@@ -643,7 +581,7 @@
                 call h5ltset_attribute_int_f(h5f_sub, "/", "x0", [x0], 1, status)
                 call h5ltset_attribute_int_f(h5f_sub, "/", "nx0", [nx0], 1, status)
 
-                write (string_var,'(A, "_result\HIT_", I0,"^3_decay_", ES5.0E1, "_", A , "_slice_", I0, ".h5")') trim(timescheme), nx, dt0, trim(timescheme), slice
+                write (string_var,'(A, "_result/HIT_", I0,"^3_decay_", ES5.0E1, "_", A , "_slice_", I0, ".h5")') trim(timescheme), nx, dt0, trim(timescheme), slice
                 call h5fcreate_f(string_var, H5F_ACC_EXCL_F, h5f_slice, status)
                 call h5ltset_attribute_int_f(h5f_slice, "/", "nx", [nx], 1, status)
                 call h5ltset_attribute_double_f(h5f_slice, "/", "dt", [dt0], 1, status)
@@ -655,7 +593,7 @@
             end if
 
             if (mod(abs(tGet), 1.0d0) < dt0/sub_tstep/100.0d0) then
-                write (string_var,'(A, "_result\HIT_", I0, "^3_decay_", ES5.0E1, "_", A ,"_dp_t_" , F0.4, ".h5")') trim(timescheme), nx, dt0, trim(timescheme), tGet
+                write (string_var,'(A, "_result/HIT_", I0, "^3_decay_", ES5.0E1, "_", A ,"_dp_t_" , F0.4, ".h5")') trim(timescheme), nx, dt0, trim(timescheme), tGet
                 call h5fcreate_f(string_var, H5F_ACC_EXCL_F, h5f_whole, status)
 
                 call h5ltset_attribute_int_f(h5f_whole, "/", "nx", [nx], 1, status)
@@ -680,7 +618,6 @@
                 p_sub=p(idx_xp,idx_yp,idx_zp); dp_sub=dp(idx_xp,idx_yp,idx_zp)
                 RHS_poisson_sub=RHS_poisson_internal(idx_xp-1,idx_yp-1,idx_zp-1) !RHS_poisson(idx_xp,idx_yp,idx_zp)
 
-                CALL SYSTEM_CLOCK(c1)
                 write (string_var,'("t_", F0.4)') tGet
                 call h5gcreate_f(h5f_sub, string_var, h5g_sub, status)
 
@@ -695,9 +632,9 @@
                 call h5ltmake_dataset_double_f(h5g_sub, 'RHS_poisson_sub', 3, [nx0+2_8,ny0+2_8,nz0+2_8], RHS_poisson_sub, status)
 
                 if (mod(tGet,1.0d0)==0.0d0) then
-                    call h5ltmake_dataset_double_f(h5g_sub, 'rhs_x_previous', 3, [nx0+1_8,ny0+2_8,nz0+2_8], rhs_x_previous, status)
-                    call h5ltmake_dataset_double_f(h5g_sub, 'rhs_y_previous', 3, [nx0+2_8,ny0+1_8,nz0+2_8], rhs_y_previous, status)
-                    call h5ltmake_dataset_double_f(h5g_sub, 'rhs_z_previous', 3, [nx0+2_8,ny0+2_8,nz0+1_8], rhs_z_previous, status)
+                    call h5ltmake_dataset_double_f(h5g_sub, 'rhs_x_previous', 3, [nx0+1_8,ny0+2_8,nz0+2_8], rhs_x_previous(idx_xu,idx_yu,idx_zu), status)
+                    call h5ltmake_dataset_double_f(h5g_sub, 'rhs_y_previous', 3, [nx0+2_8,ny0+1_8,nz0+2_8], rhs_y_previous(idx_xv,idx_yv,idx_zv), status)
+                    call h5ltmake_dataset_double_f(h5g_sub, 'rhs_z_previous', 3, [nx0+2_8,ny0+2_8,nz0+1_8], rhs_z_previous(idx_xw,idx_yw,idx_zw), status)
                 end if
                 if (timescheme=="AB2-CN") then
                     call h5ltmake_dataset_double_f(h5g_sub, 'bx_u_1s', 2, [ny0+2_8,nz0+2_8], bx_u_1s, status)
@@ -722,12 +659,9 @@
                     call h5ltmake_dataset_double_f(h5g_sub, 'bz_w_nzs', 2, [nx0+2_8,ny0+2_8], bz_w_nzs, status)
                 end if
                 call h5gclose_f( h5g_sub, status)
-                CALL SYSTEM_CLOCK(c2)
-                print '("    hdf5 sub: ", F8.4, " second")', (c2-c1)/system_clock_rate
             end if
 
             if (mod(t_step,plot_step)==0 .and. tGet<=20) then
-                CALL SYSTEM_CLOCK(c1)
                 write (string_var,'("t_", F0.4)') tGet
                 call h5gcreate_f(h5f_slice, string_var, h5g_slice, status)
 
@@ -737,78 +671,8 @@
                 call h5ltmake_dataset_double_f(h5g_slice, 'p_slice', 2, [nx+2_8,ny+2_8], p(:,:,slice), status)
 
                 call h5gclose_f( h5g_slice, status)
-                CALL SYSTEM_CLOCK(c2)
-                print '("    hdf5 slice: ", F8.4, " second")', (c2-c1)/system_clock_rate
             end if
 
-        end if
-
-        if (mod(t_step,plot_step)==0 .and. plot_output) then
-            plot_block: block
-                !real(8), dimension (:,:), allocatable :: xx, yy
-
-                !call meshgrid( xx, yy, yu(2:ubound(yu,1)-1), xu )
-                write (string_var,'("iso128_t_",i0.4)') t_step
-                call gp%output_filename(string_var)
-                call gp%multiplot(2,2)
-
-                write (string_var,'("U @ ",i7)') t_step
-                call gp%title(string_var)
-                call gp%title(string_var)
-                !call gp%xlabel('x1, ...')
-                !call gp%ylabel('y1, ...')
-                call gp%contour(u(:,2:ubound(u,2)-1,slice), palette='jet')
-
-                !write (string_var,'("V")') t_step
-                call gp%title("V")
-                !call gp%xlabel('x1, ...')
-                !call gp%ylabel('y1, ...')
-                call gp%contour(v(2:ubound(v,1)-1,:,slice), palette='jet')
-
-                !write (string_var,'("W")') t_step
-                call gp%title("W")
-                !call gp%xlabel('x1, ...')
-                !call gp%ylabel('y1, ...')
-                call gp%contour(w(2:ubound(w,1)-1,2:ubound(w,2)-1,slice), palette='jet')
-
-                !write (string_var,'("P")') t_step
-                call gp%title("P")
-                !call gp%xlabel('x1, ...')
-                !call gp%ylabel('y1, ...')
-                call gp%contour(p(2:ubound(p,1)-1,2:ubound(p,2)-1,slice), palette='jet')
-                if (gp%hasfileopen) call draw_now(gp)
-
-                !subplot(2,3,1)
-                !temp=squeeze(u(:,2:end-1,slice));
-                !contourf(temp',[-1e99 linspace(min(temp(:)),max(temp(:)),21)],'LineStyle','none'); colorbar;
-                !caxis([min(temp(:)),max(temp(:))]);
-                !title(['U @ ',num2str(t_step)]);
-                !set(gca,'FontSize',18);
-                !
-                !subplot(2,3,2)
-                !temp=squeeze(v(2:end-1,:,slice));
-                !contourf(temp',[-1e99 linspace(min(temp(:)),max(temp(:)),21)],'LineStyle','none'); colorbar;
-                !caxis([min(temp(:)),max(temp(:))]);
-                !title(['V']);
-                !set(gca,'FontSize',18);
-                !
-                !subplot(2,3,3)
-                !temp=squeeze(w(2:end-1,2:end-1,slice));
-                !contourf(temp',[-1e99 linspace(min(temp(:)),max(temp(:)),21)],'LineStyle','none'); colorbar;
-                !caxis([min(temp(:)),max(temp(:))]);
-                !title(['W']);
-                !set(gca,'FontSize',18);
-                !
-                !subplot(2,3,4)
-                !temp=squeeze(p(2:end-1,2:end-1,slice));
-                !contourf(temp',[-1e99 linspace(min(temp(:)),max(temp(:)),21)],'LineStyle','none'); colorbar;
-                !caxis([min(temp(:)) max(temp(:))]);
-                !title(['P']);
-                !set(gca,'FontSize',18);
-                !
-                !drawnow
-
-            end block plot_block
         end if
 
 
