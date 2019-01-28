@@ -6,7 +6,7 @@
     real(8), parameter :: pi = 3.1415926535897932_8
     integer :: i=0,j=0,k=0,ll=0,mm=0
 
-    logical, parameter :: init=.true., plot_output=.false., save_output=.false.
+    logical, parameter :: init=.true., plot_output=.false., save_output=.true.
     real(8), parameter :: Re=1.0d0, nu=0.002d0, t_end=20.0d0, dt0=0.004d0
     real(8), parameter :: t_start=0.0d0
     !integer, parameter :: nx_file=256
@@ -79,6 +79,7 @@
     !real(8), dimension (:,:,:), allocatable :: temp31, temp32, temp33, temp34, temp35, temp36
     !real(4) :: ini_vel(3,nx_file,nx_file,nx_file), ini_pr(nx_file,nx_file,nx_file)
     real(4), dimension (:), allocatable :: temp11s
+    real(4) :: temp01s
 
     !!!!!!!!!!!!!!! INTEL mkl_pardiso !!!!!!!!!!!!!!!
     type(MKL_PARDISO_HANDLE) pt(64)
@@ -97,12 +98,15 @@
     type(gpf):: gp
     character(len=1000) :: string_var
 
+    !!!!!!!!!!!!!!! HDF5 !!!!!!!!!!!!!!!
+    integer(8) :: h5f_whole, h5f_sub, h5f_slice, h5g_sub, h5g_slice, prp_id
+
     !!!!!!!!!!!!!!! system_clock !!!!!!!!!!!!!!!
     REAL(8) :: system_clock_rate
     INTEGER :: c01,c02,c1,c2,cr,cm
 
     !!!!!!!!!!!!!!! simulation parameters !!!!!!!!!!!!!!!
-    character(*), parameter :: timescheme="AB2-CN"
+    character(*), parameter :: timescheme="AB2"
     ! pbc=1 Periodic; pbc=2 Dirichlet on boundary (cell wall); pbc=3 Neumann on boundary (cell wall); pbc=4 Dirichlet on ghost cell
     integer, parameter :: bc_x=1, bc_y=bc_x, bc_z=bc_x, pbc_x=1, pbc_y=pbc_x, pbc_z=pbc_x
 
@@ -111,6 +115,8 @@
     CALL system_clock(count_rate=cr)
     CALL system_clock(count_max=cm)
     system_clock_rate = REAL(cr)
+    ! open HDF5 module
+    call h5open_f(status)
 
     if (bc_x==1) then
         !allocate( x_range0(nx) )
@@ -621,20 +627,50 @@
             end if
             if (.not. allocated(temp13)) allocate(temp13(sizeof_record_slice))
 
-            if (mod(abs(tGet), 1.0d0) < dt0/sub_tstep/100.0d0) then
-                tempi1=1;        tempi2=size(u);        temp11(tempi1:tempi2)=[u]
-                tempi1=tempi2+1; tempi2=tempi2+size(v); temp11(tempi1:tempi2)=[v]
-                tempi1=tempi2+1; tempi2=tempi2+size(w); temp11(tempi1:tempi2)=[w]
-                tempi1=tempi2+1; tempi2=tempi2+size(p); temp11(tempi1:tempi2)=[p]
-                tempi1=tempi2+1; tempi2=tempi2+size(rhs_x_previous); temp11(tempi1:tempi2)=[rhs_x_previous]
-                tempi1=tempi2+1; tempi2=tempi2+size(rhs_y_previous); temp11(tempi1:tempi2)=[rhs_y_previous]
-                tempi1=tempi2+1; tempi2=tempi2+size(rhs_z_previous); temp11(tempi1:tempi2)=[rhs_z_previous]
+            if (tGet==0) then
+                !call h5pcreate_f(H5P_FILE_ACCESS_F, prp_id, status)
+                !call h5pset_fapl_core_f(prp_id, 64, .true., status)
+                !call h5pset_cache_f(prp_id, 0, 521, 16000000, 1.0, status)
 
-                write (string_var,'(A, "_result\HIT_", I0, "^3_decay_", ES5.0E1, "_", A ,"_dp_t_" , F0.4, ".dat")') trim(timescheme), nx, dt0, trim(timescheme), tGet
-                open(20, file=string_var, form='unformatted', status='new', action='write', &
-                    access='direct', recl=sizeof_record*2) !variables are double precision
-                write(20, rec=1) temp11
-                close(20)
+                write (string_var,'(A, "_result\HIT_", I0, "^3_decay_", ES5.0E1, "_", A , "_dp_x0_", I0, "_nx0_", I0, "_sub.h5")') trim(timescheme), nx, dt0, trim(timescheme), x0, nx0
+                call h5fcreate_f(string_var, H5F_ACC_EXCL_F, h5f_sub, status)
+                call h5ltset_attribute_int_f(h5f_sub, "/", "nx", [nx], 1, status)
+                call h5ltset_attribute_double_f(h5f_sub, "/", "dt", [dt0], 1, status)
+                call h5ltset_attribute_double_f(h5f_sub, "/", "nu", [nu], 1, status)
+                call h5ltset_attribute_string_f(h5f_sub, "/", "time_scheme", trim(timescheme), status)
+                call h5ltset_attribute_int_f(h5f_sub, "/", "time_step", [t_step], 1, status)
+                call h5ltset_attribute_double_f(h5f_sub, "/", "time", [tGet], 1, status)
+                call h5ltset_attribute_int_f(h5f_sub, "/", "x0", [x0], 1, status)
+                call h5ltset_attribute_int_f(h5f_sub, "/", "nx0", [nx0], 1, status)
+
+                write (string_var,'(A, "_result\HIT_", I0,"^3_decay_", ES5.0E1, "_", A , "_slice_", I0, ".h5")') trim(timescheme), nx, dt0, trim(timescheme), slice
+                call h5fcreate_f(string_var, H5F_ACC_EXCL_F, h5f_slice, status)
+                call h5ltset_attribute_int_f(h5f_slice, "/", "nx", [nx], 1, status)
+                call h5ltset_attribute_double_f(h5f_slice, "/", "dt", [dt0], 1, status)
+                call h5ltset_attribute_double_f(h5f_slice, "/", "nu", [nu], 1, status)
+                call h5ltset_attribute_string_f(h5f_slice, "/", "time_scheme", trim(timescheme), status)
+                call h5ltset_attribute_int_f(h5f_slice, "/", "time_step", [t_step], 1, status)
+                call h5ltset_attribute_double_f(h5f_slice, "/", "time", [tGet], 1, status)
+                call h5ltset_attribute_int_f(h5f_slice, "/", "XY-slice", [slice], 1, status)
+            end if
+
+            if (mod(abs(tGet), 1.0d0) < dt0/sub_tstep/100.0d0) then
+                write (string_var,'(A, "_result\HIT_", I0, "^3_decay_", ES5.0E1, "_", A ,"_dp_t_" , F0.4, ".h5")') trim(timescheme), nx, dt0, trim(timescheme), tGet
+                call h5fcreate_f(string_var, H5F_ACC_EXCL_F, h5f_whole, status)
+
+                call h5ltset_attribute_int_f(h5f_whole, "/", "nx", [nx], 1, status)
+                call h5ltset_attribute_double_f(h5f_whole, "/", "dt", [dt0], 1, status)
+                call h5ltset_attribute_double_f(h5f_whole, "/", "nu", [nu], 1, status)
+                call h5ltset_attribute_string_f(h5f_whole, "/", "time_scheme", trim(timescheme), status)
+                call h5ltset_attribute_int_f(h5f_whole, "/", "time_step", [t_step], 1, status)
+                call h5ltset_attribute_double_f(h5f_whole, "/", "time", [tGet], 1, status)
+
+                call h5ltmake_dataset_double_f(h5f_whole, 'u', 3, [nx+1_8,ny+2_8,nz+2_8], u, status)
+                call h5ltmake_dataset_double_f(h5f_whole, 'v', 3, [nx+2_8,ny+1_8,nz+2_8], v, status)
+                call h5ltmake_dataset_double_f(h5f_whole, 'w', 3, [nx+2_8,ny+2_8,nz+1_8], w, status)
+                call h5ltmake_dataset_double_f(h5f_whole, 'p', 3, [nx+2_8,ny+2_8,nz+2_8], p, status)
+
+                call h5fclose_f(h5f_whole, status)
             end if
 
             if (tGet<=20) then
@@ -644,59 +680,65 @@
                 p_sub=p(idx_xp,idx_yp,idx_zp); dp_sub=dp(idx_xp,idx_yp,idx_zp)
                 RHS_poisson_sub=RHS_poisson_internal(idx_xp-1,idx_yp-1,idx_zp-1) !RHS_poisson(idx_xp,idx_yp,idx_zp)
 
-                tempi1=1;        tempi2=size(u_sub);             temp12(tempi1:tempi2)=[u_sub]
-                tempi1=tempi2+1; tempi2=tempi2+size(v_sub);      temp12(tempi1:tempi2)=[v_sub]
-                tempi1=tempi2+1; tempi2=tempi2+size(w_sub);      temp12(tempi1:tempi2)=[w_sub]
-                tempi1=tempi2+1; tempi2=tempi2+size(p_sub);      temp12(tempi1:tempi2)=[p_sub]
-                tempi1=tempi2+1; tempi2=tempi2+size(u_star_sub); temp12(tempi1:tempi2)=[u_star_sub]
-                tempi1=tempi2+1; tempi2=tempi2+size(v_star_sub); temp12(tempi1:tempi2)=[v_star_sub]
-                tempi1=tempi2+1; tempi2=tempi2+size(w_star_sub); temp12(tempi1:tempi2)=[w_star_sub]
-                tempi1=tempi2+1; tempi2=tempi2+size(dp_sub);     temp12(tempi1:tempi2)=[dp_sub]
-                tempi1=tempi2+1; tempi2=tempi2+size(RHS_poisson_sub);     temp12(tempi1:tempi2)=[RHS_poisson_sub]
-                if (timescheme=="AB2-CN") then
-                    tempi1=tempi2+1; tempi2=tempi2+size(bx_u_1s); temp12(tempi1:tempi2)=[bx_u_1s]
-                    tempi1=tempi2+1; tempi2=tempi2+size(bx_u_nxs); temp12(tempi1:tempi2)=[bx_u_nxs]
-                    tempi1=tempi2+1; tempi2=tempi2+size(bx_v_1s); temp12(tempi1:tempi2)=[bx_v_1s]
-                    tempi1=tempi2+1; tempi2=tempi2+size(bx_v_nxs); temp12(tempi1:tempi2)=[bx_v_nxs]
-                    tempi1=tempi2+1; tempi2=tempi2+size(bx_w_1s); temp12(tempi1:tempi2)=[bx_w_1s]
-                    tempi1=tempi2+1; tempi2=tempi2+size(bx_w_nxs); temp12(tempi1:tempi2)=[bx_w_nxs]
+                CALL SYSTEM_CLOCK(c1)
+                write (string_var,'("t_", F0.4)') tGet
+                call h5gcreate_f(h5f_sub, string_var, h5g_sub, status)
 
-                    tempi1=tempi2+1; tempi2=tempi2+size(by_u_1s); temp12(tempi1:tempi2)=[by_u_1s]
-                    tempi1=tempi2+1; tempi2=tempi2+size(by_u_nys); temp12(tempi1:tempi2)=[by_u_nys]
-                    tempi1=tempi2+1; tempi2=tempi2+size(by_v_1s); temp12(tempi1:tempi2)=[by_v_1s]
-                    tempi1=tempi2+1; tempi2=tempi2+size(by_v_nys); temp12(tempi1:tempi2)=[by_v_nys]
-                    tempi1=tempi2+1; tempi2=tempi2+size(by_w_1s); temp12(tempi1:tempi2)=[by_w_1s]
-                    tempi1=tempi2+1; tempi2=tempi2+size(by_w_nys); temp12(tempi1:tempi2)=[by_w_nys]
+                call h5ltmake_dataset_double_f(h5g_sub, 'u_sub', 3, [nx0+1_8,ny0+2_8,nz0+2_8], u_sub, status)
+                call h5ltmake_dataset_double_f(h5g_sub, 'v_sub', 3, [nx0+2_8,ny0+1_8,nz0+2_8], v_sub, status)
+                call h5ltmake_dataset_double_f(h5g_sub, 'w_sub', 3, [nx0+2_8,ny0+2_8,nz0+1_8], w_sub, status)
+                call h5ltmake_dataset_double_f(h5g_sub, 'p_sub', 3, [nx0+2_8,ny0+2_8,nz0+2_8], p_sub, status)
+                call h5ltmake_dataset_double_f(h5g_sub, 'u_star_sub', 3, [nx0+1_8,ny0+2_8,nz0+2_8], u_star_sub, status)
+                call h5ltmake_dataset_double_f(h5g_sub, 'v_star_sub', 3, [nx0+2_8,ny0+1_8,nz0+2_8], v_star_sub, status)
+                call h5ltmake_dataset_double_f(h5g_sub, 'w_star_sub', 3, [nx0+2_8,ny0+2_8,nz0+1_8], w_star_sub, status)
+                call h5ltmake_dataset_double_f(h5g_sub, 'dp_sub', 3, [nx0+2_8,ny0+2_8,nz0+2_8], dp_sub, status)
+                call h5ltmake_dataset_double_f(h5g_sub, 'RHS_poisson_sub', 3, [nx0+2_8,ny0+2_8,nz0+2_8], RHS_poisson_sub, status)
 
-                    tempi1=tempi2+1; tempi2=tempi2+size(bz_u_1s); temp12(tempi1:tempi2)=[bz_u_1s]
-                    tempi1=tempi2+1; tempi2=tempi2+size(bz_u_nzs); temp12(tempi1:tempi2)=[bz_u_nzs]
-                    tempi1=tempi2+1; tempi2=tempi2+size(bz_v_1s); temp12(tempi1:tempi2)=[bz_v_1s]
-                    tempi1=tempi2+1; tempi2=tempi2+size(bz_v_nzs); temp12(tempi1:tempi2)=[bz_v_nzs]
-                    tempi1=tempi2+1; tempi2=tempi2+size(bz_w_1s); temp12(tempi1:tempi2)=[bz_w_1s]
-                    tempi1=tempi2+1; tempi2=tempi2+size(bz_w_nzs); temp12(tempi1:tempi2)=[bz_w_nzs]
-                    !tempi1=tempi2+1; tempi2=tempi2+size(u_sub); temp12(tempi1:tempi2)=[temp31]
-                    !tempi1=tempi2+1; tempi2=tempi2+size(v_sub); temp12(tempi1:tempi2)=[temp32]
-                    !tempi1=tempi2+1; tempi2=tempi2+size(w_sub); temp12(tempi1:tempi2)=[temp33]
+                if (mod(tGet,1.0d0)==0.0d0) then
+                    call h5ltmake_dataset_double_f(h5g_sub, 'rhs_x_previous', 3, [nx0+1_8,ny0+2_8,nz0+2_8], rhs_x_previous, status)
+                    call h5ltmake_dataset_double_f(h5g_sub, 'rhs_y_previous', 3, [nx0+2_8,ny0+1_8,nz0+2_8], rhs_y_previous, status)
+                    call h5ltmake_dataset_double_f(h5g_sub, 'rhs_z_previous', 3, [nx0+2_8,ny0+2_8,nz0+1_8], rhs_z_previous, status)
                 end if
+                if (timescheme=="AB2-CN") then
+                    call h5ltmake_dataset_double_f(h5g_sub, 'bx_u_1s', 2, [ny0+2_8,nz0+2_8], bx_u_1s, status)
+                    call h5ltmake_dataset_double_f(h5g_sub, 'bx_u_nxs', 2, [ny0+2_8,nz0+2_8], bx_u_nxs, status)
+                    call h5ltmake_dataset_double_f(h5g_sub, 'bx_v_1s', 2, [ny0+1_8,nz0+2_8], bx_v_1s, status)
+                    call h5ltmake_dataset_double_f(h5g_sub, 'bx_v_nxs', 2, [ny0+1_8,nz0+2_8], bx_v_nxs, status)
+                    call h5ltmake_dataset_double_f(h5g_sub, 'bx_w_1s', 2, [ny0+2_8,nz0+1_8], bx_w_1s, status)
+                    call h5ltmake_dataset_double_f(h5g_sub, 'bx_w_nxs', 2, [ny0+2_8,nz0+1_8], bx_w_nxs, status)
 
-                write (string_var,'(A, "_result\HIT_", I0, "^3_decay_", ES5.0E1, "_", A , "_dp_x0_", I0, "_nx0_", I0, "_t_", F0.4, ".dat")') trim(timescheme), nx, dt0, trim(timescheme), x0, nx0, tGet
-                open(20, file=string_var, form='unformatted', status='new', action='write', &
-                    access='direct', recl=sizeof_record_sub*2) !variables are double precision
-                write(20, rec=1) temp12
-                close(20)
+                    call h5ltmake_dataset_double_f(h5g_sub, 'by_u_1s', 2, [nx0+1_8,nz0+2_8], by_u_1s, status)
+                    call h5ltmake_dataset_double_f(h5g_sub, 'by_u_nys', 2, [nx0+1_8,nz0+2_8], by_u_nys, status)
+                    call h5ltmake_dataset_double_f(h5g_sub, 'by_v_1s', 2, [nx0+2_8,nz0+2_8], by_v_1s, status)
+                    call h5ltmake_dataset_double_f(h5g_sub, 'by_v_nys', 2, [nx0+2_8,nz0+2_8], by_v_nys, status)
+                    call h5ltmake_dataset_double_f(h5g_sub, 'by_w_1s', 2, [nx0+2_8,nz0+1_8], by_w_1s, status)
+                    call h5ltmake_dataset_double_f(h5g_sub, 'by_w_nys', 2, [nx0+2_8,nz0+1_8], by_w_nys, status)
+
+                    call h5ltmake_dataset_double_f(h5g_sub, 'bz_u_1s', 2, [nx0+1_8,ny0+2_8], bz_u_1s, status)
+                    call h5ltmake_dataset_double_f(h5g_sub, 'bz_u_nzs', 2, [nx0+1_8,ny0+2_8], bz_u_nzs, status)
+                    call h5ltmake_dataset_double_f(h5g_sub, 'bz_v_1s', 2, [nx0+2_8,ny0+1_8], bz_v_1s, status)
+                    call h5ltmake_dataset_double_f(h5g_sub, 'bz_v_nzs', 2, [nx0+2_8,ny0+1_8], bz_v_nzs, status)
+                    call h5ltmake_dataset_double_f(h5g_sub, 'bz_w_1s', 2, [nx0+2_8,ny0+2_8], bz_w_1s, status)
+                    call h5ltmake_dataset_double_f(h5g_sub, 'bz_w_nzs', 2, [nx0+2_8,ny0+2_8], bz_w_nzs, status)
+                end if
+                call h5gclose_f( h5g_sub, status)
+                CALL SYSTEM_CLOCK(c2)
+                print '("    hdf5 sub: ", F8.4, " second")', (c2-c1)/system_clock_rate
             end if
 
             if (mod(t_step,plot_step)==0 .and. tGet<=20) then
-                tempi1=1;        tempi2=size(u(:,:,slice));        temp13(tempi1:tempi2)=[u(:,:,slice)]
-                tempi1=tempi2+1; tempi2=tempi2+size(v(:,:,slice)); temp13(tempi1:tempi2)=[v(:,:,slice)]
-                tempi1=tempi2+1; tempi2=tempi2+size(w(:,:,slice)); temp13(tempi1:tempi2)=[w(:,:,slice)]
-                tempi1=tempi2+1; tempi2=tempi2+size(p(:,:,slice)); temp13(tempi1:tempi2)=[p(:,:,slice)]
+                CALL SYSTEM_CLOCK(c1)
+                write (string_var,'("t_", F0.4)') tGet
+                call h5gcreate_f(h5f_slice, string_var, h5g_slice, status)
 
-                write (string_var,'(A, "_result\HIT_", I0,"^3_decay_", ES5.0E1, "_", A , "_slice_", I0, "_t_", F0.4, ".dat")') trim(timescheme), nx, dt0, trim(timescheme), slice, tGet
-                open(20, file=string_var, form='unformatted', status='new', action='write', &
-                    access='direct', recl=sizeof_record_slice*2) !variables are double precision
-                write(20, rec=1) temp13
-                close(20)
+                call h5ltmake_dataset_double_f(h5g_slice, 'u_slice', 2, [nx+1_8,ny+2_8], u(:,:,slice), status)
+                call h5ltmake_dataset_double_f(h5g_slice, 'v_slice', 2, [nx+2_8,ny+1_8], v(:,:,slice), status)
+                call h5ltmake_dataset_double_f(h5g_slice, 'w_slice', 2, [nx+2_8,ny+2_8], w(:,:,slice), status)
+                call h5ltmake_dataset_double_f(h5g_slice, 'p_slice', 2, [nx+2_8,ny+2_8], p(:,:,slice), status)
+
+                call h5gclose_f( h5g_slice, status)
+                CALL SYSTEM_CLOCK(c2)
+                print '("    hdf5 slice: ", F8.4, " second")', (c2-c1)/system_clock_rate
             end if
 
         end if
@@ -775,5 +817,8 @@
     status = DftiFreeDescriptor(hand_f)
     status = DftiFreeDescriptor(hand_b)
 
+    call h5fclose_f(h5f_sub, status)
+    call h5fclose_f(h5f_slice, status)
+    call h5close_f(status)
 
     end subroutine big_periodic_3D

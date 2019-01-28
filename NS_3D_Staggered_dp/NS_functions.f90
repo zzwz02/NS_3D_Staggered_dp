@@ -1280,26 +1280,26 @@
     integer, intent(inout) :: ipar(128)!, direction
     type(dfti_descriptor), pointer, intent(in) :: handle
 
-    integer :: nx, stat
+    integer :: nx, status
 
     if (present(DST2) .and. DST2) then
 
         if (present(forward) .and. forward) then
             f(1:nx:2)=-f(1:nx:2)
-            call d_backward_trig_transform(f,handle,ipar,dpar,stat)
+            call d_backward_trig_transform(f,handle,ipar,dpar,status)
             f(1:nx)=f(nx:1:-1)
         elseif (present(backward) .and. backward) then
             f(1:nx)=f(nx:1:-1)
-            call d_forward_trig_transform(f,handle,ipar,dpar,stat)
+            call d_forward_trig_transform(f,handle,ipar,dpar,status)
             f(1:nx:2)=-f(1:nx:2)
         end if
 
     elseif (present(DCT2).and. DCT2) then
 
         if (present(forward) .and. forward) then
-            call d_backward_trig_transform(f,handle,ipar,dpar,stat)
+            call d_backward_trig_transform(f,handle,ipar,dpar,status)
         elseif (present(backward) .and. backward) then
-            call d_forward_trig_transform(f,handle,ipar,dpar,stat)
+            call d_forward_trig_transform(f,handle,ipar,dpar,status)
         end if
 
     end if
@@ -1318,19 +1318,19 @@
     integer, intent(inout) :: ipar_x(128), ipar_y(128), ipar_z(128)
     type(dfti_descriptor), pointer, intent(in) :: handle_x, handle_y, handle_z
 
-    integer :: stat, i, j, k
+    integer :: status, i, j, k
 
     !x-direction
     do k=1,nz
         do j=1,ny
             if (pbc_x==2) then ! DST-2 = flip sign of every other input, iDCT-3, reverse order of output
                 rhs_tt(1:nx:2,j,k)=-rhs_tt(1:nx:2,j,k)
-                call d_backward_trig_transform(rhs_tt(:,j,k),handle_x,ipar_x,dpar_x,stat)
+                call d_backward_trig_transform(rhs_tt(:,j,k),handle_x,ipar_x,dpar_x,status)
                 rhs_tt(1:nx,j,k)=rhs_tt(nx:1:-1,j,k)
             elseif (pbc_x==3) then ! DCT-2 = iDCT-3
-                call d_backward_trig_transform(rhs_tt(:,j,k),handle_x,ipar_x,dpar_x,stat)
+                call d_backward_trig_transform(rhs_tt(:,j,k),handle_x,ipar_x,dpar_x,status)
             elseif (pbc_x==4) then ! DST-1
-                call d_forward_trig_transform(rhs_tt(:,j,k),handle_x,ipar_x,dpar_x,stat)
+                call d_forward_trig_transform(rhs_tt(:,j,k),handle_x,ipar_x,dpar_x,status)
             end if
         end do
     end do
@@ -1340,12 +1340,12 @@
         do i=1,nx
             if (pbc_y==2) then ! DST-2 = flip sign of every other input, iDCT-3, reverse order of output
                 rhs_tt(i,1:ny:2,k)=-rhs_tt(i,1:ny:2,k)
-                call d_backward_trig_transform(rhs_tt(i,:,k),handle_y,ipar_y,dpar_y,stat)
+                call d_backward_trig_transform(rhs_tt(i,:,k),handle_y,ipar_y,dpar_y,status)
                 rhs_tt(i,1:ny,k)=rhs_tt(i,ny:1:-1,k)
             elseif (pbc_y==3) then ! DCT-2 = iDCT-3
-                call d_backward_trig_transform(rhs_tt(i,:,k),handle_y,ipar_y,dpar_y,stat)
+                call d_backward_trig_transform(rhs_tt(i,:,k),handle_y,ipar_y,dpar_y,status)
             elseif (pbc_y==4) then ! DST-1
-                call d_forward_trig_transform(rhs_tt(i,:,k),handle_y,ipar_y,dpar_y,stat)
+                call d_forward_trig_transform(rhs_tt(i,:,k),handle_y,ipar_y,dpar_y,status)
             end if
         end do
     end do
@@ -1355,12 +1355,12 @@
         do i=1,nx
             if (pbc_z==2) then ! DST-2 = flip sign of every other input, iDCT-3, reverse order of output
                 rhs_tt(i,j,1:nz:2)=-rhs_tt(i,j,1:nz:2)
-                call d_backward_trig_transform(rhs_tt(i,j,:),handle_z,ipar_z,dpar_z,stat)
+                call d_backward_trig_transform(rhs_tt(i,j,:),handle_z,ipar_z,dpar_z,status)
                 !rhs_tt(i,j,1:nz)=rhs_tt(i,j,nz:1:-1)
             elseif (pbc_z==3) then ! DCT-2 = iDCT-3
-                call d_backward_trig_transform(rhs_tt(i,j,:),handle_z,ipar_z,dpar_z,stat)
+                call d_backward_trig_transform(rhs_tt(i,j,:),handle_z,ipar_z,dpar_z,status)
             elseif (pbc_z==4) then ! DST-1
-                call d_forward_trig_transform(rhs_tt(i,j,:),handle_z,ipar_z,dpar_z,stat)
+                call d_forward_trig_transform(rhs_tt(i,j,:),handle_z,ipar_z,dpar_z,status)
             end if
         end do
     end do
@@ -1377,12 +1377,12 @@
         do i=1,nx
             if (pbc_z==2) then ! iDST-2 = reverse order of input, iDCT-3, flip sign of every other output
                 !rhs_tt(i,j,1:nz)=rhs_tt(i,j,nz:1:-1)
-                call d_forward_trig_transform(rhs_tt(i,j,:),handle_z,ipar_z,dpar_z,stat)
+                call d_forward_trig_transform(rhs_tt(i,j,:),handle_z,ipar_z,dpar_z,status)
                 rhs_tt(i,j,1:nz:2)=-rhs_tt(i,j,1:nz:2)
             elseif (pbc_z==3) then ! iDCT-2 = DCT-3
-                call d_forward_trig_transform(rhs_tt(i,j,:),handle_z,ipar_z,dpar_z,stat)
+                call d_forward_trig_transform(rhs_tt(i,j,:),handle_z,ipar_z,dpar_z,status)
             elseif (pbc_z==4) then ! iDST-1
-                call d_backward_trig_transform(rhs_tt(i,j,:),handle_z,ipar_z,dpar_z,stat)
+                call d_backward_trig_transform(rhs_tt(i,j,:),handle_z,ipar_z,dpar_z,status)
             end if
         end do
     end do
@@ -1392,12 +1392,12 @@
         do i=1,nx
             if (pbc_y==2) then ! iDST-2 = reverse order of input, iDCT-3, flip sign of every other output
                 rhs_tt(i,1:ny,k)=rhs_tt(i,ny:1:-1,k)
-                call d_forward_trig_transform(rhs_tt(i,:,k),handle_y,ipar_y,dpar_y,stat)
+                call d_forward_trig_transform(rhs_tt(i,:,k),handle_y,ipar_y,dpar_y,status)
                 rhs_tt(i,1:ny:2,k)=-rhs_tt(i,1:ny:2,k)
             elseif (pbc_y==3) then ! iDCT-2 = DCT-3
-                call d_forward_trig_transform(rhs_tt(i,:,k),handle_y,ipar_y,dpar_y,stat)
+                call d_forward_trig_transform(rhs_tt(i,:,k),handle_y,ipar_y,dpar_y,status)
             elseif (pbc_y==4) then ! iDST-1
-                call d_backward_trig_transform(rhs_tt(i,:,k),handle_y,ipar_y,dpar_y,stat)
+                call d_backward_trig_transform(rhs_tt(i,:,k),handle_y,ipar_y,dpar_y,status)
             end if
         end do
     end do
@@ -1407,12 +1407,12 @@
         do j=1,ny
             if (pbc_x==2) then ! iDST-2 = reverse order of input, iDCT-3, flip sign of every other output
                 rhs_tt(1:nx,j,k)=rhs_tt(nx:1:-1,j,k)
-                call d_forward_trig_transform(rhs_tt(:,j,k),handle_x,ipar_x,dpar_x,stat)
+                call d_forward_trig_transform(rhs_tt(:,j,k),handle_x,ipar_x,dpar_x,status)
                 rhs_tt(1:nx:2,j,k)=-rhs_tt(1:nx:2,j,k)
             elseif (pbc_x==3) then ! iDCT-2 = DCT-3
-                call d_forward_trig_transform(rhs_tt(:,j,k),handle_x,ipar_x,dpar_x,stat)
+                call d_forward_trig_transform(rhs_tt(:,j,k),handle_x,ipar_x,dpar_x,status)
             elseif (pbc_x==4) then ! iDST-1
-                call d_backward_trig_transform(rhs_tt(:,j,k),handle_x,ipar_x,dpar_x,stat)
+                call d_backward_trig_transform(rhs_tt(:,j,k),handle_x,ipar_x,dpar_x,status)
             end if
         end do
     end do

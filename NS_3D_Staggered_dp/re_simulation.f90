@@ -88,7 +88,7 @@
     integer :: status
 
     !!!!!!!!!!!!!!! INTEL mkl_tt !!!!!!!!!!!!!!!
-    integer :: stat, ipar_x(128), ipar_y(128), ipar_z(128)
+    integer :: ipar_x(128), ipar_y(128), ipar_z(128)
     real(8) :: dpar_x(5*nx/2+2), dpar_y(5*nx/2+2), dpar_z(5*nz/2+2), rhs_tt(nx+1, ny+1, nz+1), eig_tt(nx, ny, nz)
     type(dfti_descriptor), pointer :: handle_x, handle_y, handle_z
 
@@ -113,6 +113,7 @@
     CALL system_clock(count_rate=cr)
     CALL system_clock(count_max=cm)
     system_clock_rate = REAL(cr)
+    call h5open_f(status)
 
     if (.not. TOffset) then
         t_start=0.0d0
@@ -759,6 +760,12 @@
 
     status = DftiFreeDescriptor(hand_f)
     status = DftiFreeDescriptor(hand_b)
+    
+    call free_trig_transform(handle_x,ipar_x,status)
+    call free_trig_transform(handle_y,ipar_y,status)
+    call free_trig_transform(handle_z,ipar_z,status)
+    
+    call h5close_f(status)
 
     OPEN(10, file="err_vel.txt", form="formatted")
     write(10,'("rel_err")')

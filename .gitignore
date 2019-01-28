@@ -266,3 +266,4 @@ __pycache__/
 *.png
 plots/
 result/
+*.h5
