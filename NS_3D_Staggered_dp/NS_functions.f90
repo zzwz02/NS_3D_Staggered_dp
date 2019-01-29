@@ -477,7 +477,7 @@
         bx_p_nx=reshape([diff(p_bc(nxp-1:nxp,:,:),1,1)/dx], [nyp,nzp])
 
     end if
-    
+
     if (pbc_y==2) then
         by_p_1 =(p_bc(:,1,:)  +p_bc(:,2,:))/2;
         by_p_ny=(p_bc(:,nyp,:)+p_bc(:,nyp-1,:))/2;
@@ -488,7 +488,7 @@
         by_p_1 =reshape([diff(p_bc(:,1:2,:),1,3)/dy]      , [nxp,nzp])
         by_p_ny=reshape([diff(p_bc(:,nyp-1:nyp,:),1,3)/dy], [nxp,nzp])
     end if
-    
+
     if (pbc_z==2) then
         bz_p_1 =(p_bc(:,:,1)  +p_bc(:,:,2))/2;
         bz_p_nz=(p_bc(:,:,nzp)+p_bc(:,:,nzp-1))/2;
@@ -503,7 +503,7 @@
     end subroutine get_pr_bc
 
     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-    function Poisson_LHS_staggered(nxp, nyp, nzp, dx2, dy2, dz2, pbc_x, pbc_y, pbc_z, dx, dy, dz) result(LHS_poisson)
+    function Poisson_LHS_staggered_old(nxp, nyp, nzp, dx2, dy2, dz2, pbc_x, pbc_y, pbc_z, dx, dy, dz) result(LHS_poisson)
 
     implicit none
 
@@ -1041,6 +1041,141 @@
     co2=coo_init_or_clean(vv, ii, jj, LHS_poisson_coo%shape)
 
     LHS_poisson=add( co1%to_csr(), co2%to_csr() )
+    CALL SYSTEM_CLOCK(c2)
+    print '("   LHS_poisson completed: ", F8.4, " second")', (c2-c1)/system_clock_rate
+    print *, "**************************************"
+
+    end function Poisson_LHS_staggered_old
+
+    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    function Poisson_LHS_staggered(nx, ny, nz, dx2, dy2, dz2, pbc_x, pbc_y, pbc_z, dx, dy, dz) result(LHS_poisson)
+
+    implicit none
+
+    integer, intent(in) :: nx, ny, nz, pbc_x, pbc_y, pbc_z
+    real(8), intent(in) :: dx2, dy2, dz2, dx, dy, dz
+    !real(8), dimension (:,:,:), intent(out) :: LHS_poisson
+    class(csr), allocatable :: LHS_poisson
+    class(coo), allocatable :: LHS_poisson_coo
+
+    integer :: i, j, k
+    real(8) :: idx2, idy2, idz2
+    real(8) :: Ix(nx,nx), Iy(ny,ny), Iz(nz,nz)
+    real(8) :: Ax(nx,nx), Ay(ny,ny), Az(nz,nz)
+
+    type(coo), allocatable :: co1, co2, co3, co4, co5, co6
+    type(coo), allocatable :: t1, t2, t3, t4, t5, t6
+
+    integer :: info=-111, job(8)=0
+
+    !system_clock
+    REAL(8) :: system_clock_rate
+    INTEGER :: c1,c2,cr,cm
+
+    ! First initialize the system_clock
+    CALL system_clock(count_rate=cr)
+    CALL system_clock(count_max=cm)
+    system_clock_rate = REAL(cr)
+
+    Ix=0.0d0
+    Iy=0.0d0
+    Iz=0.0d0
+    Ax=0.0d0
+    Ay=0.0d0
+    Az=0.0d0
+
+    CALL SYSTEM_CLOCK(c1)
+    print *, "Poisson_LHS_staggered start..."
+    do i=1,nx
+        Ix(i,i)=1.0d0
+
+        Ax(i,i)=-2.0d0
+        if (i<nx) then
+            Ax(i+1,i)=1.0d0
+            Ax(i,i+1)=1.0d0
+        end if
+    end do
+    do i=1,ny
+        Iy(i,i)=1.0d0
+
+        Ay(i,i)=-2.0d0
+        if (i<ny) then
+            Ay(i+1,i)=1.0d0
+            Ay(i,i+1)=1.0d0
+        end if
+    end do
+    do i=1,nz
+        Iz(i,i)=1.0d0
+
+        Az(i,i)=-2.0d0
+        if (i<nz) then
+            Az(i+1,i)=1.0d0
+            Az(i,i+1)=1.0d0
+        end if
+    end do
+
+    if (pbc_x==1) then
+        Ax(1,nx)=1; Ax(nx,1)=1;
+    elseif (pbc_x==2) then
+        Ax(1,1)=-3;    Ax(nx,nx)=-3;
+    elseif (pbc_x==3) then
+        Ax(1,1)=-1;    Ax(nx,nx)=-1;
+    elseif (pbc_x==4) then
+    end if
+    
+    if (pbc_y==1) then
+        Ay(1,ny)=1; Ay(ny,1)=1;
+    elseif (pbc_y==2) then
+        Ay(1,1)=-3;    Ay(ny,ny)=-3;
+    elseif (pbc_y==3) then
+        Ay(1,1)=-1;    Ay(ny,ny)=-1;
+    elseif (pbc_y==4) then
+    end if
+    
+    if (pbc_z==1) then
+        Az(1,nz)=1; Az(nz,1)=1;
+    elseif (pbc_z==2) then
+        Az(1,1)=-3;    Az(nz,nz)=-3;
+    elseif (pbc_z==3) then
+        Az(1,1)=-1;    Az(nz,nz)=-1;
+    elseif (pbc_z==4) then
+    end if
+
+    call print_mat(Ax)
+    call print_mat(Ay)
+    call print_mat(Az)
+
+    Ax=Ax/dx2; Ay=Ay/dy2; Az=Az/dz2;
+
+    CALL SYSTEM_CLOCK(c2)
+    print '("   Get Ax/Ay/Az: ", F8.4, " second")', (c2-c1)/system_clock_rate
+
+    !LHS_poisson = -kron(kron(Iz,Iy),Ax)-kron(kron(Iz,Ay),Ix)-kron(kron(Az,Iy),Ix);
+
+    co1=dencoo(Ix)
+    co2=dencoo(Iy)
+    co3=dencoo(Iz)
+    co4=dencoo(Ax)
+    co5=dencoo(Ay)
+    co6=dencoo(Az)
+    t1=kron(co3,co2) !kron(Iz,Iy)
+    t2=kron(co3,co5) !kron(Iz,Ay)
+    t3=kron(co6,co2) !kron(Az,Iy)
+    t4=kron(t1,co4); !s1=t4%to_csr() !kron(kron(Iz,Iy),Ax)
+    t5=kron(t2,co1); !s2=t5%to_csr() !kron(kron(Iz,Ay),Ix)
+    t6=kron(t3,co1); !s3=t6%to_csr() !kron(kron(Az,Iy),Ix)
+
+    if (t4%shape(1)/=t5%shape(1) .or. t4%shape(1)/=t6%shape(1) .or. t4%shape(2)/=t5%shape(2) .or. t4%shape(2)/=t6%shape(2)) then
+        print *, "COO sparse kron incorrect. (subroutine Poisson_LHS_staggered)"
+        stop (1)
+    end if
+
+    LHS_poisson=add( add(t4%to_csr(), t5%to_csr()), t6%to_csr() )
+    LHS_poisson_coo=from_csr(LHS_poisson)
+    CALL SYSTEM_CLOCK(c2)
+    print '("   Kron product: ", F8.4, " second")', (c2-c1)/system_clock_rate
+
+    LHS_poisson=LHS_poisson_coo%to_csr()
     CALL SYSTEM_CLOCK(c2)
     print '("   LHS_poisson completed: ", F8.4, " second")', (c2-c1)/system_clock_rate
     print *, "**************************************"

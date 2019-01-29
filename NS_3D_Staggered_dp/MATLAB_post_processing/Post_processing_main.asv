@@ -2,7 +2,7 @@ clear all
 close all
 
 root_folder='D:\Documents\source\repos\NS_3D_Staggered_dp\NS_3D_Staggered_dp\';
-data_folder=[root_folder,'AB2_result\'];
+data_folder=root_folder+'AB2_result\';
 nu=0.002;
 lx = 2*pi; ly = 2*pi; lz = 2*pi;
 nx=256; ny=nx; nz=nx;
@@ -17,7 +17,7 @@ bc_x=1; bc_y=1; bc_z=1;
 pbc_x=1; pbc_y=1; pbc_z=1;
 
 %%
-filename=[data_folder,'HIT_256^3_decay_4.E-3_AB2_dp_t_.0000.h5'];
+filename=data_folder+'HIT_256^3_decay_4.E-3_AB2_dp_t_.0000.h5';
 disp(filename);
 
 tic
@@ -46,8 +46,7 @@ subplot(1,2,2)
 loglog(k*eta,2*nu*k.^2.*spectrum')
 hold on;
 %%
-filename=[data_folder,'HIT_256^3_decay_4.E-3_AB2_dp_t_.0000.h5'];
-disp(filename);
+filename=data_folder+'HIT_256^3_decay_4.E-3_AB2_dp_t_.0000.h5';disp(filename);
 
 tic
 fileID = fopen(filename);
@@ -80,12 +79,7 @@ legend('time step=0.       dx/\eta=1.33','time step=5000. dx/\eta=0.58')
 xlabel('k\eta'); ylabel('D(k)')
 
 %%
-time=0;
-filename=[data_folder,'HIT_256^3_decay_4.E-3_AB2_slice_129.h5'];
-group_name=num2str(time,'%0.4f');
-if (time==0)
-    group_name=group_name(2:end);
-end
+time=1
+filename=data_folder+'HIT_256^3_decay_4.E-3_AB2_slice_129.h5';
+gname=num2str(10,'%0.4f');
 
-u_slice=h5read(filename,['/t_',group_name,'/u_slice']);
-contourf(u_slice)

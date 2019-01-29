@@ -274,6 +274,21 @@
             !tempi1=tempi2+1; tempi2=tempi2+size(p); p=reshape(dble(temp11s(tempi1:tempi2)), [nx+2,ny+2,nz+2]);
             !
             !deallocate(temp11s)
+            
+            !sizeof_record=size(u)+size(v)+size(w)+size(p)+size(u)+size(v)+size(w)
+            !
+            !if (allocated(temp11)) deallocate(temp11)
+            !allocate(temp11(sizeof_record))
+            !write (string_var,'("D:\Documents\source\repos\NS_3D_Staggered_dp\NS_3D_Staggered_dp\init_file\HIT_256^3_decay_4.E-3_AB2_dp_init.dat")')
+            !open(20, file=string_var, form='unformatted', status='old', action='read', &
+            !    access='direct', recl=sizeof_record*2) !variables are double precision
+            !read(20, rec=1) temp11
+            !close(20)
+            !
+            !tempi1=1;        tempi2=size(u);        u_star=reshape(temp11(tempi1:tempi2), [nx+1,ny+2,nz+2]);
+            !tempi1=tempi2+1; tempi2=tempi2+size(v); v_star=reshape(temp11(tempi1:tempi2), [nx+2,ny+1,nz+2]);
+            !tempi1=tempi2+1; tempi2=tempi2+size(w); w_star=reshape(temp11(tempi1:tempi2), [nx+2,ny+2,nz+1]);
+            !tempi1=tempi2+1; tempi2=tempi2+size(p); p=reshape(temp11(tempi1:tempi2), [nx+2,ny+2,nz+2]);
 
             call h5fopen_f("init_file/HIT_256^3_decay_4.E-3_AB2_dp_init.h5", H5F_ACC_RDONLY_F, h5f_whole, status)
 

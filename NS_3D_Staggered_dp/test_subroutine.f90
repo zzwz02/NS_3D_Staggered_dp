@@ -199,10 +199,14 @@
     csr1=coo1%to_csr()
     coo2=from_csr(csr1)
 
-    LHS_poisson=Poisson_LHS_staggered(nxp, nyp, nzp, 0.01d0, 0.01d0, 0.01d0, pbc_x, pbc_y, pbc_z, 0.1d0, 0.1d0, 0.1d0)
+    LHS_poisson=Poisson_LHS_staggered_old(nxp, nyp, nzp, 0.01d0, 0.01d0, 0.01d0, pbc_x, pbc_y, pbc_z, 0.1d0, 0.1d0, 0.1d0)
     coo2=from_csr(LHS_poisson)
     c_mat=coo2%to_den()
     !call print_spmat(c_mat)
+    
+    LHS_poisson=Poisson_LHS_staggered(3, 4, 5, 0.01d0, 0.02d0, 0.03d0, 1, 2, 3, 0.1d0, 0.1d0, 0.1d0)
+    coo2=from_csr(LHS_poisson)
+    c_mat=coo2%to_den()
 
     a_rowind=[1,2,3,4,5,6,7,8]
     a_colind=[2,4,6]
