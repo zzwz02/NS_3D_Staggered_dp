@@ -6,7 +6,7 @@
     real(8), parameter :: pi = 3.1415926535897932_8
     integer :: i=0,j=0,k=0,ll=0,mm=0
 
-    logical, parameter :: init=.true., save_output=.false.
+    logical, parameter :: init=.true., save_output=.true.
     real(8), parameter :: Re=1.0d0, nu=0.002d0, t_end=10.0d0!, dt0=0.004d0 !!!dt<=0.004 to be stable
     real(8), parameter :: t_start=0.0d0
     !integer, parameter :: nx_file=256
@@ -23,8 +23,6 @@
     integer, parameter :: idx_xv(nx0+2)=[(x0+i, i=0, nx0+1)], idx_yv(ny0+1)=[(y0+i, i=0, ny0)],   idx_zv(nz0+2)=[(z0+i, i=0, nz0+1)]
     integer, parameter :: idx_xw(nx0+2)=[(x0+i, i=0, nx0+1)], idx_yw(ny0+2)=[(y0+i, i=0, ny0+1)], idx_zw(nz0+1)=[(z0+i, i=0, nz0)]
     integer, parameter :: idx_xp(nx0+2)=[(x0+i, i=0, nx0+1)], idx_yp(ny0+2)=[(y0+i, i=0, ny0+1)], idx_zp(nz0+2)=[(z0+i, i=0, nz0+1)]
-
-    logical, parameter :: LU_poisson=(nxp*nyp*nzp<=(32+2)**3)
 
     real(8) :: u(nx+1,ny+2,nz+2)=0,              v(nx+2,ny+1,nz+2)=0,              w(nx+2,ny+2,nz+1)=0,       p(nxp,nyp,nzp)=0
     real(8) :: u_star(nx+1,ny+2,nz+2)=0,         v_star(nx+2,ny+1,nz+2)=0,         w_star(nx+2,ny+2,nz+1)=0,  dp(nxp,nyp,nzp)=0
@@ -105,6 +103,7 @@
     character(*), parameter :: timescheme="AB2-CN"
     ! pbc=1 Periodic; pbc=2 Dirichlet on boundary (cell wall); pbc=3 Neumann on boundary (cell wall); pbc=4 Dirichlet on ghost cell
     integer, parameter :: bc_x=1, bc_y=bc_x, bc_z=bc_x, pbc_x=1, pbc_y=pbc_x, pbc_z=pbc_x
+    logical, parameter :: LU_poisson=(nxp*nyp*nzp<=34**3), FFT_poisson=(pbc_x==1 .and. pbc_y==1 .and. pbc_z==1)
 
     call OMP_set_dynamic(.true.)
     ! First initialize the system_clock
@@ -211,7 +210,7 @@
     end if
 
     !!!! FFT-based FD poisson solver
-    if (pbc_x==1 .and. pbc_y==1 .and. pbc_z==1) then
+    if (FFT_poisson) then
         ! Configure Forward Descriptor
         hand_f => null()
         hand_b => null()
@@ -291,12 +290,12 @@
             !tempi1=tempi2+1; tempi2=tempi2+size(p); p=reshape(temp11(tempi1:tempi2), [nx+2,ny+2,nz+2]);
 
             call h5fopen_f("init_file/HIT_256^3_decay_4.E-3_AB2_dp_init.h5", H5F_ACC_RDONLY_F, h5f_whole, status)
-            
+
             call h5ltread_dataset_double_f(h5f_whole, 'u', u, [nx+1_8,ny+2_8,nz+2_8], status)
             call h5ltread_dataset_double_f(h5f_whole, 'v', v, [nx+2_8,ny+1_8,nz+2_8], status)
             call h5ltread_dataset_double_f(h5f_whole, 'w', w, [nx+2_8,ny+2_8,nz+1_8], status)
             call h5ltread_dataset_double_f(h5f_whole, 'p', p, [nx+2_8,ny+2_8,nz+2_8], status)
-            
+
             call h5fclose_f(h5f_whole, status)
 
             !call TGV(xu, yu, zu, 0.0d0, nu, u)
@@ -482,7 +481,7 @@
             call pr_bc_staggered_modify_rhs(RHS_poisson_internal, bx_p_1(2:nyp-1,2:nzp-1), bx_p_nx(2:nyp-1,2:nzp-1), &
                 by_p_1(2:nxp-1,2:nzp-1), by_p_ny(2:nxp-1,2:nzp-1), bz_p_1(2:nxp-1,2:nyp-1), bz_p_nz(2:nxp-1,2:nyp-1), &
                 pbc_x, pbc_y, pbc_z, dx, dy, dz, dx2, dy2, dz2)
-            
+
             if (LU_poisson) then
                 RHS_poisson0=[RHS_poisson_internal]
 
@@ -502,7 +501,7 @@
             end if
 
             !!!!!!!!!! FFT-based FD poisson solver !!!!!!!!!!
-            if (pbc_x==1 .and. pbc_y==1 .and. pbc_z==1) then
+            if (FFT_poisson) then
                 CALL SYSTEM_CLOCK(c1)
                 !print *, "**************************************"
                 !print *, "   Solve Poisson (FFT-based FD) start..."
@@ -673,8 +672,10 @@
 
     end do
 
-    status = DftiFreeDescriptor(hand_f)
-    status = DftiFreeDescriptor(hand_b)
+    if (FFT_poisson) then
+        status = DftiFreeDescriptor(hand_f)
+        status = DftiFreeDescriptor(hand_b)
+    end if
 
     call h5fclose_f(h5f_sub, status)
     call h5fclose_f(h5f_slice, status)

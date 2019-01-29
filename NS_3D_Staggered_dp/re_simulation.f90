@@ -24,8 +24,6 @@
     integer, parameter :: idx_xw(nx+2)=[(x0+i, i=0, nx+1)], idx_yw(ny+2)=[(y0+i, i=0, ny+1)], idx_zw(nz+1)=[(z0+i, i=0, nz)]
     integer, parameter :: idx_xp(nx+2)=[(x0+i, i=0, nx+1)], idx_yp(ny+2)=[(y0+i, i=0, ny+1)], idx_zp(nz+2)=[(z0+i, i=0, nz+1)]
 
-    logical, parameter :: LU_poisson=(nxp*nyp*nzp<=34**3)
-
     real(8) :: u(nx+1,ny+2,nz+2)=0,              v(nx+2,ny+1,nz+2)=0,              w(nx+2,ny+2,nz+1)=0,       p(nxp,nyp,nzp)=0
     real(8) :: u_star(nx+1,ny+2,nz+2)=0,         v_star(nx+2,ny+1,nz+2)=0,         w_star(nx+2,ny+2,nz+1)=0,  dp(nxp,nyp,nzp)=0
     real(8) :: rhs_x(nx+1,ny+2,nz+2)=0,          rhs_y(nx+2,ny+1,nz+2)=0,          rhs_z(nx+2,ny+2,nz+1)=0
@@ -102,10 +100,11 @@
     !!!!!!!!!!!!!!! re-simulation parameters !!!!!!!!!!!!!!!
     character(*), parameter :: timescheme="AB2"
     ! pbc=1 Periodic; pbc=2 Dirichlet on boundary (cell wall); pbc=3 Neumann on boundary (cell wall); pbc=4 Dirichlet on ghost cell
-    integer, parameter :: bc_x=2, bc_y=bc_x, bc_z=bc_x, pbc_x=2, pbc_y=pbc_x, pbc_z=pbc_x
+    integer, parameter :: bc_x=2, bc_y=bc_x, bc_z=bc_x, pbc_x=3, pbc_y=3, pbc_z=3
     logical, parameter :: using_Ustar=.true., TOffset=.false., restart=.false.
     real(8), parameter :: noise=0;
     real(8), dimension (:,:), allocatable :: err_vel, err_grad, rms_vel, rms_grad
+    logical, parameter :: LU_poisson=(nxp*nyp*nzp<=34**3), FFT_poisson=(pbc_x==1 .and. pbc_y==1 .and. pbc_z==1), DCT_poisson=(pbc_x/=1 .and. pbc_y/=1 .and. pbc_z/=1)
 
     call OMP_set_dynamic(.true.)
     ! First initialize the system_clock
@@ -219,7 +218,7 @@
     end if
 
     !!!! FFT-based FD poisson solver
-    if (pbc_x==1 .and. pbc_y==1 .and. pbc_z==1) then
+    if (FFT_poisson) then
         ! Configure Forward Descriptor
         hand_f => null()
         hand_b => null()
@@ -262,7 +261,7 @@
     end if
 
     !!!! DCT-based FD poisson solver (pbc=1 and 4 are not implemented and tested)
-    if (pbc_x/=1 .and. pbc_y/=1 .and. pbc_z/=1) then
+    if (DCT_poisson) then
         if (pbc_x==4) then
             call d_init_trig_transform(nx, MKL_SINE_TRANSFORM, ipar_x, dpar_x, status)
         else
@@ -562,7 +561,7 @@
             end if
 
             !!!!!!!!!! FFT-based FD poisson solver !!!!!!!!!!
-            if (pbc_x==1 .and. pbc_y==1 .and. pbc_z==1) then
+            if (FFT_poisson) then
                 CALL SYSTEM_CLOCK(c1)
                 !print *, "**************************************"
                 !print *, "   Solve Poisson (FFT-based FD) start..."
@@ -587,7 +586,7 @@
             end if
 
             !!!!!!!!!! DCT-based FD poisson solver (pbc=1 and 4 are not implemented and tested) !!!!!!!!!!
-            if (pbc_x/=1 .and. pbc_y/=1 .and. pbc_z/=1) then
+            if (DCT_poisson) then
                 CALL SYSTEM_CLOCK(c1)
 
                 rhs_tt(1:nx,1:ny,1:nz)=RHS_poisson_internal
@@ -612,7 +611,8 @@
             !dp=LHS_poisson\RHS_poisson(:);
             !dp=reshape(dp,nxp,nyp,nzp);
 
-            !dp=dp_lu; !dp=dp-dp(1,1,1)+dp_sub(1,1,1)
+            !dp=dp_lu; 
+            if (pbc_x==3 .and. pbc_y==3 .and. pbc_z==3) dp=dp-dp(1,1,1)+dp_sub(1,1,1)
             u=-dt0*diff(dp,1,1)/dx+u_star
             v=-dt0*diff(dp,1,2)/dy+v_star
             w=-dt0*diff(dp,1,3)/dz+w_star
@@ -643,12 +643,16 @@
 
     end do
 
-    status = DftiFreeDescriptor(hand_f)
-    status = DftiFreeDescriptor(hand_b)
+    if (FFT_poisson) then
+        status = DftiFreeDescriptor(hand_f)
+        status = DftiFreeDescriptor(hand_b)
+    end if
 
-    call free_trig_transform(handle_x,ipar_x,status)
-    call free_trig_transform(handle_y,ipar_y,status)
-    call free_trig_transform(handle_z,ipar_z,status)
+    if (DCT_poisson) then
+        call free_trig_transform(handle_x,ipar_x,status)
+        call free_trig_transform(handle_y,ipar_y,status)
+        call free_trig_transform(handle_z,ipar_z,status)
+    end if
 
     call h5fclose_f(h5f_sub, status)
     call h5close_f(status)
