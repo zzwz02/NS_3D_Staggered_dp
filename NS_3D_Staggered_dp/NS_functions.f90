@@ -473,8 +473,8 @@
         bx_p_1 =p_bc(1,:,:);
         bx_p_nx=p_bc(nxp,:,:);
     else if (pbc_x==3) then
-        bx_p_1 =reshape([diff(p_bc(1:2,:,:),1,1)/dx]      , [nyp,nzp])
-        bx_p_nx=reshape([diff(p_bc(nxp-1:nxp,:,:),1,1)/dx], [nyp,nzp])
+        bx_p_1 =reshape([diff(p_bc(1:2,:,:),1,1)]/dx      , [nyp,nzp])
+        bx_p_nx=reshape([diff(p_bc(nxp-1:nxp,:,:),1,1)]/dx, [nyp,nzp])
 
     end if
 
@@ -485,8 +485,8 @@
         by_p_1 =p_bc(:,1,:);
         by_p_ny=p_bc(:,nyp,:);
     else if (pbc_y==3) then
-        by_p_1 =reshape([diff(p_bc(:,1:2,:),1,3)/dy]      , [nxp,nzp])
-        by_p_ny=reshape([diff(p_bc(:,nyp-1:nyp,:),1,3)/dy], [nxp,nzp])
+        by_p_1 =reshape([diff(p_bc(:,1:2,:),1,2)]/dy      , [nxp,nzp])
+        by_p_ny=reshape([diff(p_bc(:,nyp-1:nyp,:),1,2)]/dy, [nxp,nzp])
     end if
 
     if (pbc_z==2) then
@@ -496,8 +496,8 @@
         bz_p_1 =p_bc(:,:,1);
         bz_p_nz=p_bc(:,:,nzp);
     else if (pbc_z==3) then
-        bz_p_1 =reshape([diff(p_bc(:,:,1:2),1,3)/dz]      , [nxp,nyp])
-        bz_p_nz=reshape([diff(p_bc(:,:,nzp-1:nzp),1,3)/dz], [nxp,nyp])
+        bz_p_1 =reshape([diff(p_bc(:,:,1:2),1,3)]/dz      , [nxp,nyp])
+        bz_p_nz=reshape([diff(p_bc(:,:,nzp-1:nzp),1,3)]/dz, [nxp,nyp])
     end if
 
     end subroutine get_pr_bc
@@ -1141,9 +1141,9 @@
     elseif (pbc_z==4) then
     end if
 
-    call print_mat(Ax)
-    call print_mat(Ay)
-    call print_mat(Az)
+    !call print_mat(Ax)
+    !call print_mat(Ay)
+    !call print_mat(Az)
 
     Ax=Ax/dx2; Ay=Ay/dy2; Az=Az/dz2;
 

@@ -86,7 +86,7 @@
     CALL system_clock(count_max=cm)
     system_clock_rate = REAL(cr)
 
-    LHS_poisson=Poisson_LHS_staggered(nxp, nyp, nzp, dx2, dy2, dz2, pbc_x, pbc_y, pbc_z, dx, dy, dz)
+    LHS_poisson=Poisson_LHS_staggered_old(nxp, nyp, nzp, dx2, dy2, dz2, pbc_x, pbc_y, pbc_z, dx, dy, dz)
     DO i = 1, 64
         pt(i)%DUMMY = 0
     END DO
@@ -199,7 +199,7 @@
     csr1=coo1%to_csr()
     coo2=from_csr(csr1)
 
-    LHS_poisson=Poisson_LHS_staggered_old(nxp, nyp, nzp, 0.01d0, 0.01d0, 0.01d0, pbc_x, pbc_y, pbc_z, 0.1d0, 0.1d0, 0.1d0)
+    LHS_poisson=Poisson_LHS_staggered_old(3, 4, 5, 0.01d0, 0.01d0, 0.01d0, 2, 3, 2, 0.1d0, 0.1d0, 0.1d0)
     coo2=from_csr(LHS_poisson)
     c_mat=coo2%to_den()
     !call print_spmat(c_mat)

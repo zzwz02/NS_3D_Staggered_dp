@@ -29,13 +29,13 @@
     !read (*,'(i1)') i
 
     !if (i==1) then
-        !call big_periodic_3D
+        call big_periodic_3D
     !end if
     !
     !if (i==2) then
-        !call re_simulation
+    !    call re_simulation
     !end if
-    call test_subroutine
+    !call test_subroutine
 
     write (*,*) "Press anykey to continue..."
     read (*,*)

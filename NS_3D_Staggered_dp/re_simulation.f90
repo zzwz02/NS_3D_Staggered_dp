@@ -35,7 +35,7 @@
     !real(8) :: rhs_x_previous0(nx+1,ny+2,nz+2)=0,rhs_y_previous0(nx+2,ny+1,nz+2)=0,rhs_z_previous0(nx+2,ny+2,nz+1)=0
     !real(8) :: f_term_x(nx+1,ny+2,nz+2)=0,       f_term_y(nx+2,ny+1,nz+2)=0,       f_term_z(nx+2,ny+2,nz+1)=0
 
-    real(8) :: RHS_poisson(nxp,nyp,nzp)=0, dp_lu(nxp,nyp,nzp)=0, RHS_poisson0(nxp*nyp*nzp)=0, dp_vec(nxp*nyp*nzp)=0
+    real(8) :: dp_lu(nxp,nyp,nzp)=0, RHS_poisson0(nx*ny*nz)=0, dp_vec(nx*ny*nz)=0
     real(8), dimension (:,:,:), allocatable :: conv_x, conv_y, conv_z
     real(8), dimension (:,:,:), allocatable :: diff_x, diff_y, diff_z
     real(8) :: RHS_poisson_internal(nx,ny,nz), div(nx,ny,nz)
@@ -75,7 +75,7 @@
 
     !!!!!!!!!!!!!!! INTEL mkl_pardiso !!!!!!!!!!!!!!!
     type(MKL_PARDISO_HANDLE) pt(64)
-    integer :: maxfct=1, mnum=1, mtype=11, phase=13, n=nxp*nyp*nzp, idum(nxp*nyp*nzp), nrhs=1, iparm(64)=0, msglvl=0, error=0
+    integer :: maxfct=1, mnum=1, mtype=11, phase=13, n=nx*ny*nz, idum(nx*ny*nz), nrhs=1, iparm(64)=0, msglvl=0, error=0
 
     !!!!!!!!!!!!!!! INTEL mkl_dft !!!!!!!!!!!!!!!
     integer :: cstrides(4)=0, rstrides(4)=0
@@ -189,7 +189,7 @@
 
     !!!! LU-based FD poisson solver
     if (LU_poisson) then
-        LHS_poisson=Poisson_LHS_staggered(nxp, nyp, nzp, dx2, dy2, dz2, pbc_x, pbc_y, pbc_z, dx, dy, dz)
+        LHS_poisson=Poisson_LHS_staggered(nx, ny, nz, dx2, dy2, dz2, pbc_x, pbc_y, pbc_z, dx, dy, dz)
         !LHS_poisson_coo=LHS_poisson_coo%from_csr(LHS_poisson)
         !LHS_poisson_den=LHS_poisson_coo%to_den()
 
@@ -405,7 +405,7 @@
             dpdx=diff(p,1,1)/dx;
             dpdy=diff(p,1,2)/dy;
             dpdz=diff(p,1,3)/dz;
-            
+
             if (timescheme=="Euler") then
                 ! diff terms + conv terms
                 rhs_x(x_range0,y_range1,z_range1)=nu*diff_x-conv_x;
@@ -534,37 +534,17 @@
             RHS_poisson_internal = RHS_poisson_internal + diff(v_star(2:ubound(v_star,1)-1,:,2:ubound(v_star,3)-1),1,2)/dy
             RHS_poisson_internal = RHS_poisson_internal + diff(w_star(2:ubound(w_star,1)-1,2:ubound(w_star,2)-1,:),1,3)/dz
             RHS_poisson_internal = RHS_poisson_internal/dt0
-            RHS_poisson(2:nxp-1,2:nyp-1,2:nzp-1)=RHS_poisson_internal
 
             print *, [maxval(abs(u_star-u_star_sub)), maxval(abs(v_star-v_star_sub)), maxval(abs(w_star-w_star_sub)), maxval(abs(RHS_poisson_internal-RHS_poisson_sub(2:nxp-1,2:nyp-1,2:nzp-1)))]
             print *,'*****************************'
 
+            call pr_bc_staggered_modify_rhs(RHS_poisson_internal, bx_p_1(2:nyp-1,2:nzp-1), bx_p_nx(2:nyp-1,2:nzp-1), &
+                by_p_1(2:nxp-1,2:nzp-1), by_p_ny(2:nxp-1,2:nzp-1), bz_p_1(2:nxp-1,2:nyp-1), bz_p_nz(2:nxp-1,2:nyp-1), &
+                pbc_x, pbc_y, pbc_z, dx, dy, dz, dx2, dy2, dz2)
+
             !!!!!!!!!! LU-based FD poisson solver !!!!!!!!!!
             if (LU_poisson) then
-                !RHS_poisson(2:nxp-1,2:nyp-1,2:nzp-1)=RHS_poisson_internal
-                if (pbc_x==1) then
-                    RHS_poisson(1,:,:)=0;      RHS_poisson(nxp,:,:)=0;
-                else if (pbc_x==2 .or. pbc_x==4) then
-                    RHS_poisson(1,:,:)=bx_p_1; RHS_poisson(nxp,:,:)=bx_p_nx;
-                else if (pbc_x==3) then
-                    RHS_poisson(1,:,:)=bx_p_1; RHS_poisson(nxp,:,:)=bx_p_nx;
-                end if
-                if (pbc_y==1) then
-                    RHS_poisson(:,1,:)=0;      RHS_poisson(:,nyp,:)=0;
-                else if (pbc_y==2 .or. pbc_y==4) then
-                    RHS_poisson(:,1,:)=by_p_1; RHS_poisson(:,nyp,:)=by_p_ny;
-                else if (pbc_y==3) then
-                    RHS_poisson(:,1,:)=by_p_1; RHS_poisson(:,nyp,:)=by_p_ny;
-                end if
-                if (pbc_z==1) then
-                    RHS_poisson(:,:,1)=0;      RHS_poisson(:,:,nzp)=0;
-                else if (pbc_y==2 .or. pbc_y==4) then
-                    RHS_poisson(:,:,1)=bz_p_1; RHS_poisson(:,:,nzp)=bz_p_nz;
-                else if (pbc_z==3) then
-                    RHS_poisson(:,:,1)=bz_p_1; RHS_poisson(:,:,nzp)=bz_p_nz;
-                end if
-
-                RHS_poisson0=[RHS_poisson]
+                RHS_poisson0=[RHS_poisson_internal]
 
                 !DO i = 1, 64
                 !    pt(i)%DUMMY = 0
@@ -577,7 +557,8 @@
                 CALL SYSTEM_CLOCK(c2)
                 print '("    Solve Poisson (LU decomp) completed: ", F8.4, " second")', (c2-c1)/system_clock_rate
                 !print *, "**************************************"
-                dp_lu=reshape(dp_vec,([nxp,nyp,nzp]))
+                dp_lu(2:nxp-1,2:nyp-1,2:nzp-1)=reshape(dp_vec,([nx,ny,nz]))
+                call pr_bc_staggered(dp_lu, bx_p_1, bx_p_nx, by_p_1, by_p_ny, bz_p_1, bz_p_nz, pbc_x, pbc_y, pbc_z, dx, dy, dz)
             end if
 
             !!!!!!!!!! FFT-based FD poisson solver !!!!!!!!!!
@@ -608,10 +589,6 @@
             !!!!!!!!!! DCT-based FD poisson solver (pbc=1 and 4 are not implemented and tested) !!!!!!!!!!
             if (pbc_x/=1 .and. pbc_y/=1 .and. pbc_z/=1) then
                 CALL SYSTEM_CLOCK(c1)
-
-                call pr_bc_staggered_modify_rhs(RHS_poisson_internal, bx_p_1(2:nyp-1,2:nzp-1), bx_p_nx(2:nyp-1,2:nzp-1), &
-                    by_p_1(2:nxp-1,2:nzp-1), by_p_ny(2:nxp-1,2:nzp-1), bz_p_1(2:nxp-1,2:nyp-1), bz_p_nz(2:nxp-1,2:nyp-1), &
-                    pbc_x, pbc_y, pbc_z, dx, dy, dz, dx2, dy2, dz2)
 
                 rhs_tt(1:nx,1:ny,1:nz)=RHS_poisson_internal
 

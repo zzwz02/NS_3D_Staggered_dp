@@ -35,7 +35,7 @@
     !real(8) :: rhs_x_previous0(nx+1,ny+2,nz+2)=0,rhs_y_previous0(nx+2,ny+1,nz+2)=0,rhs_z_previous0(nx+2,ny+2,nz+1)=0
     !real(8) :: f_term_x(nx+1,ny+2,nz+2)=0,       f_term_y(nx+2,ny+1,nz+2)=0,       f_term_z(nx+2,ny+2,nz+1)=0
     real(8), dimension (:,:,:), allocatable :: rhs_x, rhs_y, rhs_z, rhs_x_previous, rhs_y_previous, rhs_z_previous, dpdx, dpdy, dpdz
-    real(8), dimension (:,:,:), allocatable :: RHS_poisson, dp_lu
+    real(8), dimension (:,:,:), allocatable :: dp_lu
     real(8), dimension (:    ), allocatable :: RHS_poisson0, dp_vec
     real(8), dimension (:,:,:), allocatable :: conv_x, conv_y, conv_z
     real(8), dimension (:,:,:), allocatable :: diff_x, diff_y, diff_z
@@ -82,7 +82,7 @@
 
     !!!!!!!!!!!!!!! INTEL mkl_pardiso !!!!!!!!!!!!!!!
     type(MKL_PARDISO_HANDLE) pt(64)
-    integer :: maxfct=1, mnum=1, mtype=11, phase=13, n=nxp*nyp*nzp, idum(nxp*nyp*nzp), nrhs=1, iparm(64)=0, msglvl=0, error=0
+    integer :: maxfct=1, mnum=1, mtype=11, phase=13, n=nx*ny*nz, idum(nx*ny*nz), nrhs=1, iparm(64)=0, msglvl=0, error=0
 
     !!!!!!!!!!!!!!! INTEL mkl_dft !!!!!!!!!!!!!!!
     integer :: cstrides(4)=0, rstrides(4)=0
@@ -102,7 +102,7 @@
     INTEGER :: c01,c02,c1,c2,cr,cm
 
     !!!!!!!!!!!!!!! simulation parameters !!!!!!!!!!!!!!!
-    character(*), parameter :: timescheme="AB2"
+    character(*), parameter :: timescheme="AB2-CN"
     ! pbc=1 Periodic; pbc=2 Dirichlet on boundary (cell wall); pbc=3 Neumann on boundary (cell wall); pbc=4 Dirichlet on ghost cell
     integer, parameter :: bc_x=1, bc_y=bc_x, bc_z=bc_x, pbc_x=1, pbc_y=pbc_x, pbc_z=pbc_x
 
@@ -186,9 +186,9 @@
     end if
 
     if (LU_poisson) then
-        allocate(RHS_poisson(nxp,nyp,nzp), RHS_poisson0(nxp*nyp*nzp), dp_vec(nxp*nyp*nzp), dp_lu(nxp,nyp,nzp))
+        allocate(RHS_poisson0(nx*ny*nz), dp_vec(nx*ny*nz), dp_lu(nxp,nyp,nzp))
 
-        LHS_poisson=Poisson_LHS_staggered(nxp, nyp, nzp, dx2, dy2, dz2, pbc_x, pbc_y, pbc_z, dx, dy, dz)
+        LHS_poisson=Poisson_LHS_staggered(nx, ny, nz, dx2, dy2, dz2, pbc_x, pbc_y, pbc_z, dx, dy, dz)
         DO i = 1, 64
             pt(i)%DUMMY = 0
         END DO
@@ -274,7 +274,7 @@
             !tempi1=tempi2+1; tempi2=tempi2+size(p); p=reshape(dble(temp11s(tempi1:tempi2)), [nx+2,ny+2,nz+2]);
             !
             !deallocate(temp11s)
-            
+
             !sizeof_record=size(u)+size(v)+size(w)+size(p)+size(u)+size(v)+size(w)
             !
             !if (allocated(temp11)) deallocate(temp11)
@@ -291,12 +291,12 @@
             !tempi1=tempi2+1; tempi2=tempi2+size(p); p=reshape(temp11(tempi1:tempi2), [nx+2,ny+2,nz+2]);
 
             call h5fopen_f("init_file/HIT_256^3_decay_4.E-3_AB2_dp_init.h5", H5F_ACC_RDONLY_F, h5f_whole, status)
-
+            
             call h5ltread_dataset_double_f(h5f_whole, 'u', u, [nx+1_8,ny+2_8,nz+2_8], status)
             call h5ltread_dataset_double_f(h5f_whole, 'v', v, [nx+2_8,ny+1_8,nz+2_8], status)
             call h5ltread_dataset_double_f(h5f_whole, 'w', w, [nx+2_8,ny+2_8,nz+1_8], status)
             call h5ltread_dataset_double_f(h5f_whole, 'p', p, [nx+2_8,ny+2_8,nz+2_8], status)
-
+            
             call h5fclose_f(h5f_whole, status)
 
             !call TGV(xu, yu, zu, 0.0d0, nu, u)
@@ -479,31 +479,12 @@
             RHS_poisson_internal = RHS_poisson_internal + diff(w_star(2:ubound(w_star,1)-1,2:ubound(w_star,2)-1,:),1,3)/dz
             RHS_poisson_internal = RHS_poisson_internal/dt0
 
+            call pr_bc_staggered_modify_rhs(RHS_poisson_internal, bx_p_1(2:nyp-1,2:nzp-1), bx_p_nx(2:nyp-1,2:nzp-1), &
+                by_p_1(2:nxp-1,2:nzp-1), by_p_ny(2:nxp-1,2:nzp-1), bz_p_1(2:nxp-1,2:nyp-1), bz_p_nz(2:nxp-1,2:nyp-1), &
+                pbc_x, pbc_y, pbc_z, dx, dy, dz, dx2, dy2, dz2)
+            
             if (LU_poisson) then
-                RHS_poisson(2:nxp-1,2:nyp-1,2:nzp-1)=RHS_poisson_internal
-                if (pbc_x==1) then
-                    RHS_poisson(1,:,:)=0;      RHS_poisson(nxp,:,:)=0;
-                else if (pbc_x==2 .or. pbc_x==4) then
-                    RHS_poisson(1,:,:)=bx_p_1; RHS_poisson(nxp,:,:)=bx_p_nx;
-                else if (pbc_x==3) then
-                    RHS_poisson(1,:,:)=bx_p_1; RHS_poisson(nxp,:,:)=bx_p_nx;
-                end if
-                if (pbc_y==1) then
-                    RHS_poisson(:,1,:)=0;      RHS_poisson(:,nyp,:)=0;
-                else if (pbc_y==2 .or. pbc_y==4) then
-                    RHS_poisson(:,1,:)=by_p_1; RHS_poisson(:,nyp,:)=by_p_ny;
-                else if (pbc_y==3) then
-                    RHS_poisson(:,1,:)=by_p_1; RHS_poisson(:,nyp,:)=by_p_ny;
-                end if
-                if (pbc_z==1) then
-                    RHS_poisson(:,:,1)=0;      RHS_poisson(:,:,nzp)=0;
-                else if (pbc_y==2 .or. pbc_y==4) then
-                    RHS_poisson(:,:,1)=bz_p_1; RHS_poisson(:,:,nzp)=bz_p_nz;
-                else if (pbc_z==3) then
-                    RHS_poisson(:,:,1)=bz_p_1; RHS_poisson(:,:,nzp)=bz_p_nz;
-                end if
-
-                RHS_poisson0=[RHS_poisson]
+                RHS_poisson0=[RHS_poisson_internal]
 
                 !DO i = 1, 64
                 !    pt(i)%DUMMY = 0
@@ -516,7 +497,8 @@
                 CALL SYSTEM_CLOCK(c2)
                 print '("    Solve Poisson (LU decomp) completed: ", F8.4, " second")', (c2-c1)/system_clock_rate
                 !print *, "**************************************"
-                dp_lu=reshape(dp_vec,([nxp,nyp,nzp]))
+                dp_lu(2:nxp-1,2:nyp-1,2:nzp-1)=reshape(dp_vec,([nx,ny,nz]))
+                call pr_bc_staggered(dp_lu, bx_p_1, bx_p_nx, by_p_1, by_p_ny, bz_p_1, bz_p_nz, pbc_x, pbc_y, pbc_z, dx, dy, dz)
             end if
 
             !!!!!!!!!! FFT-based FD poisson solver !!!!!!!!!!
