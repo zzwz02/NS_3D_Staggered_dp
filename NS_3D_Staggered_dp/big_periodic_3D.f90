@@ -6,7 +6,7 @@
     real(8), parameter :: pi = 3.1415926535897932_8
     integer :: i=0,j=0,k=0,ll=0,mm=0
 
-    logical, parameter :: init=.true., save_output=.true.
+    logical, parameter :: init=.true., save_output=.false.
     real(8), parameter :: Re=1.0d0, nu=0.002d0, t_end=10.0d0!, dt0=0.004d0 !!!dt<=0.004 to be stable
     real(8), parameter :: t_start=0.0d0
     !integer, parameter :: nx_file=256
@@ -169,7 +169,7 @@
     if (timescheme=="AB2-CN") then
         if (allocated(A_mat)) deallocate(A_mat, B_mat, C_mat, D_mat, E_mat, F_mat)
         if (allocated(A_ipiv)) deallocate(A_ipiv, B_ipiv, C_ipiv, D_ipiv, E_ipiv, F_ipiv)
-        allocate(A_mat(nx+1,nx+1), B_mat(nx+2,nx+2), C_mat(ny+1,ny+1), D_mat(nz+2,nz+2), E_mat(nz+1,nz+1), F_mat(nz+2,nz+2))
+        allocate(A_mat(nx+1,nx+1), B_mat(nx+2,nx+2), C_mat(ny+1,ny+1), D_mat(ny+2,ny+2), E_mat(nz+1,nz+1), F_mat(nz+2,nz+2))
         allocate(A_ipiv(nx+1), B_ipiv(nx+2), C_ipiv(ny+1), D_ipiv(ny+2), E_ipiv(nz+1), F_ipiv(nz+2))
 
         call mat_CN(nx, bc_x, dx2, dx, A_mat, B_mat, dt0, nu)

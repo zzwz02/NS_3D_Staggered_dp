@@ -98,7 +98,7 @@
     INTEGER :: c01,c02,c1,c2,cr,cm
 
     !!!!!!!!!!!!!!! re-simulation parameters !!!!!!!!!!!!!!!
-    character(*), parameter :: timescheme="AB2"
+    character(*), parameter :: timescheme="AB2-CN"
     ! pbc=1 Periodic; pbc=2 Dirichlet on boundary (cell wall); pbc=3 Neumann on boundary (cell wall); pbc=4 Dirichlet on ghost cell
     integer, parameter :: bc_x=2, bc_y=bc_x, bc_z=bc_x, pbc_x=3, pbc_y=3, pbc_z=3
     logical, parameter :: using_Ustar=.true., TOffset=.false., restart=.false.
@@ -170,20 +170,21 @@
         if (allocated(A_low)) deallocate(A_low, A_d, A_up, A_up2, A_ipiv, B_low, B_d, B_up, B_up2, B_ipiv)
         if (allocated(C_low)) deallocate(C_low, C_d, C_up, C_up2, C_ipiv, D_low, D_d, D_up, D_up2, D_ipiv)
         if (allocated(E_low)) deallocate(E_low, E_d, E_up, E_up2, E_ipiv, F_low, F_d, F_up, F_up2, F_ipiv)
-        allocate(A_low(nx), A_d(nx+1), A_up(nx), A_up2(nx-1), A_ipiv(n), B_low(nx+1), B_d(nx+2), B_up(nx+1), B_up2(nx), B_ipiv(n))
-        allocate(C_low(nx), C_d(nx+1), C_up(nx), C_up2(nx-1), C_ipiv(n), D_low(nx+1), D_d(nx+2), D_up(nx+1), D_up2(nx), D_ipiv(n))
-        allocate(E_low(nx), E_d(nx+1), E_up(nx), E_up2(nx-1), E_ipiv(n), F_low(nx+1), F_d(nx+2), F_up(nx+1), F_up2(nx), F_ipiv(n))
+        allocate(A_low(nx), A_d(nx+1), A_up(nx), A_up2(nx-1), A_ipiv(nx+1), B_low(nx+1), B_d(nx+2), B_up(nx+1), B_up2(nx), B_ipiv(nx+2))
+        allocate(C_low(ny), C_d(ny+1), C_up(ny), C_up2(ny-1), C_ipiv(ny+1), D_low(ny+1), D_d(ny+2), D_up(ny+1), D_up2(ny), D_ipiv(ny+2))
+        allocate(E_low(nz), E_d(nz+1), E_up(nz), E_up2(nz-1), E_ipiv(nz+1), F_low(nz+1), F_d(nz+2), F_up(nz+1), F_up2(nz), F_ipiv(nz+2))
 
         call mat_CN_tridiagonal(nx, bc_x, dx2, dx, A_low, A_d, A_up, B_low, B_d, B_up, dt0, nu)
         call mat_CN_tridiagonal(ny, bc_y, dy2, dy, C_low, C_d, C_up, D_low, D_d, D_up, dt0, nu)
         call mat_CN_tridiagonal(nz, bc_z, dz2, dz, E_low, E_d, E_up, F_low, F_d, F_up, dt0, nu)
 
-        call gttrf( A_low, A_d, A_up, A_up2, A_ipiv )
-        call gttrf( B_low, B_d, B_up, B_up2, B_ipiv )
-        call gttrf( C_low, C_d, C_up, C_up2, C_ipiv )
-        call gttrf( D_low, D_d, D_up, D_up2, D_ipiv )
-        call gttrf( E_low, E_d, E_up, E_up2, E_ipiv )
-        call gttrf( F_low, F_d, F_up, F_up2, F_ipiv )
+        !CN matrix should be a diagonally dominant tridiagonal coefficient matrix (?)
+        call dttrfb( A_low, A_d, A_up )
+        call dttrfb( B_low, B_d, B_up )
+        call dttrfb( C_low, C_d, C_up )
+        call dttrfb( D_low, D_d, D_up )
+        call dttrfb( E_low, E_d, E_up )
+        call dttrfb( F_low, F_d, F_up )
     end if
 
     !!!! LU-based FD poisson solver
@@ -475,9 +476,9 @@
                 call vel_bc_staggered_CN2(u_star, v_star, w_star, bx_u_1, bx_u_nx, bx_v_1, bx_v_nx, bx_w_1, bx_w_nx, bc_x, 1)
                 !!$omp parallel do
                 do k=1,nz+2
-                    call gttrs( A_low, A_d, A_up, A_up2, u_star(:,:,k), A_ipiv )
-                    call gttrs( B_low, B_d, B_up, B_up2, v_star(:,:,k), B_ipiv )
-                    if (k<=nz+1) call gttrs( B_low, B_d, B_up, B_up2, w_star(:,:,k), B_ipiv )
+                    call dttrsb( A_low, A_d, A_up, u_star(:,:,k) )
+                    call dttrsb( B_low, B_d, B_up, v_star(:,:,k) )
+                    if (k<=nz+1) call dttrsb( B_low, B_d, B_up, w_star(:,:,k) )
                 end do
                 !!$omp end parallel do
 
@@ -485,16 +486,16 @@
                 !!$omp parallel do
                 do k=1,nz+2
                     temp21=transpose(u_star(:,:,k))
-                    call gttrs( D_low, D_d, D_up, D_up2, temp21, D_ipiv )
+                    call dttrsb( D_low, D_d, D_up, temp21 )
                     u_star(:,:,k)=transpose(temp21)
 
                     temp21=transpose(v_star(:,:,k))
-                    call gttrs( C_low, C_d, C_up, C_up2, temp21, C_ipiv )
+                    call dttrsb( C_low, C_d, C_up, temp21 )
                     v_star(:,:,k)=transpose(temp21)
 
                     if (k<=nz+1) then
                         temp21=transpose(w_star(:,:,k))
-                        call gttrs( D_low, D_d, D_up, D_up2, temp21, D_ipiv )
+                        call dttrsb( D_low, D_d, D_up, temp21 )
                         w_star(:,:,k)=transpose(temp21)
                     end if
                 end do
@@ -504,17 +505,17 @@
                 !!$omp parallel do
                 do j=1,ny+2
                     temp21=transpose(u_star(:,j,:))
-                    call gttrs( F_low, F_d, F_up, F_up2, temp21, F_ipiv )
+                    call dttrsb( F_low, F_d, F_up, temp21 )
                     u_star(:,j,:)=transpose(temp21)
 
                     if (j<=ny+1) then
                         temp21=transpose(v_star(:,j,:))
-                        call gttrs( F_low, F_d, F_up, F_up2, temp21, F_ipiv )
+                        call dttrsb( F_low, F_d, F_up, temp21 )
                         v_star(:,j,:)=transpose(temp21)
                     end if
 
                     temp21=transpose(w_star(:,j,:))
-                    call gttrs( E_low, E_d, E_up, E_up2, temp21, E_ipiv )
+                    call dttrsb( E_low, E_d, E_up, temp21 )
                     w_star(:,j,:)=transpose(temp21)
                 end do
                 !!$omp end parallel do

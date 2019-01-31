@@ -57,10 +57,11 @@
     integer, intent(in) :: bc_x, bc_y, bc_z
     real(8), intent(in) :: dx, dy, dz
     real(8), dimension (:,:,:), intent(in) :: u, v, w
-    real(8), dimension (:,:,:), intent(out), optional :: conv_x, conv_y, conv_z
-    real(8), dimension (:,:,:), allocatable :: ux, uy, uz
-    real(8), dimension (:,:,:), allocatable :: vx, vy, vz
-    real(8), dimension (:,:,:), allocatable :: wx, wy, wz
+    real(8), dimension (:,:,:), intent(out) :: conv_x, conv_y, conv_z
+    real(8), dimension (:,:,:), allocatable, save  :: ux, uy, uz
+    real(8), dimension (:,:,:), allocatable, save :: vx, vy, vz
+    real(8), dimension (:,:,:), allocatable, save :: wx, wy, wz
+    real(8), dimension (:,:,:), allocatable, save :: temp31, temp32, temp33, temp34, temp35, temp36, temp37, temp38, temp39
     integer :: nx, ny, nz
 
     nx=size(u,1)-1; ny=size(v,2)-1; nz=size(w,3)-1
@@ -146,7 +147,7 @@
     integer, intent(in) :: bc_x, bc_y, bc_z
     real(8), intent(in) :: dx2, dy2, dz2
     real(8), dimension (:,:,:), intent(in) :: u, v, w
-    real(8), dimension (:,:,:), intent(out), optional :: diff_x, diff_y, diff_z
+    real(8), dimension (:,:,:), intent(out) :: diff_x, diff_y, diff_z
 
     if (bc_x==1) then
         diff_x=diff2(u(:,2:ubound(u,2)-1,2:ubound(u,3)-1),1,bc_x)/dx2
@@ -1122,7 +1123,7 @@
         Ax(1,1)=-1;    Ax(nx,nx)=-1;
     elseif (pbc_x==4) then
     end if
-    
+
     if (pbc_y==1) then
         Ay(1,ny)=1; Ay(ny,1)=1;
     elseif (pbc_y==2) then
@@ -1131,7 +1132,7 @@
         Ay(1,1)=-1;    Ay(ny,ny)=-1;
     elseif (pbc_y==4) then
     end if
-    
+
     if (pbc_z==1) then
         Az(1,nz)=1; Az(nz,1)=1;
     elseif (pbc_z==2) then

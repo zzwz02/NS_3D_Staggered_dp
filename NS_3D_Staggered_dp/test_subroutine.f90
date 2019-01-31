@@ -71,7 +71,7 @@
 
     !fftw3
     integer :: fwd, bwd
-    
+
     !HDF5
     integer(8) :: file_id, prp_id
     integer :: n5(1)=123
@@ -203,7 +203,7 @@
     coo2=from_csr(LHS_poisson)
     c_mat=coo2%to_den()
     !call print_spmat(c_mat)
-    
+
     LHS_poisson=Poisson_LHS_staggered(3, 4, 5, 0.01d0, 0.02d0, 0.03d0, 1, 2, 3, 0.1d0, 0.1d0, 0.1d0)
     coo2=from_csr(LHS_poisson)
     c_mat=coo2%to_den()
@@ -228,7 +228,7 @@
     print *, dft_out_c_test
     print *, "**************************************"
     call dfftw_destroy_plan(fwd)
-    
+
     dft_in_r_test=RHS_poisson(1:10,4,4)
     dft_in_c_test=dcmplx(dft_in_r_test)
     ! Configure a Descriptor
@@ -244,7 +244,7 @@
     print '("    dft_forward MKL: ", F8.4, " second")', (c2-c1)/system_clock_rate
     print *, dft_in_c_test
     print *, "**************************************"
-    
+
     CALL SYSTEM_CLOCK(c1)
     status = DftiComputeBackward(hand, dft_in_c_test)
     CALL SYSTEM_CLOCK(c2)
@@ -254,7 +254,7 @@
     print *, "**************************************"
     print *, maxval(abs(dft_in_c_test-dft_in_r_test))
     status = DftiFreeDescriptor(hand)
-    
+
     print *, "**************************************"
     print *,"D-D:   DST-1, Forward sine transform"
     print *,"D-N:   DST-3, Forward staggered sine transform"
@@ -263,7 +263,7 @@
     print *,"N-D:   DCT-3, Forward staggered cosine transform"
     print *,"Ns-Ds: DCT-4, Forward staggered2 cosine transform"
     print *, "**************************************"
-    
+
     print *,"Example:"
     print *,"  x: Ds-Ds b.c. (DST-2)"
     print *,"    DST-2 == flipping sign of every other input, DCT-2 (or iDCT-3 with 2/N factor), reversing the order of output"
@@ -271,25 +271,25 @@
     print *,"  y: Ns-Ns b.c. (DCT-2)"
     print *,"    DCT-2 == iDCT-3 with 2/N factor"
     print *,"    IDCT-2 == DCT-3"
-    
+
     call d_init_trig_transform(nx1, MKL_STAGGERED_COSINE_TRANSFORM, ipar_x, dpar_x, status)
     call d_init_trig_transform(ny1, MKL_STAGGERED_COSINE_TRANSFORM, ipar_y, dpar_y, status)
     call d_commit_trig_transform(rhs_tt(:,1),handle_tx,ipar_x,dpar_x,status)
     call d_commit_trig_transform(rhs_tt(1,:),handle_ty,ipar_y,dpar_y,status)
-    
+
     do j=1,ny1
         rhs_tt(1:nx1,j)=-2*(2*yp1(j)**3-3*yp1(j)**2+1)+6*(1-xp1**2)*(2*yp1(j)-1);
     end do
-    
+
     do i=1,nx1
         eig_tt(i,:)=(sin(i*pi/2/nx1))**2/dx21
     end do
-    
+
     do j=1,ny1
         eig_tt(:,j)=eig_tt(:,j)+(sin((j-1)*pi/2/ny1))**2/dy21
     end do
     eig_tt=-4.0d0*eig_tt
-    
+
     !rhs_tt(1:nx)=[(i*sin(dble(i)), i=1,nx)]
     rhs_tt(1,1:ny1)  =rhs_tt(1,1:ny1)  -2*(2*yp1**3-3*yp1**2+1)/dx21 !b.c condition
     rhs_tt(nx1,1:ny1)=rhs_tt(nx1,1:ny1)-2*(0)/dx21 !b.c condition
@@ -297,30 +297,30 @@
     rhs_tt(1:nx1,ny1)=rhs_tt(1:nx1,ny1)-(0)/dy1 !b.c condition
     rhs_tt1=rhs_tt
     rhs_tt2=rhs_tt
-    
+
     CALL SYSTEM_CLOCK(c1)
     do i=1,nx1
         call d_backward_trig_transform(rhs_tt(i,:),handle_ty,ipar_y,dpar_y,status)
     end do
     !rhs_tt(:,1)=rhs_tt(:,1)/sqrt(dble(ny1))
     !rhs_tt(:,2:ny1)=rhs_tt(:,2:ny1)/sqrt(ny1/2.0d0)
-    
+
     do j=1,ny1
         rhs_tt(1:nx1:2,j)=-rhs_tt(1:nx1:2,j)
         call d_backward_trig_transform(rhs_tt(:,j),handle_tx,ipar_x,dpar_x,status)
         rhs_tt(1:nx1,j)=rhs_tt(nx1:1:-1,j)
     end do
     !rhs_tt(:,:)=rhs_tt(:,:)/sqrt(nx1/2.0d0)
-    
+
     rhs_tt(1:nx1,1:ny1)=rhs_tt(1:nx1,1:ny1)/eig_tt!(nx1:1:-1,:)
-    
+
     do j=1,ny1
         rhs_tt(1:nx1,j)=rhs_tt(nx1:1:-1,j)
         call d_forward_trig_transform(rhs_tt(:,j),handle_tx,ipar_x,dpar_x,status)
         rhs_tt(1:nx1:2,j)=-rhs_tt(1:nx1:2,j)
     end do
     !rhs_tt(:,:)=rhs_tt(:,:)*sqrt(nx1/2.0d0)
-    
+
     do i=1,nx1
         call d_forward_trig_transform(rhs_tt(i,:),handle_ty,ipar_y,dpar_y,status)
     end do
@@ -329,30 +329,30 @@
     CALL SYSTEM_CLOCK(c2)
     print *, "**************************************"
     print '("    dct_2D Poisson MKL1: ", F8.4, " second")', (c2-c1)/system_clock_rate
-    
+
     CALL SYSTEM_CLOCK(c1)
     do i=1,nx1
         call d_backward_trig_transform(rhs_tt1(i,:),handle_ty,ipar_y,dpar_y,status)
     end do
     !rhs_tt1(:,1)=rhs_tt1(:,1)/sqrt(dble(ny1))
     !rhs_tt1(:,2:ny1)=rhs_tt1(:,2:ny1)/sqrt(ny1/2.0d0)
-    
+
     rhs_tt1(1:nx1:2,:)=-rhs_tt1(1:nx1:2,:)
     do j=1,ny1
         call d_backward_trig_transform(rhs_tt1(:,j),handle_tx,ipar_x,dpar_x,status)
     end do
     rhs_tt1(1:nx1,:)=rhs_tt1(nx1:1:-1,:)
     !rhs_tt1(:,:)=rhs_tt1(:,:)/sqrt(nx1/2.0d0)
-    
+
     rhs_tt1(1:nx1,1:ny1)=rhs_tt1(1:nx1,1:ny1)/eig_tt
-    
+
     rhs_tt1(1:nx1,:)=rhs_tt1(nx1:1:-1,:)
     do j=1,ny1
         call d_forward_trig_transform(rhs_tt1(:,j),handle_tx,ipar_x,dpar_x,status)
     end do
     rhs_tt1(1:nx1:2,:)=-rhs_tt1(1:nx1:2,:)
     !rhs_tt1(:,:)=rhs_tt1(:,:)*sqrt(nx1/2.0d0)
-    
+
     do i=1,nx1
         call d_forward_trig_transform(rhs_tt1(i,:),handle_ty,ipar_y,dpar_y,status)
     end do
@@ -361,44 +361,44 @@
     CALL SYSTEM_CLOCK(c2)
     print *, "**************************************"
     print '("    dct_2D Poisson MKL2: ", F8.4, " second")', (c2-c1)/system_clock_rate
-    
+
     CALL SYSTEM_CLOCK(c1)
     do i=1,nx1
         call DST_DCT_2(rhs_tt2(i,:), ny1, handle_ty, ipar_y, dpar_y, DCT2=.true., forward=.true.)
     end do
-    
+
     do j=1,ny1
         call DST_DCT_2(rhs_tt2(:,j), nx1, handle_tx, ipar_x, dpar_x, DST2=.true., forward=.true.)
     end do
-    
+
     rhs_tt2(1:nx1,1:ny1)=rhs_tt2(1:nx1,1:ny1)/eig_tt
-    
+
     do j=1,ny1
         call DST_DCT_2(rhs_tt2(:,j), nx1, handle_tx, ipar_x, dpar_x, DST2=.true., backward=.true.)
     end do
-    
+
     do i=1,nx1
         call DST_DCT_2(rhs_tt2(i,:), ny1, handle_ty, ipar_y, dpar_y, DCT2=.true., backward=.true.)
     end do
     CALL SYSTEM_CLOCK(c2)
     print *, "**************************************"
     print '("    dct_2D Poisson MKL3: ", F8.4, " second")', (c2-c1)/system_clock_rate
-    
+
     call free_trig_transform(handle_tx,ipar_x,status)
     call free_trig_transform(handle_ty,ipar_y,status)
 
     call h5open_f(status)
     call h5pcreate_f(H5P_FILE_ACCESS_F, prp_id, status)
-    
+
     call h5pset_fapl_core_f(prp_id, 16, .true., status)
     call h5fcreate_f('test.h5', h5f_acc_trunc_f, file_id, status, access_prp=prp_id)
-    
+
     call h5ltset_attribute_int_f(file_id, "/", "nx0", [123], 1, status)
     call h5ltset_attribute_double_f(file_id, "/", "dt", [0.4_8], 1, status)
     call h5ltset_attribute_string_f(file_id, "/", "time_scheme", trim(timescheme), status)
-    
+
     call h5ltmake_dataset_double_f(file_id, 'rhs_tt', 2, [nx1+1_8, ny1+1_8], rhs_tt2, status)
-    
+
     call h5fclose_f(file_id, status)
     call h5close_f(status)
 
