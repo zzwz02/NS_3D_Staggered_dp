@@ -7,7 +7,7 @@
     integer :: i=0,j=0,k=0,ll=0,mm=0
 
     logical, parameter :: init=.true.
-    real(8), parameter :: Re=1.0d0, nu=0.002d0, t_end=10.0d0
+    real(8), parameter :: Re=1.0d0, nu=0.002d0, t_end=2.0d0
     real(8) :: t_start
     !integer, parameter :: nx_file=256
     integer, parameter :: nx0=256, ny0=nx0, nz0=nx0, nxp0=nx0+2, nyp0=ny0+2, nzp0=nz0+2, sub_tstep=1
@@ -55,8 +55,8 @@
     real(8) :: bx_w_1(ny+2,nz+1)=0, bx_w_nx(ny+2,nz+1)=0, by_w_1(nx+2,nz+1)=0, by_w_ny(nx+2,nz+1)=0, bz_w_1(nx+2,ny+2)=0, bz_w_nz(nx+2,ny+2)=0
     real(8) :: bx_p_1(nyp,nzp)=0,   bx_p_nx(nyp,nzp)=0,   by_p_1(nxp,nzp)=0,   by_p_ny(nxp,nzp)=0,   bz_p_1(nxp,nyp)=0,   bz_p_nz(nxp,nyp)=0
 
-    real(8) :: dt0=0.004d0, tGet
-    integer :: time_length, t_step, plot_step=20, slice=nz/2+1
+    real(8) :: dt0=0.002d0, tGet
+    integer :: time_length, t_step, t_step_offset, plot_step=20, slice=nz/2+1
     real(8), dimension (:), allocatable :: time_array
     integer, dimension (:), allocatable :: x_range0, y_range0, z_range0
     integer :: x_range1(nx)=[(i, i=2, nx+1)], y_range1(ny)=[(i, i=2, ny+1)], z_range1(nz)=[(i, i=2, nz+1)]
@@ -90,7 +90,7 @@
     type(dfti_descriptor), pointer :: handle_x, handle_y, handle_z
 
     !!!!!!!!!!!!!!! HDF5 !!!!!!!!!!!!!!!
-    character(len=1000) :: string_var
+    character(len=1000) :: string_var, string_var2
     integer(8) :: h5f_whole, h5f_sub, h5f_slice, h5g_sub, h5g_slice, prp_id
 
     !!!!!!!!!!!!!!! system_clock !!!!!!!!!!!!!!!
@@ -98,13 +98,13 @@
     INTEGER :: c01,c02,c1,c2,cr,cm
 
     !!!!!!!!!!!!!!! re-simulation parameters !!!!!!!!!!!!!!!
-    character(*), parameter :: timescheme="AB2-CN"
+    character(*), parameter :: timescheme="AB2"
     ! pbc=1 Periodic; pbc=2 Dirichlet on boundary (cell wall); pbc=3 Neumann on boundary (cell wall); pbc=4 Dirichlet on ghost cell
-    integer, parameter :: bc_x=2, bc_y=bc_x, bc_z=bc_x, pbc_x=3, pbc_y=3, pbc_z=3
-    logical, parameter :: using_Ustar=.true., TOffset=.false., restart=.false.
+    integer, parameter :: bc_x=2, bc_y=bc_x, bc_z=bc_x, pbc_x=2, pbc_y=2, pbc_z=2
+    logical, parameter :: using_Ustar=.true., TOffset=.true., restart=.true.
     real(8), parameter :: noise=0;
     real(8), dimension (:,:), allocatable :: err_vel, err_grad, rms_vel, rms_grad
-    logical, parameter :: LU_poisson=(nxp*nyp*nzp<=34**3), FFT_poisson=(pbc_x==1 .and. pbc_y==1 .and. pbc_z==1), DCT_poisson=(pbc_x/=1 .and. pbc_y/=1 .and. pbc_z/=1)
+    logical, parameter :: LU_poisson=(nxp*nyp*nzp<=32**3), FFT_poisson=(pbc_x==1 .and. pbc_y==1 .and. pbc_z==1), DCT_poisson=(pbc_x/=1 .and. pbc_y/=1 .and. pbc_z/=1)
 
     call OMP_set_dynamic(.true.)
     ! First initialize the system_clock
@@ -118,13 +118,14 @@
     else
         t_start=1.0d0
     end if
+    t_step_offset=nint(t_start/dt0)
     call get_command_argument (1, string_var, status=status)
     if (status==0) then
         read(string_var,*) dt0
     end if
     time_length=nint((t_end-t_start)/(dt0))
-    allocate( time_array(0:time_length), err_vel(8,0:time_length), err_grad(24,0:time_length), rms_vel(4,0:time_length), rms_grad(12,0:time_length) )
-    time_array=[(t_start+dt0*i, i=0, time_length)]
+    allocate( time_array(0:time_length+t_step_offset), err_vel(8,0:time_length), err_grad(24,0:time_length), rms_vel(4,0:time_length), rms_grad(12,0:time_length) )
+    time_array=[(0.0d0+dt0*i, i=0, time_length+t_step_offset)]
 
     if (bc_x==1) then
         !allocate( x_range0(nx) )
@@ -317,11 +318,11 @@
         eig_tt=-4.0d0*eig_tt
     end if
 
-    write (string_var,'(A, "_result/HIT_", I0, "^3_decay_", ES5.0E1, "_", A , "_dp_x0_", I0, "_nx0_", I0, "_sub.h5")') trim(timescheme), nx0, dt0, trim(timescheme), x0, nx
+    write (string_var,'(A, "_result.MARCC/HIT_", I0, "^3_decay_", ES5.0E1, "_", A , "_dp_x0_", I0, "_nx0_", I0, "_sub.h5")') trim(timescheme), nx0, dt0, trim(timescheme), x0, nx
     call h5fopen_f(string_var, H5F_ACC_RDONLY_F, h5f_sub, status)
 
     do t_step=0,time_length
-        tGet=time_array(t_step)
+        tGet=time_array(t_step+t_step_offset)
         print *,''
         print '(" t_step ", I6, "        tGet ", F7.4)', t_step, tGet
         CALL SYSTEM_CLOCK(c01)
@@ -612,7 +613,7 @@
             !dp=LHS_poisson\RHS_poisson(:);
             !dp=reshape(dp,nxp,nyp,nzp);
 
-            !dp=dp_lu; 
+            !dp=dp_lu;
             if (pbc_x==3 .and. pbc_y==3 .and. pbc_z==3) dp=dp-dp(1,1,1)+dp_sub(1,1,1)
             u=-dt0*diff(dp,1,1)/dx+u_star
             v=-dt0*diff(dp,1,2)/dy+v_star
@@ -658,15 +659,30 @@
     call h5fclose_f(h5f_sub, status)
     call h5close_f(status)
 
-    OPEN(10, file="err_vel.txt", form="formatted")
-    write(10,'("rel_err")')
+    write (string_var2,'(A, "_", ES5.0E1)') trim(timescheme), dt0
+    if (pbc_x==2) string_var2=trim(string_var2)//"_D"
+    if (pbc_x==3) string_var2=trim(string_var2)//"_N"
+    if (pbc_x==4) string_var2=trim(string_var2)//"_Dg"
+    if (using_Ustar) string_var2=trim(string_var2)//"_Ustar"
+    if (.not. using_Ustar) string_var2=trim(string_var2)//"_U"
+    if (TOffset) string_var2=trim(string_var2)//"_TOffset"
+    if (restart) string_var2=trim(string_var2)//"_restart"
+    if (noise/=0.0d0) write (string_var2,'(A, "_noise", ES5.0E1)') trim(string_var2), noise
+    if (sub_tstep/=1) write (string_var2,'(A, "_sub_tstep", I0)') trim(string_var2), sub_tstep
+
+    write (string_var,'("err_vel_", A, ".txt")') trim(string_var2)
+    OPEN(10, file=string_var, form="formatted")
+    write(10,'("time_step, rel_err_u, rel_err_v, rel_err_w, rel_err_p")')
     do j=0,time_length
-        write(10,'(100g15.5)') ( err_vel(i,j), i=1,4 )
+        write(10,'(I0, ",", ES12.5E2, ",", ES12.5E2, ",", ES12.5E2, ",", ES12.5E2)') j, ( err_vel(i,j), i=1,4 )
     end do
-    write(10,'("***************************************")')
-    write(10,'("rms_val")')
+    CLOSE(10)
+
+    write (string_var,'("rms_vel_", A, "_", ES5.0E1, ".txt")') trim(timescheme), dt0
+    OPEN(10, file=string_var, form="formatted")
+    write(10,'("time_step, rms_u, rms_v, rms_w, rms_p")')
     do j=0,time_length
-        write(10,'(100g15.5)') ( rms_vel(i,j), i=1,4 )
+        write(10,'(I0, ",", ES12.5E2, ",", ES12.5E2, ",", ES12.5E2, ",", ES12.5E2)') j, ( rms_vel(i,j), i=1,4 )
     end do
     CLOSE(10)
 

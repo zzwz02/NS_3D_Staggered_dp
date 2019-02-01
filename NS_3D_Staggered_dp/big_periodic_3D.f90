@@ -6,7 +6,7 @@
     real(8), parameter :: pi = 3.1415926535897932_8
     integer :: i=0,j=0,k=0,ll=0,mm=0
 
-    logical, parameter :: init=.true., save_output=.false.
+    logical, parameter :: init=.true., save_output=.true.
     real(8), parameter :: Re=1.0d0, nu=0.002d0, t_end=10.0d0!, dt0=0.004d0 !!!dt<=0.004 to be stable
     real(8), parameter :: t_start=0.0d0
     !integer, parameter :: nx_file=256
@@ -94,6 +94,7 @@
     !!!!!!!!!!!!!!! HDF5 !!!!!!!!!!!!!!!
     character(len=1000) :: string_var
     integer(8) :: h5f_whole, h5f_sub, h5f_slice, h5g_sub, h5g_slice, prp_id
+    logical :: first_write=.true.
 
     !!!!!!!!!!!!!!! system_clock !!!!!!!!!!!!!!!
     REAL(8) :: system_clock_rate
@@ -259,48 +260,63 @@
         CALL SYSTEM_CLOCK(c01)
 
         if (t_step==0) then
-            !if (allocated(temp11s)) deallocate(temp11s)
-            !allocate(temp11s(size(u)+size(v)+size(w)+size(p)))
-            !write (string_var,'("D:\Documents\source\repos\NS_3D_Staggered_dp\NS_3D_Staggered_dp\256^3_init_from_JHTDB.dat")')
-            !open(20, file=string_var, form='unformatted', status='old', action='read', &
-            !    access='direct', recl=size(u)+size(v)+size(w)+size(p)) !variables are single precision
-            !read(20, rec=1) temp11s
-            !close(20)
-            !
-            !tempi1=1;        tempi2=size(u);        u=reshape(dble(temp11s(tempi1:tempi2)), [nx+1,ny+2,nz+2]);
-            !tempi1=tempi2+1; tempi2=tempi2+size(v); v=reshape(dble(temp11s(tempi1:tempi2)), [nx+2,ny+1,nz+2]);
-            !tempi1=tempi2+1; tempi2=tempi2+size(w); w=reshape(dble(temp11s(tempi1:tempi2)), [nx+2,ny+2,nz+1]);
-            !tempi1=tempi2+1; tempi2=tempi2+size(p); p=reshape(dble(temp11s(tempi1:tempi2)), [nx+2,ny+2,nz+2]);
-            !
-            !deallocate(temp11s)
+            if (init) then
+                !if (allocated(temp11s)) deallocate(temp11s)
+                !allocate(temp11s(size(u)+size(v)+size(w)+size(p)))
+                !write (string_var,'("D:\Documents\source\repos\NS_3D_Staggered_dp\NS_3D_Staggered_dp\256^3_init_from_JHTDB.dat")')
+                !open(20, file=string_var, form='unformatted', status='old', action='read', &
+                !    access='direct', recl=size(u)+size(v)+size(w)+size(p)) !variables are single precision
+                !read(20, rec=1) temp11s
+                !close(20)
+                !
+                !tempi1=1;        tempi2=size(u);        u=reshape(dble(temp11s(tempi1:tempi2)), [nx+1,ny+2,nz+2]);
+                !tempi1=tempi2+1; tempi2=tempi2+size(v); v=reshape(dble(temp11s(tempi1:tempi2)), [nx+2,ny+1,nz+2]);
+                !tempi1=tempi2+1; tempi2=tempi2+size(w); w=reshape(dble(temp11s(tempi1:tempi2)), [nx+2,ny+2,nz+1]);
+                !tempi1=tempi2+1; tempi2=tempi2+size(p); p=reshape(dble(temp11s(tempi1:tempi2)), [nx+2,ny+2,nz+2]);
+                !
+                !deallocate(temp11s)
 
-            !sizeof_record=size(u)+size(v)+size(w)+size(p)+size(u)+size(v)+size(w)
-            !
-            !if (allocated(temp11)) deallocate(temp11)
-            !allocate(temp11(sizeof_record))
-            !write (string_var,'("D:\Documents\source\repos\NS_3D_Staggered_dp\NS_3D_Staggered_dp\init_file\HIT_256^3_decay_4.E-3_AB2_dp_init.dat")')
-            !open(20, file=string_var, form='unformatted', status='old', action='read', &
-            !    access='direct', recl=sizeof_record*2) !variables are double precision
-            !read(20, rec=1) temp11
-            !close(20)
-            !
-            !tempi1=1;        tempi2=size(u);        u_star=reshape(temp11(tempi1:tempi2), [nx+1,ny+2,nz+2]);
-            !tempi1=tempi2+1; tempi2=tempi2+size(v); v_star=reshape(temp11(tempi1:tempi2), [nx+2,ny+1,nz+2]);
-            !tempi1=tempi2+1; tempi2=tempi2+size(w); w_star=reshape(temp11(tempi1:tempi2), [nx+2,ny+2,nz+1]);
-            !tempi1=tempi2+1; tempi2=tempi2+size(p); p=reshape(temp11(tempi1:tempi2), [nx+2,ny+2,nz+2]);
+                !sizeof_record=size(u)+size(v)+size(w)+size(p)+size(u)+size(v)+size(w)
+                !
+                !if (allocated(temp11)) deallocate(temp11)
+                !allocate(temp11(sizeof_record))
+                !write (string_var,'("D:\Documents\source\repos\NS_3D_Staggered_dp\NS_3D_Staggered_dp\init_file\HIT_256^3_decay_4.E-3_AB2_dp_init.dat")')
+                !open(20, file=string_var, form='unformatted', status='old', action='read', &
+                !    access='direct', recl=sizeof_record*2) !variables are double precision
+                !read(20, rec=1) temp11
+                !close(20)
+                !
+                !tempi1=1;        tempi2=size(u);        u_star=reshape(temp11(tempi1:tempi2), [nx+1,ny+2,nz+2]);
+                !tempi1=tempi2+1; tempi2=tempi2+size(v); v_star=reshape(temp11(tempi1:tempi2), [nx+2,ny+1,nz+2]);
+                !tempi1=tempi2+1; tempi2=tempi2+size(w); w_star=reshape(temp11(tempi1:tempi2), [nx+2,ny+2,nz+1]);
+                !tempi1=tempi2+1; tempi2=tempi2+size(p); p=reshape(temp11(tempi1:tempi2), [nx+2,ny+2,nz+2]);
 
-            call h5fopen_f("init_file/HIT_256^3_decay_4.E-3_AB2_dp_init.h5", H5F_ACC_RDONLY_F, h5f_whole, status)
+                call h5fopen_f("init_file/HIT_256^3_decay_4.E-3_AB2_dp_init.h5", H5F_ACC_RDONLY_F, h5f_whole, status)
 
-            call h5ltread_dataset_double_f(h5f_whole, 'u', u, [nx+1_8,ny+2_8,nz+2_8], status)
-            call h5ltread_dataset_double_f(h5f_whole, 'v', v, [nx+2_8,ny+1_8,nz+2_8], status)
-            call h5ltread_dataset_double_f(h5f_whole, 'w', w, [nx+2_8,ny+2_8,nz+1_8], status)
-            call h5ltread_dataset_double_f(h5f_whole, 'p', p, [nx+2_8,ny+2_8,nz+2_8], status)
+                call h5ltread_dataset_double_f(h5f_whole, 'u', u, [nx+1_8,ny+2_8,nz+2_8], status)
+                call h5ltread_dataset_double_f(h5f_whole, 'v', v, [nx+2_8,ny+1_8,nz+2_8], status)
+                call h5ltread_dataset_double_f(h5f_whole, 'w', w, [nx+2_8,ny+2_8,nz+1_8], status)
+                call h5ltread_dataset_double_f(h5f_whole, 'p', p, [nx+2_8,ny+2_8,nz+2_8], status)
 
-            call h5fclose_f(h5f_whole, status)
+                call h5fclose_f(h5f_whole, status)
 
-            !call TGV(xu, yu, zu, 0.0d0, nu, u)
-            !call TGV(xv, yv, zv, 0.0d0, nu, v=v)
-            !call TGV(xp, yp, zp, 0.0d0, nu, p=p)
+                !call TGV(xu, yu, zu, 0.0d0, nu, u)
+                !call TGV(xv, yv, zv, 0.0d0, nu, v=v)
+                !call TGV(xp, yp, zp, 0.0d0, nu, p=p)
+            else
+                write (string_var,'(A, "_result/HIT_", I0, "^3_decay_", ES5.0E1, "_", A ,"_dp_t_" , F0.4, ".h5")') trim(timescheme), nx, dt0, trim(timescheme), tGet
+                call h5fopen_f(string_var, H5F_ACC_RDONLY_F, h5f_whole, status)
+
+                call h5ltread_dataset_double_f(h5f_whole, 'u', u, [nx+1_8,ny+2_8,nz+2_8], status)
+                call h5ltread_dataset_double_f(h5f_whole, 'v', v, [nx+2_8,ny+1_8,nz+2_8], status)
+                call h5ltread_dataset_double_f(h5f_whole, 'w', w, [nx+2_8,ny+2_8,nz+1_8], status)
+                call h5ltread_dataset_double_f(h5f_whole, 'p', p, [nx+2_8,ny+2_8,nz+2_8], status)
+                call h5ltread_dataset_double_f(h5f_whole, 'rhs_x_previous', rhs_x_previous, [nx+1_8,ny+2_8,nz+2_8], status)
+                call h5ltread_dataset_double_f(h5f_whole, 'rhs_y_previous', rhs_y_previous, [nx+2_8,ny+1_8,nz+2_8], status)
+                call h5ltread_dataset_double_f(h5f_whole, 'rhs_z_previous', rhs_z_previous, [nx+2_8,ny+2_8,nz+1_8], status)
+
+                call h5fclose_f(h5f_whole, status)
+            end if
         else
             !!! Convection
             CALL SYSTEM_CLOCK(c1)
@@ -559,7 +575,7 @@
 
         if (tGet>=0 .and. save_output) then
 
-            if (tGet==0) then
+            if (first_write) then
                 !call h5pcreate_f(H5P_FILE_ACCESS_F, prp_id, status)
                 !call h5pset_fapl_core_f(prp_id, 64, .true., status)
                 !call h5pset_cache_f(prp_id, 0, 521, 16000000, 1.0, status)
@@ -584,25 +600,40 @@
                 call h5ltset_attribute_int_f(h5f_slice, "/", "time_step", [t_step], 1, status)
                 call h5ltset_attribute_double_f(h5f_slice, "/", "time", [tGet], 1, status)
                 call h5ltset_attribute_int_f(h5f_slice, "/", "XY-slice", [slice], 1, status)
+                
+                first_write=.false.
             end if
 
             if (mod(abs(tGet), 1.0d0) < dt0/sub_tstep/100.0d0) then
-                write (string_var,'(A, "_result/HIT_", I0, "^3_decay_", ES5.0E1, "_", A ,"_dp_t_" , F0.4, ".h5")') trim(timescheme), nx, dt0, trim(timescheme), tGet
-                call h5fcreate_f(string_var, H5F_ACC_EXCL_F, h5f_whole, status)
+                if (init .or. (.not. init .and. t_step/=0)) then
+                    write (string_var,'(A, "_result/HIT_", I0, "^3_decay_", ES5.0E1, "_", A ,"_dp_t_" , F0.4, ".h5")') trim(timescheme), nx, dt0, trim(timescheme), tGet
+                    call h5fcreate_f(string_var, H5F_ACC_EXCL_F, h5f_whole, status)
 
-                call h5ltset_attribute_int_f(h5f_whole, "/", "nx", [nx], 1, status)
-                call h5ltset_attribute_double_f(h5f_whole, "/", "dt", [dt0], 1, status)
-                call h5ltset_attribute_double_f(h5f_whole, "/", "nu", [nu], 1, status)
-                call h5ltset_attribute_string_f(h5f_whole, "/", "time_scheme", trim(timescheme), status)
-                call h5ltset_attribute_int_f(h5f_whole, "/", "time_step", [t_step], 1, status)
-                call h5ltset_attribute_double_f(h5f_whole, "/", "time", [tGet], 1, status)
+                    call h5ltset_attribute_int_f(h5f_whole, "/", "nx", [nx], 1, status)
+                    call h5ltset_attribute_double_f(h5f_whole, "/", "dt", [dt0], 1, status)
+                    call h5ltset_attribute_double_f(h5f_whole, "/", "nu", [nu], 1, status)
+                    call h5ltset_attribute_string_f(h5f_whole, "/", "time_scheme", trim(timescheme), status)
+                    call h5ltset_attribute_int_f(h5f_whole, "/", "time_step", [t_step], 1, status)
+                    call h5ltset_attribute_double_f(h5f_whole, "/", "time", [tGet], 1, status)
 
-                call h5ltmake_dataset_double_f(h5f_whole, 'u', 3, [nx+1_8,ny+2_8,nz+2_8], u, status)
-                call h5ltmake_dataset_double_f(h5f_whole, 'v', 3, [nx+2_8,ny+1_8,nz+2_8], v, status)
-                call h5ltmake_dataset_double_f(h5f_whole, 'w', 3, [nx+2_8,ny+2_8,nz+1_8], w, status)
-                call h5ltmake_dataset_double_f(h5f_whole, 'p', 3, [nx+2_8,ny+2_8,nz+2_8], p, status)
+                    call h5ltmake_dataset_double_f(h5f_whole, 'u', 3, [nx+1_8,ny+2_8,nz+2_8], u, status)
+                    call h5ltmake_dataset_double_f(h5f_whole, 'v', 3, [nx+2_8,ny+1_8,nz+2_8], v, status)
+                    call h5ltmake_dataset_double_f(h5f_whole, 'w', 3, [nx+2_8,ny+2_8,nz+1_8], w, status)
+                    call h5ltmake_dataset_double_f(h5f_whole, 'p', 3, [nx+2_8,ny+2_8,nz+2_8], p, status)
+                    call h5ltmake_dataset_double_f(h5f_whole, 'rhs_x_previous', 3, [nx+1_8,ny+2_8,nz+2_8], rhs_x_previous, status)
+                    call h5ltmake_dataset_double_f(h5f_whole, 'rhs_y_previous', 3, [nx+2_8,ny+1_8,nz+2_8], rhs_y_previous, status)
+                    call h5ltmake_dataset_double_f(h5f_whole, 'rhs_z_previous', 3, [nx+2_8,ny+2_8,nz+1_8], rhs_z_previous, status)
 
-                call h5fclose_f(h5f_whole, status)
+                    call h5fclose_f(h5f_whole, status)
+
+                    call h5fclose_f(h5f_sub, status)
+                    write (string_var,'(A, "_result/HIT_", I0, "^3_decay_", ES5.0E1, "_", A , "_dp_x0_", I0, "_nx0_", I0, "_sub.h5")') trim(timescheme), nx, dt0, trim(timescheme), x0, nx0
+                    call h5fopen_f(string_var, H5F_ACC_RDWR_F, h5f_sub, status)
+
+                    call h5fclose_f(h5f_slice, status)
+                    write (string_var,'(A, "_result/HIT_", I0,"^3_decay_", ES5.0E1, "_", A , "_slice_", I0, ".h5")') trim(timescheme), nx, dt0, trim(timescheme), slice
+                    call h5fopen_f(string_var, H5F_ACC_RDWR_F, h5f_slice, status)
+                end if
             end if
 
             if (tGet<=20) then
