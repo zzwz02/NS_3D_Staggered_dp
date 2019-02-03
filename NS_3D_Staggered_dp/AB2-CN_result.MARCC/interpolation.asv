@@ -1,0 +1,30 @@
+clear all
+clc
+
+nx=32; ny=nx; nz=nx;
+u0=zeros(nx+1, ny+2, nz+2, 4);
+v0=zeros(nx+2, ny+1, nz+2, 4);
+w0=zeros(nx+2, ny+2, nz+1, 4);
+dp0=zeros(nx+2, ny+2, nz+2, 4);
+filename0(1)="HIT_256^3_decay_4.E-3_AB2-CN_dp_x0_16_nx0_32_sub.h5";
+filename0(2)="HIT_256^3_decay_2.E-3_AB2-CN_dp_x0_16_nx0_32_sub";
+filename0(3)="HIT_256^3_decay_1.E-3_AB2-CN_dp_x0_16_nx0_32_sub";
+filename0(4)="HIT_256^3_decay_5.E-4_AB2-CN_dp_x0_16_nx0_32_sub";
+filename0(5)="HIT_256^3_decay_3.E-4_AB2-CN_dp_x0_16_nx0_32_sub";
+dt0=[4e-3,2e-3,1e-3,5e-4,2.5e-4];
+
+idx=1; dt=dt0(idx); filename=char(filename0(idx));
+t0=1+[-1:2]*dt; sub_tstep=[2,5,10,20,100];
+
+for i=1:4
+    temp1=num2str(dt,'%.0E'); temp1=[temp1(1),'.',temp1(2:3),temp1(end)];
+    
+    temp2=num2str(t0(i),'%.4f');
+    if (t0(i)<1) temp2=temp2(2:end); end
+    u0(:,:,:,i)=h5read(filename,['/t_',temp2,'/u_sub']);
+    v0(:,:,:,i)=h5read(filename,['/t_',temp2,'/v_sub']);
+    w0(:,:,:,i)=h5read(filename,['/t_',temp2,'/w_sub']);
+    dp0(:,:,:,i)=h5read(filename,['/t_',temp2,'/dp_sub']);
+end
+
+

@@ -85,11 +85,29 @@
             allocate( wz(nx+2,ny+2,nz+0) )
         end if
     end if
+    !$omp parallel sections if (nx<=64)
+    !$omp section
+    ux=avg(u,1,bc_x)
+    !$omp section
+    uy=avg(u,2,0)
+    !$omp section
+    uz=avg(u,3,0)
+    !$omp section
+    vx=avg(v,1,0)
+    !$omp section
+    vy=avg(v,2,bc_y)
+    !$omp section
+    vz=avg(v,3,0)
+    !$omp section
+    wx=avg(w,1,0)
+    !$omp section
+    wy=avg(w,2,0)
+    !$omp section
+    wz=avg(w,3,bc_z)
+    !$omp end parallel sections
 
-    ux=avg(u,1,bc_x); uy=avg(u,2,0);    uz=avg(u,3,0);
-    vx=avg(v,1,0);    vy=avg(v,2,bc_y); vz=avg(v,3,0);
-    wx=avg(w,1,0);    wy=avg(w,2,0);    wz=avg(w,3,bc_z);
-
+    !$omp parallel sections if (nx<=64)
+    !$omp section
     if (bc_x==1) then
         conv_x=diff(ux(:,2:ubound(ux,2)-1,2:ubound(ux,3)-1)*ux(:,2:ubound(ux,2)-1,2:ubound(ux,3)-1),1,1)/dx
         conv_x=conv_x + diff(uy(1:ubound(uy,1)-1,:,2:ubound(uy,3)-1)*vx(1:ubound(vx,1)-1,:,2:ubound(vx,3)-1),1,2)/dy
@@ -105,7 +123,7 @@
         !    diff(uy(2:ubound(uy,1)-1,:,2:ubound(uy,3)-1)*vx(2:ubound(vx,1)-1,:,2:ubound(vx,3)-1),1,2)/dy + &
         !    diff(uz(2:ubound(uz,1)-1,2:ubound(uz,2)-1,:)*wx(2:ubound(wx,1)-1,2:ubound(wx,2)-1,:),1,3)/dz
     end if
-
+    !$omp section
     if (bc_y==1) then
         conv_y=diff(vx(:,1:ubound(vx,2)-1,2:ubound(vx,3)-1)*uy(:,1:ubound(uy,2)-1,2:ubound(uy,3)-1),1,1)/dx
         conv_y=conv_y + diff(vy(2:ubound(vy,1)-1,:,2:ubound(vy,3)-1)*vy(2:ubound(vy,1)-1,:,2:ubound(vy,3)-1),1,2)/dy
@@ -121,7 +139,7 @@
         !    diff(vy(2:ubound(vy,1)-1,:,2:ubound(vy,3)-1)*vy(2:ubound(vy,1)-1,:,2:ubound(vy,3)-1),1,2)/dy + &
         !    diff(vz(2:ubound(vz,1)-1,2:ubound(vz,2)-1,:)*wy(2:ubound(wy,1)-1,2:ubound(wy,2)-1,:),1,3)/dz
     end if
-
+    !$omp section
     if (bc_z==1) then
         conv_z=diff(wx(:,2:ubound(wx,2)-1,1:ubound(wx,3)-1)*uz(:,2:ubound(uz,2)-1,1:ubound(uz,3)-1),1,1)/dx
         conv_z=conv_z + diff(wy(2:ubound(wy,1)-1,:,1:ubound(wy,3)-1)*vz(2:ubound(vz,1)-1,:,1:ubound(vz,3)-1),1,2)/dy
@@ -137,7 +155,7 @@
         !    diff(wy(2:ubound(wy,1)-1,:,2:ubound(wy,3)-1)*vz(2:ubound(vz,1)-1,:,2:ubound(vz,3)-1),1,2)/dy + &
         !    diff(wz(2:ubound(wz,1)-1,2:ubound(wz,2)-1,:)*wz(2:ubound(wz,1)-1,2:ubound(wz,2)-1,:),1,3)/dz
     end if
-
+    !$omp end parallel sections
     end subroutine cal_conv
 
     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -148,7 +166,12 @@
     real(8), intent(in) :: dx2, dy2, dz2
     real(8), dimension (:,:,:), intent(in) :: u, v, w
     real(8), dimension (:,:,:), intent(out) :: diff_x, diff_y, diff_z
+    integer :: nx, ny, nz
+    
+    nx=size(u,1)-1; ny=size(v,2)-1; nz=size(w,3)-1
 
+    !$omp parallel sections if (nx<=64)
+    !$omp section
     if (bc_x==1) then
         diff_x=diff2(u(:,2:ubound(u,2)-1,2:ubound(u,3)-1),1,bc_x)/dx2
         diff_x=diff_x + diff2(u(1:ubound(u,1)-1,:,2:ubound(u,3)-1),2,0)/dy2
@@ -160,7 +183,7 @@
         diff_x=diff_x + diff2(u(2:ubound(u,1)-1,2:ubound(u,2)-1,:),3,0)/dz2
         !diff_x=diff2(u(:,2:ubound(u,2)-1,2:ubound(u,3)-1),1,bc_x)/dx2+diff2(u(2:ubound(u,1)-1,:,2:ubound(u,3)-1),2,0)/dy2+diff2(u(2:ubound(u,1)-1,2:ubound(u,2)-1,:),3,0)/dz2
     end if
-
+    !$omp section
     if (bc_y==1) then
         diff_y=diff2(v(:,1:ubound(v,2)-1,2:ubound(v,3)-1),1,0)/dx2
         diff_y=diff_y + diff2(v(2:ubound(v,1)-1,:,2:ubound(v,3)-1),2,bc_y)/dy2
@@ -172,7 +195,7 @@
         diff_y=diff_y + diff2(v(2:ubound(v,1)-1,2:ubound(v,2)-1,:),3,0)/dz2
         !diff_y=diff2(v(:,2:ubound(v,2)-1,2:ubound(v,3)-1),1,0)/dx2+diff2(v(2:ubound(v,1)-1,:,2:ubound(v,3)-1),2,bc_y)/dy2+diff2(v(2:ubound(v,1)-1,2:ubound(v,2)-1,:),3,0)/dz2
     end if
-
+    !$omp section
     if (bc_z==1) then
         diff_z=diff2(w(:,2:ubound(w,2)-1,1:ubound(w,3)-1),1,0)/dx2
         diff_z=diff_z +diff2(w(2:ubound(w,1)-1,:,1:ubound(w,3)-1),2,0)/dy2
@@ -184,7 +207,7 @@
         diff_z=diff_z + diff2(w(2:ubound(w,1)-1,2:ubound(w,2)-1,:),3,bc_z)/dz2
         !diff_z=diff2(w(:,2:ubound(w,2)-1,2:ubound(w,3)-1),1,0)/dx2+diff2(w(2:ubound(w,1)-1,:,2:ubound(w,3)-1),2,0)/dy2+diff2(w(2:ubound(w,1)-1,2:ubound(w,2)-1,:),3,bc_z)/dz2
     end if
-
+    !$omp end parallel sections
     end subroutine cal_diff
 
     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -405,50 +428,68 @@
 
     nxp=nx+2; nyp=ny+2; nzp=nz+2
 
+    !$omp parallel sections
+    !$omp section
     if (bc_x==2) then
         bx_u_1 =u_bc(1,:,:);
         bx_u_nx=u_bc(nx+1,:,:);
-        by_u_1 =(u_bc(:,1,:)+u_bc(:,2,:))/2;
-        by_u_ny=(u_bc(:,ny+2,:)+u_bc(:,ny+2-1,:))/2;
-        bz_u_1 =(u_bc(:,:,1)+u_bc(:,:,2))/2;
-        bz_u_nz=(u_bc(:,:,nz+2)+u_bc(:,:,nz+2-1))/2;
 
         bx_v_1 =(v_bc(1,:,:)+v_bc(2,:,:))/2;
         bx_v_nx=(v_bc(nx+2,:,:)+v_bc(nx+2-1,:,:))/2;
-        by_v_1 =v_bc(:,1,:);
-        by_v_ny=v_bc(:,ny+1,:);
-        bz_v_1 =(v_bc(:,:,1)+v_bc(:,:,2))/2;
-        bz_v_nz=(v_bc(:,:,nz+2)+v_bc(:,:,nz+2-1))/2;
 
         bx_w_1 =(w_bc(1,:,:)+w_bc(2,:,:))/2;
         bx_w_nx=(w_bc(nx+2,:,:)+w_bc(nx+2-1,:,:))/2;
-        by_w_1 =(w_bc(:,1,:)+w_bc(:,2,:))/2;
-        by_w_ny=(w_bc(:,ny+2,:)+w_bc(:,ny+2-1,:))/2;
-        bz_w_1 =w_bc(:,:,1);
-        bz_w_nz=w_bc(:,:,nz+1);
     else if (bc_x==4) then
         bx_u_1 =u_bc(1,:,:);
         bx_u_nx=u_bc(nx+1,:,:);
-        by_u_1 =u_bc(:,1,:);
-        by_u_ny=u_bc(:,ny+2,:);
-        bz_u_1 =u_bc(:,:,1);
-        bz_u_nz=u_bc(:,:,nz+2);
 
         bx_v_1 =v_bc(1,:,:);
         bx_v_nx=v_bc(nx+2,:,:);
-        by_v_1 =v_bc(:,1,:);
-        by_v_ny=v_bc(:,ny+1,:);
-        bz_v_1 =v_bc(:,:,1);
-        bz_v_nz=v_bc(:,:,nz+2);
 
         bx_w_1 =w_bc(1,:,:);
         bx_w_nx=w_bc(nx+2,:,:);
+    end if
+    !$omp section
+    if (bc_y==2) then
+        by_u_1 =(u_bc(:,1,:)+u_bc(:,2,:))/2;
+        by_u_ny=(u_bc(:,ny+2,:)+u_bc(:,ny+2-1,:))/2;
+
+        by_v_1 =v_bc(:,1,:);
+        by_v_ny=v_bc(:,ny+1,:);
+
+        by_w_1 =(w_bc(:,1,:)+w_bc(:,2,:))/2;
+        by_w_ny=(w_bc(:,ny+2,:)+w_bc(:,ny+2-1,:))/2;
+    else if (bc_y==4) then
+        by_u_1 =u_bc(:,1,:);
+        by_u_ny=u_bc(:,ny+2,:);
+
+        by_v_1 =v_bc(:,1,:);
+        by_v_ny=v_bc(:,ny+1,:);
+
         by_w_1 =w_bc(:,1,:);
         by_w_ny=w_bc(:,ny+2,:);
+    end if
+    !$omp section
+    if (bc_z==2) then
+        bz_u_1 =(u_bc(:,:,1)+u_bc(:,:,2))/2;
+        bz_u_nz=(u_bc(:,:,nz+2)+u_bc(:,:,nz+2-1))/2;
+
+        bz_v_1 =(v_bc(:,:,1)+v_bc(:,:,2))/2;
+        bz_v_nz=(v_bc(:,:,nz+2)+v_bc(:,:,nz+2-1))/2;
+
+        bz_w_1 =w_bc(:,:,1);
+        bz_w_nz=w_bc(:,:,nz+1);
+    else if (bc_z==4) then
+        bz_u_1 =u_bc(:,:,1);
+        bz_u_nz=u_bc(:,:,nz+2);
+
+        bz_v_1 =v_bc(:,:,1);
+        bz_v_nz=v_bc(:,:,nz+2);
+
         bz_w_1 =w_bc(:,:,1);
         bz_w_nz=w_bc(:,:,nz+1);
     end if
-
+    !$omp end parallel sections
     call get_pr_bc(p_bc, pbc_x, pbc_y, pbc_z, nx, ny, nz, dx, dy, dz, bx_p_1, bx_p_nx, by_p_1, by_p_ny, bz_p_1, bz_p_nz)
 
     end subroutine get_velpr_bc
@@ -467,6 +508,8 @@
 
     nxp=nx+2; nyp=ny+2; nzp=nz+2
 
+    !$omp parallel sections
+    !$omp section
     if (pbc_x==2) then
         bx_p_1 =(p_bc(1,:,:)  +p_bc(2,:,:))/2;
         bx_p_nx=(p_bc(nxp,:,:)+p_bc(nxp-1,:,:))/2;
@@ -478,7 +521,7 @@
         bx_p_nx=(p_bc(nxp,:,:)-p_bc(nxp-1,:,:))/dx
 
     end if
-
+    !$omp section
     if (pbc_y==2) then
         by_p_1 =(p_bc(:,1,:)  +p_bc(:,2,:))/2;
         by_p_ny=(p_bc(:,nyp,:)+p_bc(:,nyp-1,:))/2;
@@ -489,7 +532,7 @@
         by_p_1 =(p_bc(:,2,:)-p_bc(:,1,:))/dy
         by_p_ny=(p_bc(:,nyp,:)-p_bc(:,nyp-1,:))/dy
     end if
-
+    !$omp section
     if (pbc_z==2) then
         bz_p_1 =(p_bc(:,:,1)  +p_bc(:,:,2))/2;
         bz_p_nz=(p_bc(:,:,nzp)+p_bc(:,:,nzp-1))/2;
@@ -500,7 +543,7 @@
         bz_p_1 =(p_bc(:,:,2)-p_bc(:,:,1))/dz
         bz_p_nz=(p_bc(:,:,nzp)-p_bc(:,:,nzp-1))/dz
     end if
-
+    !$omp end parallel sections
     end subroutine get_pr_bc
 
     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!

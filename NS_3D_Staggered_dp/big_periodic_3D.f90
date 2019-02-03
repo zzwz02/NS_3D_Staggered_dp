@@ -59,7 +59,7 @@
     real(8) :: bx_v_1s(ny0+1,nz0+2)=0, bx_v_nxs(ny0+1,nz0+2)=0, by_v_1s(nx0+2,nz0+2)=0, by_v_nys(nx0+2,nz0+2)=0, bz_v_1s(nx0+2,ny0+1)=0, bz_v_nzs(nx0+2,ny0+1)=0
     real(8) :: bx_w_1s(ny0+2,nz0+1)=0, bx_w_nxs(ny0+2,nz0+1)=0, by_w_1s(nx0+2,nz0+1)=0, by_w_nys(nx0+2,nz0+1)=0, bz_w_1s(nx0+2,ny0+2)=0, bz_w_nzs(nx0+2,ny0+2)=0
 
-    real(8) :: dt0=0.004d0, tGet
+    real(8) :: tGet
     integer :: time_length, t_step, plot_step=20, slice=nz/2+1
     real(8), dimension (:), allocatable :: time_array
     integer, dimension (:), allocatable :: x_range0, y_range0, z_range0
@@ -101,6 +101,7 @@
     INTEGER :: c01,c02,c1,c2,cr,cm
 
     !!!!!!!!!!!!!!! simulation parameters !!!!!!!!!!!!!!!
+    real(8) :: dt0=0.004d0
     character(*), parameter :: timescheme="AB2-CN"
     ! pbc=1 Periodic; pbc=2 Dirichlet on boundary (cell wall); pbc=3 Neumann on boundary (cell wall); pbc=4 Dirichlet on ghost cell
     integer, parameter :: bc_x=1, bc_y=bc_x, bc_z=bc_x, pbc_x=1, pbc_y=pbc_x, pbc_z=pbc_x

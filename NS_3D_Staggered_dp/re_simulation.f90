@@ -10,7 +10,7 @@
     real(8), parameter :: Re=1.0d0, nu=0.002d0, t_end=2.0d0
     real(8) :: t_start
     !integer, parameter :: nx_file=256
-    integer, parameter :: nx0=256, ny0=nx0, nz0=nx0, nxp0=nx0+2, nyp0=ny0+2, nzp0=nz0+2, sub_tstep=1
+    integer, parameter :: nx0=256, ny0=nx0, nz0=nx0, nxp0=nx0+2, nyp0=ny0+2, nzp0=nz0+2
     real(8), parameter :: lx=2.0d0*pi, ly=2.0d0*pi, lz=2.0d0*pi, dx=lx/nx0, dy=ly/ny0, dz=lz/nz0, dx2=dx*dx, dy2=dy*dy, dz2=dz*dz
     real(8), parameter :: xu(nx0+1)=[(i*dx, i=0, nx0)],          yu(ny0+2)=[((i+0.5)*dy, i=-1, ny0)],   zu(nz0+2)=[((i+0.5)*dz, i=-1, nz0)]
     real(8), parameter :: xv(nx0+2)=[((i+0.5d0)*dx, i=-1, nx0)], yv(ny0+1)=[(i*dy, i=0, ny0)],          zv(nz0+2)=[((i+0.5d0)*dz, i=-1, nz0)]
@@ -55,7 +55,7 @@
     real(8) :: bx_w_1(ny+2,nz+1)=0, bx_w_nx(ny+2,nz+1)=0, by_w_1(nx+2,nz+1)=0, by_w_ny(nx+2,nz+1)=0, bz_w_1(nx+2,ny+2)=0, bz_w_nz(nx+2,ny+2)=0
     real(8) :: bx_p_1(nyp,nzp)=0,   bx_p_nx(nyp,nzp)=0,   by_p_1(nxp,nzp)=0,   by_p_ny(nxp,nzp)=0,   bz_p_1(nxp,nyp)=0,   bz_p_nz(nxp,nyp)=0
 
-    real(8) :: dt0=0.002d0, tGet
+    real(8) :: tGet
     integer :: time_length, t_step, t_step_offset, plot_step=20, slice=nz/2+1
     real(8), dimension (:), allocatable :: time_array
     integer, dimension (:), allocatable :: x_range0, y_range0, z_range0
@@ -98,9 +98,10 @@
     INTEGER :: c01,c02,c1,c2,cr,cm
 
     !!!!!!!!!!!!!!! re-simulation parameters !!!!!!!!!!!!!!!
-    character(*), parameter :: timescheme="AB2"
+    real(8) :: dt0=4d-3  !4.0d-3, 2.0d-3, 1.0d-3, 5.0d-4, 2.5d-4
+    character(*), parameter :: timescheme="AB2-CN"
     ! pbc=1 Periodic; pbc=2 Dirichlet on boundary (cell wall); pbc=3 Neumann on boundary (cell wall); pbc=4 Dirichlet on ghost cell
-    integer, parameter :: bc_x=2, bc_y=bc_x, bc_z=bc_x, pbc_x=2, pbc_y=2, pbc_z=2
+    integer, parameter :: bc_x=2, bc_y=bc_x, bc_z=bc_x, pbc_x=2, pbc_y=2, pbc_z=2, sub_tstep=1
     logical, parameter :: using_Ustar=.true., TOffset=.true., restart=.true.
     real(8), parameter :: noise=0;
     real(8), dimension (:,:), allocatable :: err_vel, err_grad, rms_vel, rms_grad
@@ -395,31 +396,40 @@
             end if
 
             !!! Convection
+            !$omp parallel sections
+            !$omp section
             call cal_conv(u, v, w, bc_x, bc_y, bc_z, dx, dy, dz, conv_x, conv_y, conv_z)
 
             !!! Diffusion
+            !$omp section
             call cal_diff(u, v, w, bc_x, bc_y, bc_z, dx2, dy2, dz2, diff_x, diff_y, diff_z)
 
-            !!! Time-advancement
-            f_term_x=0; f_term_y=0; f_term_z=0;
-
+            !!! Pressure gradients
+            !$omp section
             dpdx=diff(p,1,1)/dx;
             dpdy=diff(p,1,2)/dy;
             dpdz=diff(p,1,3)/dz;
 
+            f_term_x=0; f_term_y=0; f_term_z=0;
+            !$omp end parallel sections
+            
+            !!! Time-advancement
             if (timescheme=="Euler") then
                 ! diff terms + conv terms
+                !$omp parallel sections
+                !$omp section
                 rhs_x(x_range0,y_range1,z_range1)=nu*diff_x-conv_x;
-                rhs_y(x_range1,y_range0,z_range1)=nu*diff_y-conv_y;
-                rhs_z(x_range1,y_range1,z_range0)=nu*diff_z-conv_z;
-
                 u_star=dt0*(1.0d0*rhs_x-1.0d0*dpdx+1.0d0*f_term_x)+u;
+                !rhs_x_previous=0;
+                !$omp section
+                rhs_y(x_range1,y_range0,z_range1)=nu*diff_y-conv_y;
                 v_star=dt0*(1.0d0*rhs_y-1.0d0*dpdy+1.0d0*f_term_y)+v;
+                !rhs_y_previous=0;
+                !$omp section
+                rhs_z(x_range1,y_range1,z_range0)=nu*diff_z-conv_z;
                 w_star=dt0*(1.0d0*rhs_z-1.0d0*dpdz+1.0d0*f_term_z)+w;
-
-                rhs_x_previous=0;
-                rhs_y_previous=0;
-                rhs_z_previous=0;
+                !rhs_z_previous=0;
+                !$omp end parallel sections
 
                 call vel_bc_staggered(u_star,v_star,w_star,&
                     bx_u_1,bx_u_nx,by_u_1,by_u_ny,bz_u_1,bz_u_nz,&
@@ -428,23 +438,40 @@
                     bc_x,bc_y,bc_z);
             else if (timescheme=="AB2") then
                 ! diff terms + conv terms
-                rhs_x(x_range0,y_range1,z_range1)=nu*diff_x-conv_x;
-                rhs_y(x_range1,y_range0,z_range1)=nu*diff_y-conv_y;
-                rhs_z(x_range1,y_range1,z_range0)=nu*diff_z-conv_z;
+
                 ! prediction
                 if ((.not. restart .and. t_step==1) .or. (.not. TOffset .and. t_step==1)) then
+                    !$omp parallel sections
+                    !$omp section
+                    rhs_x(x_range0,y_range1,z_range1)=nu*diff_x-conv_x;
                     u_star=dt0*(1.0d0*rhs_x-1.0d0*dpdx+1.0d0*f_term_x)+u;
+                    rhs_x_previous=rhs_x;
+                    !$omp section
+                    rhs_y(x_range1,y_range0,z_range1)=nu*diff_y-conv_y;
                     v_star=dt0*(1.0d0*rhs_y-1.0d0*dpdy+1.0d0*f_term_y)+v;
+                    rhs_y_previous=rhs_y;
+                    !$omp section
+                    rhs_z(x_range1,y_range1,z_range0)=nu*diff_z-conv_z;
                     w_star=dt0*(1.0d0*rhs_z-1.0d0*dpdz+1.0d0*f_term_z)+w;
+                    rhs_z_previous=rhs_z;
+                    !$omp end parallel sections
                 else
+                    !$omp parallel sections
+                    !$omp section
+                    rhs_x(x_range0,y_range1,z_range1)=nu*diff_x-conv_x;
                     u_star=dt0*(1.5d0*rhs_x-0.5d0*rhs_x_previous-1.0d0*dpdx+1.0d0*f_term_x)+u;
+                    rhs_x_previous=rhs_x;
+                    !$omp section
+                    rhs_y(x_range1,y_range0,z_range1)=nu*diff_y-conv_y;
                     v_star=dt0*(1.5d0*rhs_y-0.5d0*rhs_y_previous-1.0d0*dpdy+1.0d0*f_term_y)+v;
+                    rhs_y_previous=rhs_y;
+                    !$omp section
+                    rhs_z(x_range1,y_range1,z_range0)=nu*diff_z-conv_z;
                     w_star=dt0*(1.5d0*rhs_z-0.5d0*rhs_z_previous-1.0d0*dpdz+1.0d0*f_term_z)+w;
+                    rhs_z_previous=rhs_z;
+                    !$omp end parallel sections
 
                 end if
-                rhs_x_previous=rhs_x;
-                rhs_y_previous=rhs_y;
-                rhs_z_previous=rhs_z;
 
                 call vel_bc_staggered(u_star,v_star,w_star,&
                     bx_u_1,bx_u_nx,by_u_1,by_u_ny,bz_u_1,bz_u_nz,&
@@ -454,24 +481,38 @@
             else if (timescheme=="AB2-CN") then
                 ! prediction
                 !if (t_step==1 .and. init) then
-                if ( (t_step==1 .or. t_step==nint( (dt0-t_start)/dt0) ) .and. init) then
+                if ( (t_step==1 .or. t_step==nint( (dt0-t_start)/dt0) ) .and. (.not. restart)) then
                     ! diff terms + conv terms
+                    !$omp parallel sections
+                    !$omp section
                     rhs_x(x_range0,y_range1,z_range1)=0.5d0*nu*diff_x-conv_x;
-                    rhs_y(x_range1,y_range0,z_range1)=0.5d0*nu*diff_y-conv_y;
-                    rhs_z(x_range1,y_range1,z_range0)=0.5d0*nu*diff_z-conv_z;
-
                     u_star=dt0*(rhs_x-1.0d0*dpdx+1.0d0*f_term_x)+u;
+                    rhs_x_previous(x_range0,y_range1,z_range1)=-conv_x;
+                    !$omp section
+                    rhs_y(x_range1,y_range0,z_range1)=0.5d0*nu*diff_y-conv_y;
                     v_star=dt0*(rhs_y-1.0d0*dpdy+1.0d0*f_term_y)+v;
+                    rhs_y_previous(x_range1,y_range0,z_range1)=-conv_y;
+                    !$omp section
+                    rhs_z(x_range1,y_range1,z_range0)=0.5d0*nu*diff_z-conv_z;
                     w_star=dt0*(rhs_z-1.0d0*dpdz+1.0d0*f_term_z)+w;
+                    rhs_z_previous(x_range1,y_range1,z_range0)=-conv_z;
+                    !$omp end parallel sections
                 else
                     ! diff terms + conv terms
+                    !$omp parallel sections
+                    !$omp section
                     rhs_x(x_range0,y_range1,z_range1)=0.5d0*nu*diff_x-1.5d0*conv_x;
-                    rhs_y(x_range1,y_range0,z_range1)=0.5d0*nu*diff_y-1.5d0*conv_y;
-                    rhs_z(x_range1,y_range1,z_range0)=0.5d0*nu*diff_z-1.5d0*conv_z;
-
                     u_star=dt0*(rhs_x-0.5d0*rhs_x_previous-1.0d0*dpdx+1.0d0*f_term_x)+u;
+                    rhs_x_previous(x_range0,y_range1,z_range1)=-conv_x;
+                    !$omp section
+                    rhs_y(x_range1,y_range0,z_range1)=0.5d0*nu*diff_y-1.5d0*conv_y;
                     v_star=dt0*(rhs_y-0.5d0*rhs_y_previous-1.0d0*dpdy+1.0d0*f_term_y)+v;
+                    rhs_y_previous(x_range1,y_range0,z_range1)=-conv_y;
+                    !$omp section
+                    rhs_z(x_range1,y_range1,z_range0)=0.5d0*nu*diff_z-1.5d0*conv_z;
                     w_star=dt0*(rhs_z-0.5d0*rhs_z_previous-1.0d0*dpdz+1.0d0*f_term_z)+w;
+                    rhs_z_previous(x_range1,y_range1,z_range0)=-conv_z;
+                    !$omp end parallel sections
                 end if
 
                 call vel_bc_staggered_CN2(u_star, v_star, w_star, bx_u_1, bx_u_nx, bx_v_1, bx_v_nx, bx_w_1, bx_w_nx, bc_x, 1)
@@ -484,7 +525,7 @@
                 !!$omp end parallel do
 
                 call vel_bc_staggered_CN2(u_star, v_star, w_star, by_u_1, by_u_ny, by_v_1, by_v_ny, by_w_1, by_w_ny, bc_y, 2)
-                !!$omp parallel do
+                !!$omp parallel do private(temp21)
                 do k=1,nz+2
                     temp21=transpose(u_star(:,:,k))
                     call dttrsb( D_low, D_d, D_up, temp21 )
@@ -503,7 +544,7 @@
                 !!$omp end parallel do
 
                 call vel_bc_staggered_CN2(u_star, v_star, w_star, bz_u_1, bz_u_nz, bz_v_1, bz_v_nz, bz_w_1, bz_w_nz, bc_z, 3)
-                !!$omp parallel do
+                !!$omp parallel do private(temp21)
                 do j=1,ny+2
                     temp21=transpose(u_star(:,j,:))
                     call dttrsb( F_low, F_d, F_up, temp21 )
@@ -520,10 +561,6 @@
                     w_star(:,j,:)=transpose(temp21)
                 end do
                 !!$omp end parallel do
-
-                rhs_x_previous(x_range0,y_range1,z_range1)=-conv_x;
-                rhs_y_previous(x_range1,y_range0,z_range1)=-conv_y;
-                rhs_z_previous(x_range1,y_range1,z_range0)=-conv_z;
             end if
             !call print_mat(u_star(:,:,2)-u_star_sub(:,:,2))
 
@@ -615,10 +652,16 @@
 
             !dp=dp_lu;
             if (pbc_x==3 .and. pbc_y==3 .and. pbc_z==3) dp=dp-dp(1,1,1)+dp_sub(1,1,1)
+            !$omp parallel sections
+            !$omp section
             u=-dt0*diff(dp,1,1)/dx+u_star
+            !$omp section
             v=-dt0*diff(dp,1,2)/dy+v_star
+            !$omp section
             w=-dt0*diff(dp,1,3)/dz+w_star
+            !$omp section
             p=p+dp
+            !$omp end parallel sections
 
         end if
         !print *, p(3,4,5)

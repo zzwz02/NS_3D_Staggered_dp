@@ -38,7 +38,7 @@
     !call test_subroutine
 
     write (*,*) "Press anykey to continue..."
-    read (*,*)
+    !read (*,*)
 
     end program main
 
