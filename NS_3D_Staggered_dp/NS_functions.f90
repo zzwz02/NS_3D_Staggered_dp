@@ -167,7 +167,7 @@
     real(8), dimension (:,:,:), intent(in) :: u, v, w
     real(8), dimension (:,:,:), intent(out) :: diff_x, diff_y, diff_z
     integer :: nx, ny, nz
-    
+
     nx=size(u,1)-1; ny=size(v,2)-1; nz=size(w,3)-1
 
     !$omp parallel sections if (nx<=64)
@@ -1609,6 +1609,66 @@
     !$omp end parallel do
 
     end subroutine DCT_poisson_solver
+
+    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    subroutine load_sub_tstep_bc(filename, u_sub_int, v_sub_int, w_sub_int, p_sub_int, &
+        u_star_sub_int, v_star_sub_int, w_star_sub_int, dp_sub_int, nx, ny, nz, sub_tstep, timescheme)
+
+    use hdf5
+    use h5lt
+    implicit none
+
+    character(*), intent(in) :: filename, timescheme
+    integer, intent(in) :: nx, ny, nz, sub_tstep
+    real(8), dimension (:,:,:,:), allocatable, intent(out) :: u_sub_int, v_sub_int, w_sub_int, p_sub_int
+    real(8), dimension (:,:,:,:), allocatable, intent(out) :: u_star_sub_int, v_star_sub_int, w_star_sub_int, dp_sub_int
+
+    integer(8) :: h5f_sub, h5g_sub
+    integer :: status
+
+    character(len=1000):: string_var
+
+    allocate(u_sub_int(sub_tstep,nx+1,ny+2,nz+2),v_sub_int(sub_tstep,nx+2,ny+1,nz+2),w_sub_int(sub_tstep,nx+2,ny+2,nz+1),p_sub_int(sub_tstep,nx+2,ny+2,nz+2))
+    allocate(u_star_sub_int(sub_tstep,nx+1,ny+2,nz+2),v_star_sub_int(sub_tstep,nx+2,ny+1,nz+2),w_star_sub_int(sub_tstep,nx+2,ny+2,nz+1),dp_sub_int(sub_tstep,nx+2,ny+2,nz+2))
+
+    call h5fopen_f(filename, H5F_ACC_RDONLY_F, h5f_sub, status)
+    write (string_var,'("sub_t_", I0)') sub_tstep
+    call h5gopen_f(h5f_sub, string_var, h5g_sub, status)
+
+    call h5ltread_dataset_double_f(h5g_sub, 'u_sub', u_sub_int, [sub_tstep+0_8,nx+1_8,ny+2_8,nz+2_8], status)
+    call h5ltread_dataset_double_f(h5g_sub, 'v_sub', v_sub_int, [sub_tstep+0_8,nx+2_8,ny+1_8,nz+2_8], status)
+    call h5ltread_dataset_double_f(h5g_sub, 'w_sub', w_sub_int, [sub_tstep+0_8,nx+2_8,ny+2_8,nz+1_8], status)
+    call h5ltread_dataset_double_f(h5g_sub, 'p_sub', p_sub_int, [sub_tstep+0_8,nx+2_8,ny+2_8,nz+2_8], status)
+    call h5ltread_dataset_double_f(h5g_sub, 'u_star_sub', u_star_sub_int, [sub_tstep+0_8,nx+1_8,ny+2_8,nz+2_8], status)
+    call h5ltread_dataset_double_f(h5g_sub, 'v_star_sub', v_star_sub_int, [sub_tstep+0_8,nx+2_8,ny+1_8,nz+2_8], status)
+    call h5ltread_dataset_double_f(h5g_sub, 'w_star_sub', w_star_sub_int, [sub_tstep+0_8,nx+2_8,ny+2_8,nz+1_8], status)
+    call h5ltread_dataset_double_f(h5g_sub, 'dp_sub', dp_sub_int, [sub_tstep+0_8,nx+2_8,ny+2_8,nz+2_8], status)
+    !if (timescheme=="AB2-CN") then
+    !    call h5ltread_dataset_double_f(h5g_sub, 'bx_u_1s', bx_u_1, [ny+2_8,nz+2_8], status)
+    !    call h5ltread_dataset_double_f(h5g_sub, 'bx_u_nxs', bx_u_nx, [ny+2_8,nz+2_8], status)
+    !    call h5ltread_dataset_double_f(h5g_sub, 'bx_v_1s', bx_v_1, [ny+1_8,nz+2_8], status)
+    !    call h5ltread_dataset_double_f(h5g_sub, 'bx_v_nxs', bx_v_nx, [ny+1_8,nz+2_8], status)
+    !    call h5ltread_dataset_double_f(h5g_sub, 'bx_w_1s', bx_w_1, [ny+2_8,nz+1_8], status)
+    !    call h5ltread_dataset_double_f(h5g_sub, 'bx_w_nxs', bx_w_nx, [ny+2_8,nz+1_8], status)
+    !
+    !    call h5ltread_dataset_double_f(h5g_sub, 'by_u_1s', by_u_1, [nx+1_8,nz+2_8], status)
+    !    call h5ltread_dataset_double_f(h5g_sub, 'by_u_nys', by_u_ny, [nx+1_8,nz+2_8], status)
+    !    call h5ltread_dataset_double_f(h5g_sub, 'by_v_1s', by_v_1, [nx+2_8,nz+2_8], status)
+    !    call h5ltread_dataset_double_f(h5g_sub, 'by_v_nys', by_v_ny, [nx+2_8,nz+2_8], status)
+    !    call h5ltread_dataset_double_f(h5g_sub, 'by_w_1s', by_w_1, [nx+2_8,nz+1_8], status)
+    !    call h5ltread_dataset_double_f(h5g_sub, 'by_w_nys', by_w_ny, [nx+2_8,nz+1_8], status)
+    !
+    !    call h5ltread_dataset_double_f(h5g_sub, 'bz_u_1s', bz_u_1, [nx+1_8,ny+2_8], status)
+    !    call h5ltread_dataset_double_f(h5g_sub, 'bz_u_nzs', bz_u_nz, [nx+1_8,ny+2_8], status)
+    !    call h5ltread_dataset_double_f(h5g_sub, 'bz_v_1s', bz_v_1, [nx+2_8,ny+1_8], status)
+    !    call h5ltread_dataset_double_f(h5g_sub, 'bz_v_nzs', bz_v_nz, [nx+2_8,ny+1_8], status)
+    !    call h5ltread_dataset_double_f(h5g_sub, 'bz_w_1s', bz_w_1, [nx+2_8,ny+2_8], status)
+    !    call h5ltread_dataset_double_f(h5g_sub, 'bz_w_nzs', bz_w_nz, [nx+2_8,ny+2_8], status)
+    !end if
+
+    call h5gclose_f( h5g_sub, status)
+    call h5fclose_f(h5f_sub, status)
+    end subroutine load_sub_tstep_bc
 
     end module NS_functions
 

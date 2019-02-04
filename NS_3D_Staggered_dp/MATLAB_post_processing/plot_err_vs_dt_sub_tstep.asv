@@ -1,0 +1,38 @@
+clear all
+close all
+clc
+
+dt=[4e-3,2e-3,1e-3,5e-4,2.5e-4]; sub_tstep=[1,2,5,10,20,50,100];
+t1=[1:dt(1):2]; t2=[1:dt(2):2]; t3=[1:dt(3):2]; t4=[1:dt(4):2]; t5=[1:dt(5):2];
+err_1 = import_err_file('../err_file/err_vel_AB2_4.E-3_N_Ustar_TOffset.txt');
+err_2 = import_err_file('../err_file/err_vel_AB2_4.E-3_N_Ustar_TOffset_sub_tstep2.txt');
+err_3 = import_err_file('../err_file/err_vel_AB2_4.E-3_N_Ustar_TOffset_sub_tstep3.txt');
+err_4 = import_err_file('../err_file/err_vel_AB2_4.E-3_N_Ustar_TOffset_sub_tstep4.txt');
+err_5 = import_err_file('../err_file/err_vel_AB2_4.E-3_N_Ustar_TOffset_sub_tstep5.txt');
+err_6 = import_err_file('../err_file/err_vel_AB2_4.E-3_N_Ustar_TOffset_sub_tstep10.txt');
+err_7 = import_err_file('../err_file/err_vel_AB2_4.E-3_N_Ustar_TOffset_sub_tstep20.txt');
+err_8 = import_err_file('../err_file/err_vel_AB2_4.E-3_N_Ustar_TOffset_sub_tstep50.txt');
+err_9 = import_err_file('../err_file/err_vel_AB2_4.E-3_N_Ustar_TOffset_sub_tstep100.txt');
+
+tt=t1;
+figure(1)
+semilogy(tt,err_1.rel_err_p,'--')
+hold on;
+plot(tt,err_2.rel_err_p)
+plot(tt,err_5.rel_err_p)
+plot(tt,err_4.rel_err_p)
+plot(tt,err_5.rel_err_p)
+
+crit=1.1;
+err_u_max(1)=max(err_1.rel_err_p(tt>crit));
+err_u_max(2)=max(err_2.rel_err_p(tt>crit));
+err_u_max(3)=max(err_3.rel_err_p(tt>crit));
+err_u_max(4)=max(err_4.rel_err_p(tt>crit));
+err_u_max(5)=max(err_5.rel_err_p(tt>crit));
+err_u_max(6)=max(err_6.rel_err_p(tt>crit));
+err_u_max(7)=max(err_7.rel_err_p(tt>crit));
+
+figure(2)
+loglog(sub_tstep,err_u_max,'x')
+hold on;
+temp1=log(dt); temp2=log(err_u_max);

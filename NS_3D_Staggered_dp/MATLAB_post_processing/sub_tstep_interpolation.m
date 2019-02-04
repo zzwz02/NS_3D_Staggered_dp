@@ -2,28 +2,32 @@ clear all
 clc
 
 nx=32; ny=nx; nz=nx; t_start=1;
-u0=zeros(4, nx+1, ny+2, nz+2);
-v0=zeros(nx+2, ny+1, nz+2, 4);
-w0=zeros(nx+2, ny+2, nz+1, 4);
-p0=zeros(nx+2, ny+2, nz+2, 4);
-u_star0=zeros(nx+1, ny+2, nz+2, 4);
-v_star0=zeros(nx+2, ny+1, nz+2, 4);
-w_star0=zeros(nx+2, ny+2, nz+1, 4);
-dp0=zeros(nx+2, ny+2, nz+2, 4);
+dt0=[4e-3,2e-3,1e-3,5e-4,2.5e-4];
+sub_tstep=[2,3,4,5,6,7,8,9,10,20,50,100];
+t_span=[-4:5];
+interp_scheme='linear';
+
+temp=length(t_span);
+u0=zeros(temp, nx+1, ny+2, nz+2);
+v0=zeros(temp, nx+2, ny+1, nz+2);
+w0=zeros(temp, nx+2, ny+2, nz+1);
+p0=zeros(temp, nx+2, ny+2, nz+2);
+u_star0=zeros(temp, nx+1, ny+2, nz+2);
+v_star0=zeros(temp, nx+2, ny+1, nz+2);
+w_star0=zeros(temp, nx+2, ny+2, nz+1);
+dp0=zeros(temp, nx+2, ny+2, nz+2);
+
 filename0(1)="../AB2_result.MARCC/HIT_256^3_decay_4.E-3_AB2_dp_x0_16_nx0_32_sub.h5";
 filename0(2)="../AB2_result.MARCC/HIT_256^3_decay_2.E-3_AB2_dp_x0_16_nx0_32_sub.h5";
 filename0(3)="../AB2_result.MARCC/HIT_256^3_decay_1.E-3_AB2_dp_x0_16_nx0_32_sub.h5";
 filename0(4)="../AB2_result.MARCC/HIT_256^3_decay_5.E-4_AB2_dp_x0_16_nx0_32_sub.h5";
 filename0(5)="../AB2_result.MARCC/HIT_256^3_decay_3.E-4_AB2_dp_x0_16_nx0_32_sub.h5";
-dt0=[4e-3,2e-3,1e-3,5e-4,2.5e-4];
-sub_tstep=[2,3,5,7,10,20,50,100];
-intep_scheme='spline';
 
 for j=1:3
     idx=j; dt=dt0(idx);
     filename=char(filename0(idx));
-    output_filename=[filename(1:end-3),'_',intep_scheme,filename(end-2:end)]
-    t0=t_start+[-4:5]*dt; 
+    output_filename=[filename(1:end-3),'_',interp_scheme,filename(end-2:end)]
+    t0=t_start+t_span*dt; 
     
     for i=1:length(t0)
         temp2=num2str(t0(i),'%.4f');
@@ -40,15 +44,15 @@ for j=1:3
     
     for i=1:length(sub_tstep)
         t=linspace(t_start,t_start+dt,sub_tstep(i)+1); t=t(2:end);
-        u=interp1(t0, u0, t, intep_scheme);
-        v=interp1(t0, v0, t, intep_scheme);
-        w=interp1(t0, w0, t, intep_scheme);
-        p=interp1(t0, p0, t, intep_scheme);
-        u_star=interp1(t0, u_star0, t, intep_scheme);
-        v_star=interp1(t0, v_star0, t, intep_scheme);
-        w_star=interp1(t0, w_star0, t, intep_scheme);
-        dp=interp1(t0, dp0, t, intep_scheme);
-        plot(t0, squeeze(dp0(5,6,20,:)),'-s', t, squeeze(dp(5,6,20,:)),'x');
+        u=interp1(t0, u0, t, interp_scheme);
+        v=interp1(t0, v0, t, interp_scheme);
+        w=interp1(t0, w0, t, interp_scheme);
+        p=interp1(t0, p0, t, interp_scheme);
+        u_star=interp1(t0, u_star0, t, interp_scheme);
+        v_star=interp1(t0, v_star0, t, interp_scheme);
+        w_star=interp1(t0, w_star0, t, interp_scheme);
+        dp=interp1(t0, dp0, t, interp_scheme);
+        plot(t0, squeeze(dp0(:,5,6,20)),'-s', t, squeeze(dp(:,5,6,20)),'x');
         
         group_name=['sub_t_',num2str(sub_tstep(i))]
         h5create(output_filename, ['/',group_name,'/u_sub'], size(u));

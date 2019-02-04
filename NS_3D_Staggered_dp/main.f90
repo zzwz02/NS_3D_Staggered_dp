@@ -22,19 +22,14 @@
 
     integer :: i
 
-    !write (*,*) "Choose:"
-    !write (*,*) "(1): big_periodic_3D"
-    !write (*,*) "(2): re_simulation"
-    !write (*,*) "(3): both"
-    !read (*,'(i1)') i
 
-    !if (i==1) then
-        !call big_periodic_3D
-    !end if
-    !
-    !if (i==2) then
-        call re_simulation
-    !end if
+
+    !call big_periodic_3D
+
+    !call re_simulation
+    
+    call re_simulation_sub_tstep
+
     !call test_subroutine
 
     write (*,*) "Press anykey to continue..."

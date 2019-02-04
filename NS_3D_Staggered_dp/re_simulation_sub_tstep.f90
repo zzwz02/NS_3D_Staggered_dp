@@ -1,4 +1,4 @@
-    subroutine re_simulation
+    subroutine re_simulation_sub_tstep
 
     implicit none
 
@@ -30,7 +30,7 @@
     real(8) :: rhs_x_previous(nx+1,ny+2,nz+2)=0, rhs_y_previous(nx+2,ny+1,nz+2)=0, rhs_z_previous(nx+2,ny+2,nz+1)=0
     real(8) :: dpdx(nx+1,ny+2,nz+2)=0,           dpdy(nx+2,ny+1,nz+2)=0,           dpdz(nx+2,ny+2,nz+1)=0
     real(8) :: f_term_x=0,                       f_term_y=0,                       f_term_z=0
-    !real(8) :: rhs_x_previous0(nx+1,ny+2,nz+2)=0,rhs_y_previous0(nx+2,ny+1,nz+2)=0,rhs_z_previous0(nx+2,ny+2,nz+1)=0
+    real(8) :: rhs_x_previous0(nx+1,ny+2,nz+2)=0,rhs_y_previous0(nx+2,ny+1,nz+2)=0,rhs_z_previous0(nx+2,ny+2,nz+1)=0
     !real(8) :: f_term_x(nx+1,ny+2,nz+2)=0,       f_term_y(nx+2,ny+1,nz+2)=0,       f_term_z(nx+2,ny+2,nz+1)=0
 
     real(8) :: dp_lu(nxp,nyp,nzp)=0, RHS_poisson0(nx*ny*nz)=0, dp_vec(nx*ny*nz)=0
@@ -56,7 +56,7 @@
     real(8) :: bx_p_1(nyp,nzp)=0,   bx_p_nx(nyp,nzp)=0,   by_p_1(nxp,nzp)=0,   by_p_ny(nxp,nzp)=0,   bz_p_1(nxp,nyp)=0,   bz_p_nz(nxp,nyp)=0
 
     real(8) :: tGet
-    integer :: time_length, t_step, t_step_offset, plot_step=20, slice=nz/2+1
+    integer :: time_length, t_step, ori_t_step, t_step_offset, plot_step=20, slice=nz/2+1
     real(8), dimension (:), allocatable :: time_array
     integer, dimension (:), allocatable :: x_range0, y_range0, z_range0
     integer :: x_range1(nx)=[(i, i=2, nx+1)], y_range1(ny)=[(i, i=2, ny+1)], z_range1(nz)=[(i, i=2, nz+1)]
@@ -67,7 +67,7 @@
     !!!!!!!!!!!!!!! temperary variables !!!!!!!!!!!!!!!
     !integer(8) :: sizeof_record, sizeof_record_sub, tempi1, tempi2
     !real(8) :: temp01, temp02, temp03!, temp04, temp05, temp06
-    !real(8), dimension (:), allocatable :: temp11!, temp12, temp13, temp14, temp15, temp16
+    real(8), dimension (:), allocatable :: temp11, temp12!, temp13, temp14, temp15, temp16
     real(8), dimension (:,:), allocatable :: temp21!, temp22, temp23, temp24, temp25, temp26
     !real(8), dimension (:,:,:), allocatable :: temp31, temp32, temp33!, temp34, temp35, temp36
 
@@ -98,14 +98,16 @@
     INTEGER :: c01,c02,c1,c2,cr,cm
 
     !!!!!!!!!!!!!!! re-simulation parameters !!!!!!!!!!!!!!!
-    real(8) :: dt0=4d-3  !4.0d-3, 2.0d-3, 1.0d-3, 5.0d-4, 2.5d-4
-    character(*), parameter :: timescheme="AB2"
+    real(8) :: dt0=1e-3, dt  !4.0d-3, 2.0d-3, 1.0d-3, 5.0d-4, 2.5d-4
+    character(*), parameter :: timescheme="AB2", interp_scheme="linear"
     ! pbc=1 Periodic; pbc=2 Dirichlet on boundary (cell wall); pbc=3 Neumann on boundary (cell wall); pbc=4 Dirichlet on ghost cell
-    integer, parameter :: bc_x=2, bc_y=bc_x, bc_z=bc_x, pbc_x=2, pbc_y=2, pbc_z=2, sub_tstep=1
-    logical, parameter :: using_Ustar=.true., TOffset=.true., restart=.true.
+    integer, parameter :: bc_x=2, bc_y=bc_x, bc_z=bc_x, pbc_x=3, pbc_y=3, pbc_z=3, sub_tstep=2
+    logical, parameter :: using_Ustar=.true., TOffset=.true., restart= (.false. .and. sub_tstep==1)
     real(8), parameter :: noise=0;
     real(8), dimension (:,:), allocatable :: err_vel, err_grad, rms_vel, rms_grad
-    logical, parameter :: LU_poisson=(nxp*nyp*nzp<=32**3), FFT_poisson=(pbc_x==1 .and. pbc_y==1 .and. pbc_z==1), DCT_poisson=(pbc_x/=1 .and. pbc_y/=1 .and. pbc_z/=1)
+    logical, parameter :: LU_poisson=(.false. .and. nxp*nyp*nzp<=34**3), FFT_poisson=(pbc_x==1 .and. pbc_y==1 .and. pbc_z==1), DCT_poisson=(pbc_x/=1 .and. pbc_y/=1 .and. pbc_z/=1)
+    real(8), dimension (:,:,:,:), allocatable :: u_sub_int, v_sub_int, w_sub_int, p_sub_int
+    real(8), dimension (:,:,:,:), allocatable :: u_star_sub_int, v_star_sub_int, w_star_sub_int, dp_sub_int
 
     call OMP_set_dynamic(.true.)
     ! First initialize the system_clock
@@ -120,13 +122,11 @@
         t_start=1.0d0
     end if
     t_step_offset=nint(t_start/dt0)
-    call get_command_argument (1, string_var, status=status)
-    if (status==0) then
-        read(string_var,*) dt0
-    end if
     time_length=nint((t_end-t_start)/(dt0))
-    allocate( time_array(0:time_length+t_step_offset), err_vel(8,0:time_length), err_grad(24,0:time_length), rms_vel(4,0:time_length), rms_grad(12,0:time_length) )
-    time_array=[(0.0d0+dt0*i, i=0, time_length+t_step_offset)]
+    allocate( time_array(0:time_length+sub_tstep-1), err_vel(8,0:time_length), err_grad(24,0:time_length), rms_vel(4,0:time_length), rms_grad(12,0:time_length) )
+    temp11=[(0.0d0+dt0*i, i=t_step_offset+2, time_length+t_step_offset)]
+    temp12=[(t_start+dt0/sub_tstep*i, i=0, sub_tstep)]
+    time_array=[temp12, temp11];
 
     if (bc_x==1) then
         !allocate( x_range0(nx) )
@@ -319,11 +319,29 @@
         eig_tt=-4.0d0*eig_tt
     end if
 
+    if (sub_tstep>1) then
+        if (timescheme=="AB2-CN") then
+            print*, 'sub_tstep with AB2-CN is not implemented!!!!'
+            return
+        end if
+        if (.not. using_Ustar) then
+            print*, 'sub_tstep with u as b.c is not implemented!!!!'
+            return
+        end if
+
+        allocate(u_sub_int(nx+1,ny+2,nz+2,sub_tstep),v_sub_int(nx+2,ny+1,nz+2,sub_tstep),w_sub_int(nx+2,ny+2,nz+1,sub_tstep),p_sub_int(nx+2,ny+2,nz+2,sub_tstep))
+        allocate(u_star_sub_int(nx+1,ny+2,nz+2,sub_tstep),v_star_sub_int(nx+2,ny+1,nz+2,sub_tstep),w_star_sub_int(nx+2,ny+2,nz+1,sub_tstep),dp_sub_int(nx+2,ny+2,nz+2,sub_tstep))
+
+        write (string_var,'(A, "_result.MARCC/HIT_", I0, "^3_decay_", ES5.0E1, "_", A , "_dp_x0_", I0, "_nx0_", I0, "_sub_", A, ".h5")') trim(timescheme), nx0, dt0, trim(timescheme), x0, nx, trim(interp_scheme)
+        call load_sub_tstep_bc(string_var, u_sub_int, v_sub_int, w_sub_int, p_sub_int, &
+            u_star_sub_int, v_star_sub_int, w_star_sub_int, dp_sub_int, nx, ny, nz, sub_tstep, timescheme)
+    end if
+
     write (string_var,'(A, "_result.MARCC/HIT_", I0, "^3_decay_", ES5.0E1, "_", A , "_dp_x0_", I0, "_nx0_", I0, "_sub.h5")') trim(timescheme), nx0, dt0, trim(timescheme), x0, nx
     call h5fopen_f(string_var, H5F_ACC_RDONLY_F, h5f_sub, status)
 
-    do t_step=0,time_length
-        tGet=time_array(t_step+t_step_offset)
+    do t_step=0,time_length+sub_tstep-1
+        tGet=time_array(t_step)
         print *,''
         print '(" t_step ", I6, "        tGet ", F7.4)', t_step, tGet
         CALL SYSTEM_CLOCK(c01)
@@ -346,42 +364,58 @@
             !call TGV(xv, yv, zv, 0.0d0, nu, v=v)
             !call TGV(xp, yp, zp, 0.0d0, nu, p=p)
         else
-            write (string_var,'("t_", F0.4)') tGet
-            call h5gopen_f(h5f_sub, string_var, h5g_sub, status)
+            if (t_step<=sub_tstep .and. sub_tstep>1) then
+                dt=dt0/sub_tstep
 
-            call h5ltread_dataset_double_f(h5g_sub, 'u_sub', u_sub, [nx+1_8,ny+2_8,nz+2_8], status)
-            call h5ltread_dataset_double_f(h5g_sub, 'v_sub', v_sub, [nx+2_8,ny+1_8,nz+2_8], status)
-            call h5ltread_dataset_double_f(h5g_sub, 'w_sub', w_sub, [nx+2_8,ny+2_8,nz+1_8], status)
-            call h5ltread_dataset_double_f(h5g_sub, 'p_sub', p_sub, [nx+2_8,ny+2_8,nz+2_8], status)
-            call h5ltread_dataset_double_f(h5g_sub, 'u_star_sub', u_star_sub, [nx+1_8,ny+2_8,nz+2_8], status)
-            call h5ltread_dataset_double_f(h5g_sub, 'v_star_sub', v_star_sub, [nx+2_8,ny+1_8,nz+2_8], status)
-            call h5ltread_dataset_double_f(h5g_sub, 'w_star_sub', w_star_sub, [nx+2_8,ny+2_8,nz+1_8], status)
-            call h5ltread_dataset_double_f(h5g_sub, 'dp_sub', dp_sub, [nx+2_8,ny+2_8,nz+2_8], status)
-            call h5ltread_dataset_double_f(h5g_sub, 'RHS_poisson_sub', RHS_poisson_sub, [nx+2_8,ny+2_8,nz+2_8], status)
-            if (timescheme=="AB2-CN") then
-                call h5ltread_dataset_double_f(h5g_sub, 'bx_u_1s', bx_u_1, [ny+2_8,nz+2_8], status)
-                call h5ltread_dataset_double_f(h5g_sub, 'bx_u_nxs', bx_u_nx, [ny+2_8,nz+2_8], status)
-                call h5ltread_dataset_double_f(h5g_sub, 'bx_v_1s', bx_v_1, [ny+1_8,nz+2_8], status)
-                call h5ltread_dataset_double_f(h5g_sub, 'bx_v_nxs', bx_v_nx, [ny+1_8,nz+2_8], status)
-                call h5ltread_dataset_double_f(h5g_sub, 'bx_w_1s', bx_w_1, [ny+2_8,nz+1_8], status)
-                call h5ltread_dataset_double_f(h5g_sub, 'bx_w_nxs', bx_w_nx, [ny+2_8,nz+1_8], status)
+                u_sub=u_sub_int(t_step,:,:,:)
+                v_sub=v_sub_int(t_step,:,:,:)
+                w_sub=w_sub_int(t_step,:,:,:)
+                p_sub=p_sub_int(t_step,:,:,:)
+                u_star_sub=u_star_sub_int(t_step,:,:,:)
+                v_star_sub=v_star_sub_int(t_step,:,:,:)
+                w_star_sub=w_star_sub_int(t_step,:,:,:)
+                dp_sub=dp_sub_int(t_step,:,:,:)
 
-                call h5ltread_dataset_double_f(h5g_sub, 'by_u_1s', by_u_1, [nx+1_8,nz+2_8], status)
-                call h5ltread_dataset_double_f(h5g_sub, 'by_u_nys', by_u_ny, [nx+1_8,nz+2_8], status)
-                call h5ltread_dataset_double_f(h5g_sub, 'by_v_1s', by_v_1, [nx+2_8,nz+2_8], status)
-                call h5ltread_dataset_double_f(h5g_sub, 'by_v_nys', by_v_ny, [nx+2_8,nz+2_8], status)
-                call h5ltread_dataset_double_f(h5g_sub, 'by_w_1s', by_w_1, [nx+2_8,nz+1_8], status)
-                call h5ltread_dataset_double_f(h5g_sub, 'by_w_nys', by_w_ny, [nx+2_8,nz+1_8], status)
+            else
+                dt=dt0
 
-                call h5ltread_dataset_double_f(h5g_sub, 'bz_u_1s', bz_u_1, [nx+1_8,ny+2_8], status)
-                call h5ltread_dataset_double_f(h5g_sub, 'bz_u_nzs', bz_u_nz, [nx+1_8,ny+2_8], status)
-                call h5ltread_dataset_double_f(h5g_sub, 'bz_v_1s', bz_v_1, [nx+2_8,ny+1_8], status)
-                call h5ltread_dataset_double_f(h5g_sub, 'bz_v_nzs', bz_v_nz, [nx+2_8,ny+1_8], status)
-                call h5ltread_dataset_double_f(h5g_sub, 'bz_w_1s', bz_w_1, [nx+2_8,ny+2_8], status)
-                call h5ltread_dataset_double_f(h5g_sub, 'bz_w_nzs', bz_w_nz, [nx+2_8,ny+2_8], status)
+                write (string_var,'("t_", F0.4)') tGet
+                call h5gopen_f(h5f_sub, string_var, h5g_sub, status)
+
+                call h5ltread_dataset_double_f(h5g_sub, 'u_sub', u_sub, [nx+1_8,ny+2_8,nz+2_8], status)
+                call h5ltread_dataset_double_f(h5g_sub, 'v_sub', v_sub, [nx+2_8,ny+1_8,nz+2_8], status)
+                call h5ltread_dataset_double_f(h5g_sub, 'w_sub', w_sub, [nx+2_8,ny+2_8,nz+1_8], status)
+                call h5ltread_dataset_double_f(h5g_sub, 'p_sub', p_sub, [nx+2_8,ny+2_8,nz+2_8], status)
+                call h5ltread_dataset_double_f(h5g_sub, 'u_star_sub', u_star_sub, [nx+1_8,ny+2_8,nz+2_8], status)
+                call h5ltread_dataset_double_f(h5g_sub, 'v_star_sub', v_star_sub, [nx+2_8,ny+1_8,nz+2_8], status)
+                call h5ltread_dataset_double_f(h5g_sub, 'w_star_sub', w_star_sub, [nx+2_8,ny+2_8,nz+1_8], status)
+                call h5ltread_dataset_double_f(h5g_sub, 'dp_sub', dp_sub, [nx+2_8,ny+2_8,nz+2_8], status)
+                call h5ltread_dataset_double_f(h5g_sub, 'RHS_poisson_sub', RHS_poisson_sub, [nx+2_8,ny+2_8,nz+2_8], status)
+                if (timescheme=="AB2-CN") then
+                    call h5ltread_dataset_double_f(h5g_sub, 'bx_u_1s', bx_u_1, [ny+2_8,nz+2_8], status)
+                    call h5ltread_dataset_double_f(h5g_sub, 'bx_u_nxs', bx_u_nx, [ny+2_8,nz+2_8], status)
+                    call h5ltread_dataset_double_f(h5g_sub, 'bx_v_1s', bx_v_1, [ny+1_8,nz+2_8], status)
+                    call h5ltread_dataset_double_f(h5g_sub, 'bx_v_nxs', bx_v_nx, [ny+1_8,nz+2_8], status)
+                    call h5ltread_dataset_double_f(h5g_sub, 'bx_w_1s', bx_w_1, [ny+2_8,nz+1_8], status)
+                    call h5ltread_dataset_double_f(h5g_sub, 'bx_w_nxs', bx_w_nx, [ny+2_8,nz+1_8], status)
+
+                    call h5ltread_dataset_double_f(h5g_sub, 'by_u_1s', by_u_1, [nx+1_8,nz+2_8], status)
+                    call h5ltread_dataset_double_f(h5g_sub, 'by_u_nys', by_u_ny, [nx+1_8,nz+2_8], status)
+                    call h5ltread_dataset_double_f(h5g_sub, 'by_v_1s', by_v_1, [nx+2_8,nz+2_8], status)
+                    call h5ltread_dataset_double_f(h5g_sub, 'by_v_nys', by_v_ny, [nx+2_8,nz+2_8], status)
+                    call h5ltread_dataset_double_f(h5g_sub, 'by_w_1s', by_w_1, [nx+2_8,nz+1_8], status)
+                    call h5ltread_dataset_double_f(h5g_sub, 'by_w_nys', by_w_ny, [nx+2_8,nz+1_8], status)
+
+                    call h5ltread_dataset_double_f(h5g_sub, 'bz_u_1s', bz_u_1, [nx+1_8,ny+2_8], status)
+                    call h5ltread_dataset_double_f(h5g_sub, 'bz_u_nzs', bz_u_nz, [nx+1_8,ny+2_8], status)
+                    call h5ltread_dataset_double_f(h5g_sub, 'bz_v_1s', bz_v_1, [nx+2_8,ny+1_8], status)
+                    call h5ltread_dataset_double_f(h5g_sub, 'bz_v_nzs', bz_v_nz, [nx+2_8,ny+1_8], status)
+                    call h5ltread_dataset_double_f(h5g_sub, 'bz_w_1s', bz_w_1, [nx+2_8,ny+2_8], status)
+                    call h5ltread_dataset_double_f(h5g_sub, 'bz_w_nzs', bz_w_nz, [nx+2_8,ny+2_8], status)
+                end if
+
+                call h5gclose_f( h5g_sub, status)
             end if
-
-            call h5gclose_f( h5g_sub, status)
 
             if (timescheme=="AB2-CN") then
                 call get_pr_bc(dp_sub, pbc_x, pbc_y, pbc_z, nx, ny, nz, dx, dy, dz, bx_p_1, bx_p_nx, by_p_1, by_p_ny, bz_p_1, bz_p_nz)
@@ -412,22 +446,22 @@
 
             f_term_x=0; f_term_y=0; f_term_z=0;
             !$omp end parallel sections
-            
+
             !!! Time-advancement
             if (timescheme=="Euler") then
                 ! diff terms + conv terms
                 !$omp parallel sections
                 !$omp section
                 rhs_x(x_range0,y_range1,z_range1)=nu*diff_x-conv_x;
-                u_star=dt0*(1.0d0*rhs_x-1.0d0*dpdx+1.0d0*f_term_x)+u;
+                u_star=dt*(1.0d0*rhs_x-1.0d0*dpdx+1.0d0*f_term_x)+u;
                 !rhs_x_previous=0;
                 !$omp section
                 rhs_y(x_range1,y_range0,z_range1)=nu*diff_y-conv_y;
-                v_star=dt0*(1.0d0*rhs_y-1.0d0*dpdy+1.0d0*f_term_y)+v;
+                v_star=dt*(1.0d0*rhs_y-1.0d0*dpdy+1.0d0*f_term_y)+v;
                 !rhs_y_previous=0;
                 !$omp section
                 rhs_z(x_range1,y_range1,z_range0)=nu*diff_z-conv_z;
-                w_star=dt0*(1.0d0*rhs_z-1.0d0*dpdz+1.0d0*f_term_z)+w;
+                w_star=dt*(1.0d0*rhs_z-1.0d0*dpdz+1.0d0*f_term_z)+w;
                 !rhs_z_previous=0;
                 !$omp end parallel sections
 
@@ -440,37 +474,49 @@
                 ! diff terms + conv terms
 
                 ! prediction
-                if (.not. restart .and. t_step==1) then
+                if ((.not. restart .and. t_step==1)) then
                     !$omp parallel sections
                     !$omp section
                     rhs_x(x_range0,y_range1,z_range1)=nu*diff_x-conv_x;
-                    u_star=dt0*(1.0d0*rhs_x-1.0d0*dpdx+1.0d0*f_term_x)+u;
+                    u_star=dt*(1.0d0*rhs_x-1.0d0*dpdx+1.0d0*f_term_x)+u;
                     rhs_x_previous=rhs_x;
                     !$omp section
                     rhs_y(x_range1,y_range0,z_range1)=nu*diff_y-conv_y;
-                    v_star=dt0*(1.0d0*rhs_y-1.0d0*dpdy+1.0d0*f_term_y)+v;
+                    v_star=dt*(1.0d0*rhs_y-1.0d0*dpdy+1.0d0*f_term_y)+v;
                     rhs_y_previous=rhs_y;
                     !$omp section
                     rhs_z(x_range1,y_range1,z_range0)=nu*diff_z-conv_z;
-                    w_star=dt0*(1.0d0*rhs_z-1.0d0*dpdz+1.0d0*f_term_z)+w;
+                    w_star=dt*(1.0d0*rhs_z-1.0d0*dpdz+1.0d0*f_term_z)+w;
                     rhs_z_previous=rhs_z;
                     !$omp end parallel sections
                 else
                     !$omp parallel sections
                     !$omp section
                     rhs_x(x_range0,y_range1,z_range1)=nu*diff_x-conv_x;
-                    u_star=dt0*(1.5d0*rhs_x-0.5d0*rhs_x_previous-1.0d0*dpdx+1.0d0*f_term_x)+u;
+                    u_star=dt*(1.5d0*rhs_x-0.5d0*rhs_x_previous-1.0d0*dpdx+1.0d0*f_term_x)+u;
                     rhs_x_previous=rhs_x;
                     !$omp section
                     rhs_y(x_range1,y_range0,z_range1)=nu*diff_y-conv_y;
-                    v_star=dt0*(1.5d0*rhs_y-0.5d0*rhs_y_previous-1.0d0*dpdy+1.0d0*f_term_y)+v;
+                    v_star=dt*(1.5d0*rhs_y-0.5d0*rhs_y_previous-1.0d0*dpdy+1.0d0*f_term_y)+v;
                     rhs_y_previous=rhs_y;
                     !$omp section
                     rhs_z(x_range1,y_range1,z_range0)=nu*diff_z-conv_z;
-                    w_star=dt0*(1.5d0*rhs_z-0.5d0*rhs_z_previous-1.0d0*dpdz+1.0d0*f_term_z)+w;
+                    w_star=dt*(1.5d0*rhs_z-0.5d0*rhs_z_previous-1.0d0*dpdz+1.0d0*f_term_z)+w;
                     rhs_z_previous=rhs_z;
                     !$omp end parallel sections
 
+                end if
+
+                if (sub_tstep>1) then
+                    if (t_step==1) then
+                        rhs_x_previous0=rhs_x_previous
+                        rhs_y_previous0=rhs_y_previous
+                        rhs_z_previous0=rhs_z_previous
+                    elseif (t_step==sub_tstep) then
+                        rhs_x_previous=rhs_x_previous0
+                        rhs_y_previous=rhs_y_previous0
+                        rhs_z_previous=rhs_z_previous0
+                    end if
                 end if
 
                 call vel_bc_staggered(u_star,v_star,w_star,&
@@ -480,20 +526,21 @@
                     bc_x,bc_y,bc_z);
             else if (timescheme=="AB2-CN") then
                 ! prediction
+                !if (t_step==1 .and. init) then
                 if ( .not. restart .and. t_step==1 ) then
                     ! diff terms + conv terms
                     !$omp parallel sections
                     !$omp section
                     rhs_x(x_range0,y_range1,z_range1)=0.5d0*nu*diff_x-conv_x;
-                    u_star=dt0*(rhs_x-1.0d0*dpdx+1.0d0*f_term_x)+u;
+                    u_star=dt*(rhs_x-1.0d0*dpdx+1.0d0*f_term_x)+u;
                     rhs_x_previous(x_range0,y_range1,z_range1)=-conv_x;
                     !$omp section
                     rhs_y(x_range1,y_range0,z_range1)=0.5d0*nu*diff_y-conv_y;
-                    v_star=dt0*(rhs_y-1.0d0*dpdy+1.0d0*f_term_y)+v;
+                    v_star=dt*(rhs_y-1.0d0*dpdy+1.0d0*f_term_y)+v;
                     rhs_y_previous(x_range1,y_range0,z_range1)=-conv_y;
                     !$omp section
                     rhs_z(x_range1,y_range1,z_range0)=0.5d0*nu*diff_z-conv_z;
-                    w_star=dt0*(rhs_z-1.0d0*dpdz+1.0d0*f_term_z)+w;
+                    w_star=dt*(rhs_z-1.0d0*dpdz+1.0d0*f_term_z)+w;
                     rhs_z_previous(x_range1,y_range1,z_range0)=-conv_z;
                     !$omp end parallel sections
                 else
@@ -501,15 +548,15 @@
                     !$omp parallel sections
                     !$omp section
                     rhs_x(x_range0,y_range1,z_range1)=0.5d0*nu*diff_x-1.5d0*conv_x;
-                    u_star=dt0*(rhs_x-0.5d0*rhs_x_previous-1.0d0*dpdx+1.0d0*f_term_x)+u;
+                    u_star=dt*(rhs_x-0.5d0*rhs_x_previous-1.0d0*dpdx+1.0d0*f_term_x)+u;
                     rhs_x_previous(x_range0,y_range1,z_range1)=-conv_x;
                     !$omp section
                     rhs_y(x_range1,y_range0,z_range1)=0.5d0*nu*diff_y-1.5d0*conv_y;
-                    v_star=dt0*(rhs_y-0.5d0*rhs_y_previous-1.0d0*dpdy+1.0d0*f_term_y)+v;
+                    v_star=dt*(rhs_y-0.5d0*rhs_y_previous-1.0d0*dpdy+1.0d0*f_term_y)+v;
                     rhs_y_previous(x_range1,y_range0,z_range1)=-conv_y;
                     !$omp section
                     rhs_z(x_range1,y_range1,z_range0)=0.5d0*nu*diff_z-1.5d0*conv_z;
-                    w_star=dt0*(rhs_z-0.5d0*rhs_z_previous-1.0d0*dpdz+1.0d0*f_term_z)+w;
+                    w_star=dt*(rhs_z-0.5d0*rhs_z_previous-1.0d0*dpdz+1.0d0*f_term_z)+w;
                     rhs_z_previous(x_range1,y_range1,z_range0)=-conv_z;
                     !$omp end parallel sections
                 end if
@@ -570,7 +617,7 @@
             RHS_poisson_internal = diff(u_star(:,2:ubound(u_star,2)-1,2:ubound(u_star,3)-1),1,1)/dx
             RHS_poisson_internal = RHS_poisson_internal + diff(v_star(2:ubound(v_star,1)-1,:,2:ubound(v_star,3)-1),1,2)/dy
             RHS_poisson_internal = RHS_poisson_internal + diff(w_star(2:ubound(w_star,1)-1,2:ubound(w_star,2)-1,:),1,3)/dz
-            RHS_poisson_internal = RHS_poisson_internal/dt0
+            RHS_poisson_internal = RHS_poisson_internal/dt
 
             print *, [maxval(abs(u_star-u_star_sub)), maxval(abs(v_star-v_star_sub)), maxval(abs(w_star-w_star_sub)), maxval(abs(RHS_poisson_internal-RHS_poisson_sub(2:nxp-1,2:nyp-1,2:nzp-1)))]
             print *,'*****************************'
@@ -653,11 +700,11 @@
             if (pbc_x==3 .and. pbc_y==3 .and. pbc_z==3) dp=dp-dp(1,1,1)+dp_sub(1,1,1)
             !$omp parallel sections
             !$omp section
-            u=-dt0*diff(dp,1,1)/dx+u_star
+            u=-dt*diff(dp,1,1)/dx+u_star
             !$omp section
-            v=-dt0*diff(dp,1,2)/dy+v_star
+            v=-dt*diff(dp,1,2)/dy+v_star
             !$omp section
-            w=-dt0*diff(dp,1,3)/dz+w_star
+            w=-dt*diff(dp,1,3)/dz+w_star
             !$omp section
             p=p+dp
             !$omp end parallel sections
@@ -671,15 +718,28 @@
             diff_old(v(2:ubound(v,1)-1,:,2:ubound(v,3)-1),1,2)/dy + &
             diff_old(w(2:ubound(w,1)-1,2:ubound(w,2)-1,:),1,3)/dz;
 
-        rms_vel(1,t_step)=rms(u_sub);                               rms_vel(2,t_step)=rms(v_sub);                               rms_vel(3,t_step)=rms(w_sub);                               rms_vel(4,t_step)=rms(p_sub)
-        err_vel(1,t_step)=maxval(abs(u-u_sub))/rms_vel(1,t_step);   err_vel(2,t_step)=maxval(abs(v-v_sub))/rms_vel(2,t_step);   err_vel(3,t_step)=maxval(abs(w-w_sub))/rms_vel(3,t_step);   err_vel(4,t_step)=maxval(abs(dp-dp_sub))/rms_vel(4,t_step)
-        err_vel(5,t_step)=mean(u-u_sub)/rms_vel(1,t_step);          err_vel(6,t_step)=mean(v-v_sub)/rms_vel(2,t_step);          err_vel(7,t_step)=mean(w-w_sub)/rms_vel(3,t_step);          err_vel(8,t_step)=mean(p-p_sub)/rms_vel(4,t_step)
+        if (t_step==0) then
+            rms_vel(1,t_step)=rms(u_sub);                               rms_vel(2,t_step)=rms(v_sub);                               rms_vel(3,t_step)=rms(w_sub);                               rms_vel(4,t_step)=rms(p_sub)
+            err_vel(1,t_step)=maxval(abs(u-u_sub))/rms_vel(1,t_step);   err_vel(2,t_step)=maxval(abs(v-v_sub))/rms_vel(2,t_step);   err_vel(3,t_step)=maxval(abs(w-w_sub))/rms_vel(3,t_step);   err_vel(4,t_step)=maxval(abs(dp-dp_sub))/rms_vel(4,t_step)
+            err_vel(5,t_step)=mean(u-u_sub)/rms_vel(1,t_step);          err_vel(6,t_step)=mean(v-v_sub)/rms_vel(2,t_step);          err_vel(7,t_step)=mean(w-w_sub)/rms_vel(3,t_step);          err_vel(8,t_step)=mean(p-p_sub)/rms_vel(4,t_step)
 
-        !rms_grad(1,t_step)=rms(u_sub);               rms_grad(2,t_step)=rms(v_sub);               rms_grad(3,t_step)=rms(w_sub);               rms_grad(4,t_step)=rms(p_sub)
-        !err_grad(1,t_step)=maxval(u-u_sub);          err_grad(2,t_step)=maxval(v-v_sub);          err_grad(3,t_step)=maxval(w-w_sub);          err_grad(4,t_step)=maxval(p-p_sub)
-        !err_grad(5,t_step)=mean(u-u_sub)/rms(u_sub); err_grad(6,t_step)=mean(v-v_sub)/rms(v_sub); err_grad(7,t_step)=mean(w-w_sub)/rms(w_sub); err_grad(8,t_step)=mean(p-p_sub)/rms(p_sub)
+            !rms_grad(1,t_step)=rms(u_sub);               rms_grad(2,t_step)=rms(v_sub);               rms_grad(3,t_step)=rms(w_sub);               rms_grad(4,t_step)=rms(p_sub)
+            !err_grad(1,t_step)=maxval(u-u_sub);          err_grad(2,t_step)=maxval(v-v_sub);          err_grad(3,t_step)=maxval(w-w_sub);          err_grad(4,t_step)=maxval(p-p_sub)
+            !err_grad(5,t_step)=mean(u-u_sub)/rms(u_sub); err_grad(6,t_step)=mean(v-v_sub)/rms(v_sub); err_grad(7,t_step)=mean(w-w_sub)/rms(w_sub); err_grad(8,t_step)=mean(p-p_sub)/rms(p_sub)
 
-        write(*,'("   MAX vel/pr error: ", 100g15.5)') err_vel(1:4,t_step)
+            write(*,'("   MAX vel/pr error: ", 100g15.5)') err_vel(1:4,t_step)
+        else if (t_step>=sub_tstep) then
+            ori_t_step=t_step-sub_tstep+1
+            rms_vel(1,ori_t_step)=rms(u_sub);                                   rms_vel(2,ori_t_step)=rms(v_sub);                                   rms_vel(3,ori_t_step)=rms(w_sub);                                   rms_vel(4,ori_t_step)=rms(p_sub)
+            err_vel(1,ori_t_step)=maxval(abs(u-u_sub))/rms_vel(1,ori_t_step);   err_vel(2,ori_t_step)=maxval(abs(v-v_sub))/rms_vel(2,ori_t_step);   err_vel(3,ori_t_step)=maxval(abs(w-w_sub))/rms_vel(3,ori_t_step);   err_vel(4,ori_t_step)=maxval(abs(dp-dp_sub))/rms_vel(4,ori_t_step)
+            err_vel(5,ori_t_step)=mean(u-u_sub)/rms_vel(1,ori_t_step);          err_vel(6,ori_t_step)=mean(v-v_sub)/rms_vel(2,ori_t_step);          err_vel(7,ori_t_step)=mean(w-w_sub)/rms_vel(3,ori_t_step);          err_vel(8,ori_t_step)=mean(p-p_sub)/rms_vel(4,ori_t_step)
+
+            !rms_grad(1,ori_t_step)=rms(u_sub);               rms_grad(2,ori_t_step)=rms(v_sub);               rms_grad(3,ori_t_step)=rms(w_sub);               rms_grad(4,ori_t_step)=rms(p_sub)
+            !err_grad(1,ori_t_step)=maxval(u-u_sub);          err_grad(2,ori_t_step)=maxval(v-v_sub);          err_grad(3,ori_t_step)=maxval(w-w_sub);          err_grad(4,ori_t_step)=maxval(p-p_sub)
+            !err_grad(5,ori_t_step)=mean(u-u_sub)/rms(u_sub); err_grad(6,ori_t_step)=mean(v-v_sub)/rms(v_sub); err_grad(7,ori_t_step)=mean(w-w_sub)/rms(w_sub); err_grad(8,ori_t_step)=mean(p-p_sub)/rms(p_sub)
+
+            write(*,'("   MAX vel/pr error: ", 100g15.5)') err_vel(1:4,ori_t_step)
+        end if
         print '("Complete: ", F8.4, " second. MAX Div: ", E13.6)', (c02-c01)/system_clock_rate, maxval(abs(div))
         print *, "**************************************"
 
@@ -726,5 +786,5 @@
     end do
     CLOSE(10)
 
-    end subroutine re_simulation
+    end subroutine re_simulation_sub_tstep
 
