@@ -98,13 +98,13 @@
     INTEGER :: c01,c02,c1,c2,cr,cm
 
     !!!!!!!!!!!!!!! re-simulation parameters !!!!!!!!!!!!!!!
-    real(8) :: dt0=1e-3, dt  !4.0d-3, 2.0d-3, 1.0d-3, 5.0d-4, 2.5d-4
-    character(*), parameter :: timescheme="AB2", interp_scheme="linear"
+    real(8) :: dt0=2e-3, dt  !4.0d-3, 2.0d-3, 1.0d-3, 5.0d-4, 2.5d-4
+    character(*), parameter :: timescheme="AB2", interp_scheme="spline"
     ! pbc=1 Periodic; pbc=2 Dirichlet on boundary (cell wall); pbc=3 Neumann on boundary (cell wall); pbc=4 Dirichlet on ghost cell
-    integer, parameter :: bc_x=2, bc_y=bc_x, bc_z=bc_x, pbc_x=3, pbc_y=3, pbc_z=3, sub_tstep=2
+    integer, parameter :: bc_x=2, bc_y=bc_x, bc_z=bc_x, pbc_x=3, pbc_y=3, pbc_z=3, sub_tstep=1000
     logical, parameter :: using_Ustar=.true., TOffset=.true., restart= (.false. .and. sub_tstep==1)
     real(8), parameter :: noise=0;
-    real(8), dimension (:,:), allocatable :: err_vel, err_grad, rms_vel, rms_grad
+    real(8), dimension (:,:), allocatable :: err_vel, rms_vel, err_vel_base, rms_vel_base
     logical, parameter :: LU_poisson=(.false. .and. nxp*nyp*nzp<=34**3), FFT_poisson=(pbc_x==1 .and. pbc_y==1 .and. pbc_z==1), DCT_poisson=(pbc_x/=1 .and. pbc_y/=1 .and. pbc_z/=1)
     real(8), dimension (:,:,:,:), allocatable :: u_sub_int, v_sub_int, w_sub_int, p_sub_int
     real(8), dimension (:,:,:,:), allocatable :: u_star_sub_int, v_star_sub_int, w_star_sub_int, dp_sub_int
@@ -123,10 +123,8 @@
     end if
     t_step_offset=nint(t_start/dt0)
     time_length=nint((t_end-t_start)/(dt0))
-    allocate( time_array(0:time_length+sub_tstep-1), err_vel(8,0:time_length), err_grad(24,0:time_length), rms_vel(4,0:time_length), rms_grad(12,0:time_length) )
-    temp11=[(0.0d0+dt0*i, i=t_step_offset+2, time_length+t_step_offset)]
-    temp12=[(t_start+dt0/sub_tstep*i, i=0, sub_tstep)]
-    time_array=[temp12, temp11];
+    allocate( time_array(0:time_length+sub_tstep-1), err_vel(8,0:time_length), rms_vel(4,0:time_length), err_vel_base(8,0:time_length), rms_vel_base(4,0:time_length) )
+    time_array=[ [(t_start+dt0/sub_tstep*i, i=0, sub_tstep)], [(0.0d0+dt0*i, i=t_step_offset+2, time_length+t_step_offset)] ];
 
     if (bc_x==1) then
         !allocate( x_range0(nx) )
@@ -340,6 +338,16 @@
     write (string_var,'(A, "_result.MARCC/HIT_", I0, "^3_decay_", ES5.0E1, "_", A , "_dp_x0_", I0, "_nx0_", I0, "_sub.h5")') trim(timescheme), nx0, dt0, trim(timescheme), x0, nx
     call h5fopen_f(string_var, H5F_ACC_RDONLY_F, h5f_sub, status)
 
+    if (dt0==2e-3) then
+        if (sub_tstep==1000) then
+            write (string_var,'("err_file/spline/", ES5.0E1, "_sub_tstep1000_base.h5")') dt0
+            call h5fcreate_f(string_var, H5F_ACC_EXCL_F, h5f_slice, status)
+        else
+            write (string_var,'("err_file/spline/", ES5.0E1, "_sub_tstep1000_base.h5")') dt0
+            call h5fopen_f(string_var, H5F_ACC_RDONLY_F, h5f_slice, status)
+        end if
+    end if
+
     do t_step=0,time_length+sub_tstep-1
         tGet=time_array(t_step)
         print *,''
@@ -416,6 +424,8 @@
 
                 call h5gclose_f( h5g_sub, status)
             end if
+
+            dp_sub=p_sub-p
 
             if (timescheme=="AB2-CN") then
                 call get_pr_bc(dp_sub, pbc_x, pbc_y, pbc_z, nx, ny, nz, dx, dy, dz, bx_p_1, bx_p_nx, by_p_1, by_p_ny, bz_p_1, bz_p_nz)
@@ -718,28 +728,58 @@
             diff_old(v(2:ubound(v,1)-1,:,2:ubound(v,3)-1),1,2)/dy + &
             diff_old(w(2:ubound(w,1)-1,2:ubound(w,2)-1,:),1,3)/dz;
 
-        if (t_step==0) then
-            rms_vel(1,t_step)=rms(u_sub);                               rms_vel(2,t_step)=rms(v_sub);                               rms_vel(3,t_step)=rms(w_sub);                               rms_vel(4,t_step)=rms(p_sub)
-            err_vel(1,t_step)=maxval(abs(u-u_sub))/rms_vel(1,t_step);   err_vel(2,t_step)=maxval(abs(v-v_sub))/rms_vel(2,t_step);   err_vel(3,t_step)=maxval(abs(w-w_sub))/rms_vel(3,t_step);   err_vel(4,t_step)=maxval(abs(dp-dp_sub))/rms_vel(4,t_step)
-            err_vel(5,t_step)=mean(u-u_sub)/rms_vel(1,t_step);          err_vel(6,t_step)=mean(v-v_sub)/rms_vel(2,t_step);          err_vel(7,t_step)=mean(w-w_sub)/rms_vel(3,t_step);          err_vel(8,t_step)=mean(p-p_sub)/rms_vel(4,t_step)
+        if (t_step==0 .or. t_step>=sub_tstep) then
+            if (t_step==0) then
+                ori_t_step=t_step
+            else
+                ori_t_step=t_step-sub_tstep+1
+            end if
 
-            !rms_grad(1,t_step)=rms(u_sub);               rms_grad(2,t_step)=rms(v_sub);               rms_grad(3,t_step)=rms(w_sub);               rms_grad(4,t_step)=rms(p_sub)
-            !err_grad(1,t_step)=maxval(u-u_sub);          err_grad(2,t_step)=maxval(v-v_sub);          err_grad(3,t_step)=maxval(w-w_sub);          err_grad(4,t_step)=maxval(p-p_sub)
-            !err_grad(5,t_step)=mean(u-u_sub)/rms(u_sub); err_grad(6,t_step)=mean(v-v_sub)/rms(v_sub); err_grad(7,t_step)=mean(w-w_sub)/rms(w_sub); err_grad(8,t_step)=mean(p-p_sub)/rms(p_sub)
-
-            write(*,'("   MAX vel/pr error: ", 100g15.5)') err_vel(1:4,t_step)
-        else if (t_step>=sub_tstep) then
-            ori_t_step=t_step-sub_tstep+1
-            rms_vel(1,ori_t_step)=rms(u_sub);                                   rms_vel(2,ori_t_step)=rms(v_sub);                                   rms_vel(3,ori_t_step)=rms(w_sub);                                   rms_vel(4,ori_t_step)=rms(p_sub)
-            err_vel(1,ori_t_step)=maxval(abs(u-u_sub))/rms_vel(1,ori_t_step);   err_vel(2,ori_t_step)=maxval(abs(v-v_sub))/rms_vel(2,ori_t_step);   err_vel(3,ori_t_step)=maxval(abs(w-w_sub))/rms_vel(3,ori_t_step);   err_vel(4,ori_t_step)=maxval(abs(dp-dp_sub))/rms_vel(4,ori_t_step)
-            err_vel(5,ori_t_step)=mean(u-u_sub)/rms_vel(1,ori_t_step);          err_vel(6,ori_t_step)=mean(v-v_sub)/rms_vel(2,ori_t_step);          err_vel(7,ori_t_step)=mean(w-w_sub)/rms_vel(3,ori_t_step);          err_vel(8,ori_t_step)=mean(p-p_sub)/rms_vel(4,ori_t_step)
-
-            !rms_grad(1,ori_t_step)=rms(u_sub);               rms_grad(2,ori_t_step)=rms(v_sub);               rms_grad(3,ori_t_step)=rms(w_sub);               rms_grad(4,ori_t_step)=rms(p_sub)
-            !err_grad(1,ori_t_step)=maxval(u-u_sub);          err_grad(2,ori_t_step)=maxval(v-v_sub);          err_grad(3,ori_t_step)=maxval(w-w_sub);          err_grad(4,ori_t_step)=maxval(p-p_sub)
-            !err_grad(5,ori_t_step)=mean(u-u_sub)/rms(u_sub); err_grad(6,ori_t_step)=mean(v-v_sub)/rms(v_sub); err_grad(7,ori_t_step)=mean(w-w_sub)/rms(w_sub); err_grad(8,ori_t_step)=mean(p-p_sub)/rms(p_sub)
+            rms_vel(1,ori_t_step)=rms(u_sub);                                 rms_vel(2,ori_t_step)=rms(v_sub);                                 rms_vel(3,ori_t_step)=rms(w_sub);                                 rms_vel(4,ori_t_step)=rms(p_sub)
+            err_vel(1,ori_t_step)=maxval(abs(u-u_sub))/rms_vel(1,ori_t_step); err_vel(2,ori_t_step)=maxval(abs(v-v_sub))/rms_vel(2,ori_t_step); err_vel(3,ori_t_step)=maxval(abs(w-w_sub))/rms_vel(3,ori_t_step); err_vel(4,ori_t_step)=maxval(abs(p-p_sub))/rms_vel(4,ori_t_step);
+            err_vel(5,ori_t_step)=mean(abs(u-u_sub))/rms_vel(1,ori_t_step);   err_vel(6,ori_t_step)=mean(abs(v-v_sub))/rms_vel(2,ori_t_step);   err_vel(7,ori_t_step)=mean(abs(w-w_sub))/rms_vel(3,ori_t_step);   err_vel(8,ori_t_step)=mean(abs(p-p_sub))/rms_vel(4,ori_t_step);
 
             write(*,'("   MAX vel/pr error: ", 100g15.5)') err_vel(1:4,ori_t_step)
         end if
+
+        if (dt0==2e-3) then
+            if (sub_tstep==1000 .and. dt0==2e-3) then
+                if (t_step==0 .or. t_step>=sub_tstep) then
+                    write (string_var,'("t_", F0.4)') tGet
+                    call h5gcreate_f(h5f_slice, string_var, h5g_slice, status)
+
+                    call h5ltmake_dataset_double_f(h5g_slice, 'u', 3, [nx+1_8,ny+2_8,nz+2_8], u, status)
+                    call h5ltmake_dataset_double_f(h5g_slice, 'v', 3, [nx+2_8,ny+1_8,nz+2_8], v, status)
+                    call h5ltmake_dataset_double_f(h5g_slice, 'w', 3, [nx+2_8,ny+2_8,nz+1_8], w, status)
+                    call h5ltmake_dataset_double_f(h5g_slice, 'p', 3, [nx+2_8,ny+2_8,nz+2_8], p, status)
+
+                    call h5gclose_f(h5g_slice, status)
+                end if
+            else
+                if (t_step==0 .or. t_step>=sub_tstep) then
+                    if (t_step==0) then
+                        ori_t_step=t_step
+                    else
+                        ori_t_step=t_step-sub_tstep+1
+                    end if
+
+                    write (string_var,'("t_", F0.4)') tGet
+                    call h5gopen_f(h5f_slice, string_var, h5g_slice, status)
+
+                    call h5ltread_dataset_double_f(h5g_slice, 'u', u_sub, [nx+1_8,ny+2_8,nz+2_8], status)
+                    call h5ltread_dataset_double_f(h5g_slice, 'v', v_sub, [nx+2_8,ny+1_8,nz+2_8], status)
+                    call h5ltread_dataset_double_f(h5g_slice, 'w', w_sub, [nx+2_8,ny+2_8,nz+1_8], status)
+                    call h5ltread_dataset_double_f(h5g_slice, 'p', p_sub, [nx+2_8,ny+2_8,nz+2_8], status)
+
+                    call h5gclose_f( h5g_slice, status)
+
+                    rms_vel_base(1,ori_t_step)=rms(u_sub);                                 rms_vel_base(2,ori_t_step)=rms(v_sub);                                 rms_vel_base(3,ori_t_step)=rms(w_sub);                                 rms_vel_base(4,ori_t_step)=rms(p_sub)
+                    err_vel_base(1,ori_t_step)=maxval(abs(u-u_sub))/rms_vel(1,ori_t_step); err_vel_base(2,ori_t_step)=maxval(abs(v-v_sub))/rms_vel(2,ori_t_step); err_vel_base(3,ori_t_step)=maxval(abs(w-w_sub))/rms_vel(3,ori_t_step); err_vel_base(4,ori_t_step)=maxval(abs(p-p_sub))/rms_vel(4,ori_t_step);
+                    err_vel_base(5,ori_t_step)=mean(abs(u-u_sub))/rms_vel(1,ori_t_step);   err_vel_base(6,ori_t_step)=mean(abs(v-v_sub))/rms_vel(2,ori_t_step);   err_vel_base(7,ori_t_step)=mean(abs(w-w_sub))/rms_vel(3,ori_t_step);   err_vel_base(8,ori_t_step)=mean(abs(p-p_sub))/rms_vel(4,ori_t_step);
+                end if
+            end if
+        end if
+
         print '("Complete: ", F8.4, " second. MAX Div: ", E13.6)', (c02-c01)/system_clock_rate, maxval(abs(div))
         print *, "**************************************"
 
@@ -756,6 +796,9 @@
         call free_trig_transform(handle_z,ipar_z,status)
     end if
 
+    if (sub_tstep==1000 .and. dt0==2e-3) then
+        call h5fclose_f(h5f_slice, status)
+    end if
     call h5fclose_f(h5f_sub, status)
     call h5close_f(status)
 
@@ -770,21 +813,31 @@
     if (noise/=0.0d0) write (string_var2,'(A, "_noise", ES5.0E1)') trim(string_var2), noise
     if (sub_tstep/=1) write (string_var2,'(A, "_sub_tstep", I0)') trim(string_var2), sub_tstep
 
-    write (string_var,'("err_file/err_vel_", A, ".txt")') trim(string_var2)
+    write (string_var,'("err_file/", A, "/err_vel_", A, ".txt")') trim(interp_scheme), trim(string_var2)
     OPEN(10, file=string_var, form="formatted")
-    write(10,'("time_step, rel_err_u, rel_err_v, rel_err_w, rel_err_p")')
+    write(10,'("time_step, rel_err_u, rel_err_v, rel_err_w, rel_err_p, rel_err_u_m, rel_err_v_m, rel_err_w_m, rel_err_p_m")')
     do j=0,time_length
-        write(10,'(I0, ",", ES12.5E2, ",", ES12.5E2, ",", ES12.5E2, ",", ES12.5E2)') j, ( err_vel(i,j), i=1,4 )
+        write(10,'(I0, ",", ES12.5E2, ",", ES12.5E2, ",", ES12.5E2, ",", ES12.5E2",", ES12.5E2",", ES12.5E2",", ES12.5E2",", ES12.5E2)') j, ( err_vel(i,j), i=1,8 )
     end do
     CLOSE(10)
 
-    write (string_var,'("err_file/rms_vel_", A, "_", ES5.0E1, ".txt")') trim(timescheme), dt0
+    write (string_var,'("err_file/", A, "/rms_vel_", A, "_", ES5.0E1, ".txt")') trim(interp_scheme), trim(timescheme), dt0
     OPEN(10, file=string_var, form="formatted")
     write(10,'("time_step, rms_u, rms_v, rms_w, rms_p")')
     do j=0,time_length
         write(10,'(I0, ",", ES12.5E2, ",", ES12.5E2, ",", ES12.5E2, ",", ES12.5E2)') j, ( rms_vel(i,j), i=1,4 )
     end do
     CLOSE(10)
+
+    if (sub_tstep/=1000 .and. dt0==2e-3) then
+        write (string_var,'("err_file/", A, "/base_err_vel_", A, ".txt")') trim(interp_scheme), trim(string_var2)
+        OPEN(10, file=string_var, form="formatted")
+        write(10,'("time_step, rel_err_u, rel_err_v, rel_err_w, rel_err_p, rel_err_u_m, rel_err_v_m, rel_err_w_m, rel_err_p_m")')
+        do j=0,time_length
+            write(10,'(I0, ",", ES12.5E2, ",", ES12.5E2, ",", ES12.5E2, ",", ES12.5E2",", ES12.5E2",", ES12.5E2",", ES12.5E2",", ES12.5E2)') j, ( err_vel(i,j), i=1,8 )
+        end do
+        CLOSE(10)
+    end if
 
     end subroutine re_simulation_sub_tstep
 

@@ -3,9 +3,9 @@ clc
 
 nx=32; ny=nx; nz=nx; t_start=1;
 dt0=[4e-3,2e-3,1e-3,5e-4,2.5e-4];
-sub_tstep=[2,3,4,5,6,7,8,9,10,20,50,100];
+sub_tstep=[2,3,4,5,10,20,50,100];
 t_span=[-4:5];
-interp_scheme='linear';
+interp_scheme='spline';
 
 temp=length(t_span);
 u0=zeros(temp, nx+1, ny+2, nz+2);
@@ -23,7 +23,7 @@ filename0(3)="../AB2_result.MARCC/HIT_256^3_decay_1.E-3_AB2_dp_x0_16_nx0_32_sub.
 filename0(4)="../AB2_result.MARCC/HIT_256^3_decay_5.E-4_AB2_dp_x0_16_nx0_32_sub.h5";
 filename0(5)="../AB2_result.MARCC/HIT_256^3_decay_3.E-4_AB2_dp_x0_16_nx0_32_sub.h5";
 
-for j=1:3
+for j=3:3
     idx=j; dt=dt0(idx);
     filename=char(filename0(idx));
     output_filename=[filename(1:end-3),'_',interp_scheme,filename(end-2:end)]

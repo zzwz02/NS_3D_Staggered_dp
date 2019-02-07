@@ -3,7 +3,6 @@
 
     module NS_functions
 
-    use mkl_trig_transforms
     use FD_functions
     use coo_mod
     use csr_mod
@@ -1451,6 +1450,7 @@
     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     subroutine DST_DCT_2(f, nx, handle, ipar, dpar, DST2, DCT2, forward, backward)
 
+    use mkl_trig_transforms
     implicit none
 
     logical, intent(in), optional :: DST2, DCT2, forward, backward
@@ -1489,6 +1489,7 @@
     subroutine DCT_poisson_solver(rhs_tt, eig_tt, handle_x, handle_y, handle_z, &
         ipar_x, ipar_y, ipar_z, dpar_x, dpar_y, dpar_z, nx, ny, nz, pbc_x, pbc_y, pbc_z)
 
+    use mkl_trig_transforms
     implicit none
 
     integer, intent(in) :: nx, ny, nz, pbc_x, pbc_y, pbc_z

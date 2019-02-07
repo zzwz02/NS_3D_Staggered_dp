@@ -98,14 +98,14 @@
     INTEGER :: c01,c02,c1,c2,cr,cm
 
     !!!!!!!!!!!!!!! re-simulation parameters !!!!!!!!!!!!!!!
-    real(8) :: dt0=4d-3  !4.0d-3, 2.0d-3, 1.0d-3, 5.0d-4, 2.5d-4
+    real(8) :: dt0=2.5e-4  !4.0d-3, 2.0d-3, 1.0d-3, 5.0d-4, 2.5d-4
     character(*), parameter :: timescheme="AB2"
     ! pbc=1 Periodic; pbc=2 Dirichlet on boundary (cell wall); pbc=3 Neumann on boundary (cell wall); pbc=4 Dirichlet on ghost cell
     integer, parameter :: bc_x=2, bc_y=bc_x, bc_z=bc_x, pbc_x=2, pbc_y=2, pbc_z=2, sub_tstep=1
-    logical, parameter :: using_Ustar=.true., TOffset=.true., restart=.true.
+    logical, parameter :: using_Ustar=.true., TOffset=.true., restart=.false.
     real(8), parameter :: noise=0;
     real(8), dimension (:,:), allocatable :: err_vel, err_grad, rms_vel, rms_grad
-    logical, parameter :: LU_poisson=(nxp*nyp*nzp<=32**3), FFT_poisson=(pbc_x==1 .and. pbc_y==1 .and. pbc_z==1), DCT_poisson=(pbc_x/=1 .and. pbc_y/=1 .and. pbc_z/=1)
+    logical, parameter :: LU_poisson=(.false. .and. nxp*nyp*nzp<=34**3), FFT_poisson=(pbc_x==1 .and. pbc_y==1 .and. pbc_z==1), DCT_poisson=(pbc_x/=1 .and. pbc_y/=1 .and. pbc_z/=1)
 
     call OMP_set_dynamic(.true.)
     ! First initialize the system_clock
@@ -125,8 +125,8 @@
         read(string_var,*) dt0
     end if
     time_length=nint((t_end-t_start)/(dt0))
-    allocate( time_array(0:time_length+t_step_offset), err_vel(8,0:time_length), err_grad(24,0:time_length), rms_vel(4,0:time_length), rms_grad(12,0:time_length) )
-    time_array=[(0.0d0+dt0*i, i=0, time_length+t_step_offset)]
+    allocate( time_array(0:time_length), err_vel(8,0:time_length), err_grad(24,0:time_length), rms_vel(4,0:time_length), rms_grad(12,0:time_length) )
+    time_array=[(0.0d0+dt0*i, i=t_step_offset, time_length+t_step_offset)]
 
     if (bc_x==1) then
         !allocate( x_range0(nx) )
@@ -319,11 +319,16 @@
         eig_tt=-4.0d0*eig_tt
     end if
 
-    write (string_var,'(A, "_result.MARCC/HIT_", I0, "^3_decay_", ES5.0E1, "_", A , "_dp_x0_", I0, "_nx0_", I0, "_sub.h5")') trim(timescheme), nx0, dt0, trim(timescheme), x0, nx
+    if (timescheme=="Euler") then
+        write (string_var,'(A, "_result.MARCC/HIT_", I0, "^3_decay_", ES5.0E1, "_", A , "_dp_x0_", I0, "_nx0_", I0, "_sub.h5")') trim("AB2"), nx0, dt0, trim("AB2"), x0, nx
+    else
+        write (string_var,'(A, "_result.MARCC/HIT_", I0, "^3_decay_", ES5.0E1, "_", A , "_dp_x0_", I0, "_nx0_", I0, "_sub.h5")') trim(timescheme), nx0, dt0, trim(timescheme), x0, nx
+    end if
+
     call h5fopen_f(string_var, H5F_ACC_RDONLY_F, h5f_sub, status)
 
     do t_step=0,time_length
-        tGet=time_array(t_step+t_step_offset)
+        tGet=time_array(t_step)
         print *,''
         print '(" t_step ", I6, "        tGet ", F7.4)', t_step, tGet
         CALL SYSTEM_CLOCK(c01)
@@ -382,6 +387,7 @@
             end if
 
             call h5gclose_f( h5g_sub, status)
+            dp_sub=p_sub-p
 
             if (timescheme=="AB2-CN") then
                 call get_pr_bc(dp_sub, pbc_x, pbc_y, pbc_z, nx, ny, nz, dx, dy, dz, bx_p_1, bx_p_nx, by_p_1, by_p_ny, bz_p_1, bz_p_nz)
@@ -393,6 +399,36 @@
                 call get_velpr_bc(u_sub, v_sub, w_sub, dp_sub, bc_x, bc_y, bc_z, pbc_x, pbc_y, pbc_z, nx, ny, nz, dx, dy, dz, &
                     bx_u_1, bx_u_nx, by_u_1, by_u_ny, bz_u_1, bz_u_nz, bx_v_1, bx_v_nx, by_v_1, by_v_ny, bz_v_1, bz_v_nz, &
                     bx_w_1, bx_w_nx, by_w_1, by_w_ny, bz_w_1, bz_w_nz, bx_p_1, bx_p_nx, by_p_1, by_p_ny, bz_p_1, bz_p_nz)
+            end if
+
+            if (noise>0) then
+                bx_u_1 =whiteNoise2(bx_u_1, noise)
+                bx_u_nx=whiteNoise2(bx_u_nx,noise)
+                bx_v_1 =whiteNoise2(bx_v_1, noise)
+                bx_v_nx=whiteNoise2(bx_v_nx,noise)
+                bx_w_1 =whiteNoise2(bx_w_1, noise)
+                bx_w_nx=whiteNoise2(bx_w_nx,noise)
+                
+                by_u_1 =whiteNoise2(by_u_1, noise)
+                by_u_ny=whiteNoise2(by_u_ny,noise)
+                by_v_1 =whiteNoise2(by_v_1, noise)
+                by_v_ny=whiteNoise2(by_v_ny,noise)
+                by_w_1 =whiteNoise2(by_w_1, noise)
+                by_w_ny=whiteNoise2(by_w_ny,noise)
+                
+                bz_u_1 =whiteNoise2(bz_u_1, noise)
+                bz_u_nz=whiteNoise2(bz_u_nz,noise)
+                bz_v_1 =whiteNoise2(bz_v_1, noise)
+                bz_v_nz=whiteNoise2(bz_v_nz,noise)
+                bz_w_1 =whiteNoise2(bz_w_1, noise)
+                bz_w_nz=whiteNoise2(bz_w_nz,noise)
+                
+                !bx_p_1 =whiteNoise2(bx_p_1, noise)
+                !bx_p_nx=whiteNoise2(bx_p_nx,noise)
+                !by_p_1 =whiteNoise2(by_p_1, noise)
+                !by_p_ny=whiteNoise2(by_p_ny,noise)
+                !bz_p_1 =whiteNoise2(bz_p_1, noise)
+                !bz_p_nz=whiteNoise2(bz_p_nz,noise)
             end if
 
             !!! Convection
@@ -412,7 +448,7 @@
 
             f_term_x=0; f_term_y=0; f_term_z=0;
             !$omp end parallel sections
-            
+
             !!! Time-advancement
             if (timescheme=="Euler") then
                 ! diff terms + conv terms
@@ -562,6 +598,12 @@
                 !$omp end parallel do
             end if
             !call print_mat(u_star(:,:,2)-u_star_sub(:,:,2))
+            
+            !if (noise>0) then        
+            !    u_star = whiteNoise3(u_star, noise)
+            !    v_star = whiteNoise3(v_star, noise)
+            !    w_star = whiteNoise3(w_star, noise)
+            !end if
 
             !RHS_poisson(2:ubound(RHS_poisson,1)-1,2:ubound(RHS_poisson,2)-1,2:ubound(RHS_poisson,3)-1) = &
             !    (diff(u_star(:,2:ubound(u_star,2)-1,2:ubound(u_star,3)-1),1,1)/dx + &
@@ -671,13 +713,9 @@
             diff_old(v(2:ubound(v,1)-1,:,2:ubound(v,3)-1),1,2)/dy + &
             diff_old(w(2:ubound(w,1)-1,2:ubound(w,2)-1,:),1,3)/dz;
 
-        rms_vel(1,t_step)=rms(u_sub);                               rms_vel(2,t_step)=rms(v_sub);                               rms_vel(3,t_step)=rms(w_sub);                               rms_vel(4,t_step)=rms(p_sub)
-        err_vel(1,t_step)=maxval(abs(u-u_sub))/rms_vel(1,t_step);   err_vel(2,t_step)=maxval(abs(v-v_sub))/rms_vel(2,t_step);   err_vel(3,t_step)=maxval(abs(w-w_sub))/rms_vel(3,t_step);   err_vel(4,t_step)=maxval(abs(dp-dp_sub))/rms_vel(4,t_step)
-        err_vel(5,t_step)=mean(u-u_sub)/rms_vel(1,t_step);          err_vel(6,t_step)=mean(v-v_sub)/rms_vel(2,t_step);          err_vel(7,t_step)=mean(w-w_sub)/rms_vel(3,t_step);          err_vel(8,t_step)=mean(p-p_sub)/rms_vel(4,t_step)
-
-        !rms_grad(1,t_step)=rms(u_sub);               rms_grad(2,t_step)=rms(v_sub);               rms_grad(3,t_step)=rms(w_sub);               rms_grad(4,t_step)=rms(p_sub)
-        !err_grad(1,t_step)=maxval(u-u_sub);          err_grad(2,t_step)=maxval(v-v_sub);          err_grad(3,t_step)=maxval(w-w_sub);          err_grad(4,t_step)=maxval(p-p_sub)
-        !err_grad(5,t_step)=mean(u-u_sub)/rms(u_sub); err_grad(6,t_step)=mean(v-v_sub)/rms(v_sub); err_grad(7,t_step)=mean(w-w_sub)/rms(w_sub); err_grad(8,t_step)=mean(p-p_sub)/rms(p_sub)
+        rms_vel(1,t_step)=rms(u_sub);                             rms_vel(2,t_step)=rms(v_sub);                             rms_vel(3,t_step)=rms(w_sub);                             rms_vel(4,t_step)=rms(p_sub)
+        err_vel(1,t_step)=maxval(abs(u-u_sub))/rms_vel(1,t_step); err_vel(2,t_step)=maxval(abs(v-v_sub))/rms_vel(2,t_step); err_vel(3,t_step)=maxval(abs(w-w_sub))/rms_vel(3,t_step); err_vel(4,t_step)=maxval(abs(p-p_sub))/rms_vel(4,t_step);
+        err_vel(5,t_step)=mean(abs(u-u_sub))/rms_vel(1,t_step);   err_vel(6,t_step)=mean(abs(v-v_sub))/rms_vel(2,t_step);   err_vel(7,t_step)=mean(abs(w-w_sub))/rms_vel(3,t_step);   err_vel(8,t_step)=mean(abs(p-p_sub))/rms_vel(4,t_step);
 
         write(*,'("   MAX vel/pr error: ", 100g15.5)') err_vel(1:4,t_step)
         print '("Complete: ", F8.4, " second. MAX Div: ", E13.6)', (c02-c01)/system_clock_rate, maxval(abs(div))
@@ -712,9 +750,9 @@
 
     write (string_var,'("err_file/err_vel_", A, ".txt")') trim(string_var2)
     OPEN(10, file=string_var, form="formatted")
-    write(10,'("time_step, rel_err_u, rel_err_v, rel_err_w, rel_err_p")')
+    write(10,'("time_step, rel_err_u, rel_err_v, rel_err_w, rel_err_p, rel_err_u_m, rel_err_v_m, rel_err_w_m, rel_err_p_m")')
     do j=0,time_length
-        write(10,'(I0, ",", ES12.5E2, ",", ES12.5E2, ",", ES12.5E2, ",", ES12.5E2)') j, ( err_vel(i,j), i=1,4 )
+        write(10,'(I0, ",", ES12.5E2, ",", ES12.5E2, ",", ES12.5E2, ",", ES12.5E2",", ES12.5E2",", ES12.5E2",", ES12.5E2",", ES12.5E2)') j, ( err_vel(i,j), i=1,8 )
     end do
     CLOSE(10)
 

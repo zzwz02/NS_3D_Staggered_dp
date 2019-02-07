@@ -1,3 +1,5 @@
+    include "mkl_vsl.f90"
+
     module other_utility
 
     implicit none
@@ -6,6 +8,7 @@
 
     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     subroutine print_mat(mat)
+
     implicit none
 
     real(8), dimension (:,:), intent(in) :: mat
@@ -23,6 +26,7 @@
 
     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     subroutine print_spmat(mat)
+
     implicit none
 
     real(8), dimension (:,:), intent(in) :: mat
@@ -56,7 +60,9 @@
 
     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     function unique_sort(vec_in) result(vec_out)
+
     implicit none
+
     integer :: i = 0, min_val, max_val
     integer, dimension(:), intent(in) :: vec_in
     integer, dimension(:), allocatable :: unique, vec_out
@@ -76,6 +82,9 @@
 
     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     real(8) function timediff(ic0, ic1)
+
+    implicit none
+
     CHARACTER (LEN = 12), intent(in) :: ic0, ic1
     real(8) :: hh0, mm0, ss0, hh1, mm1, ss1
 
@@ -96,22 +105,74 @@
     end if
 
     end function timediff
-    
+
     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     real(8) function mean(a)
+
+    implicit none
+
     real(8), intent(in) :: a(:,:,:)
 
     mean=sum(a)/size(a)
-    
+
     end function mean
-    
+
     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     real(8) function rms(a)
+    
+    implicit none
+    
     real(8), intent(in) :: a(:,:,:)
 
     rms=sqrt(sum(a*a)/size(a))
-    
+
     end function rms
+
+    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    function whiteNoise2(input,noise) result(output)
+
+    use mkl_vsl_type
+    use mkl_vsl
+    
+    implicit none
+
+    real(8), intent(in) :: input(:,:) ,noise
+    real(8), allocatable :: output(:,:), r(:)
+    integer :: status, nx(2), seed
+    TYPE (VSL_STREAM_STATE) :: stream
+
+    seed=777
+    nx=shape(input)
+    allocate(output(nx(1),nx(2)), r(size(input)))
+
+    status = vslnewstream( stream, VSL_BRNG_MCG31,  seed )
+    status = vdrnggaussian( VSL_RNG_METHOD_GAUSSIAN_BOXMULLER, stream, size(input), r, 0.0d0, 1.0d0 )
+    output=input*(1+noise*reshape(r,nx))
+
+    end function whiteNoise2
+    
+    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    function whiteNoise3(input,noise) result(output)
+
+    use mkl_vsl_type
+    use mkl_vsl
+    
+    implicit none
+
+    real(8), intent(in) :: input(:,:,:) ,noise
+    real(8), allocatable :: output(:,:,:), r(:)
+    integer :: status, nx(3), seed
+    TYPE (VSL_STREAM_STATE) :: stream
+
+    seed=777
+    nx=shape(input)
+    allocate(output(nx(1),nx(2),nx(3)), r(size(input)))
+
+    status = vslnewstream( stream, VSL_BRNG_MCG31,  seed )
+    status = vdrnggaussian( VSL_RNG_METHOD_GAUSSIAN_BOXMULLER, stream, size(input), r, 0.0d0, 1.0d0 )
+    output=input*(1+noise*reshape(r,nx))
+
+    end function whiteNoise3
 
     end module other_utility
 

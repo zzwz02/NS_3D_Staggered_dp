@@ -27,7 +27,7 @@ end
 %	column4: double (%f)
 %   column5: double (%f)
 % For more information, see the TEXTSCAN documentation.
-formatSpec = '%f%f%f%f%f%[^\n\r]';
+formatSpec = '%f%f%f%f%f%f%f%f%f%[^\n\r]';
 
 %% Open the text file.
 fileID = fopen(filename,'r');
@@ -55,5 +55,5 @@ fclose(fileID);
 % script.
 
 %% Create output variable
-output = table(dataArray{1:end-1}, 'VariableNames', {'time_step','rel_err_u','rel_err_v','rel_err_w','rel_err_p'});
+output = table(dataArray{1:end-1}, 'VariableNames', {'time_step','rel_err_u','rel_err_v','rel_err_w','rel_err_p','rel_err_u_star','rel_err_v_star','rel_err_w_star','rel_err_dp'});
 
