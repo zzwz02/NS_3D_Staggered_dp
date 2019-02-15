@@ -7,7 +7,7 @@
     integer :: i=0,j=0,k=0,ll=0,mm=0
 
     logical, parameter :: init=.true.
-    real(8), parameter :: Re=1.0d0, nu=0.002d0, t_end=10.0d0!, dt0=0.004d0 !!!dt<=0.004 to be stable
+    real(8), parameter :: Re=1.0d0, nu=0.002d0, t_end=2.0d0!, dt0=0.004d0 !!!dt<=0.004 to be stable
     real(8), parameter :: t_start=0.0d0
     !integer, parameter :: nx_file=256
     integer, parameter :: nx=256, ny=nx, nz=nx, nxp=nx+2, nyp=ny+2, nzp=nz+2, sub_tstep=1
@@ -101,11 +101,11 @@
     INTEGER :: c01,c02,c1,c2,cr,cm
 
     !!!!!!!!!!!!!!! simulation parameters !!!!!!!!!!!!!!!
-    real(8) :: dt0=0.004d0
+    real(8) :: dt0=4e-3
     character(*), parameter :: timescheme="AB2"
     ! pbc=1 Periodic; pbc=2 Dirichlet on boundary (cell wall); pbc=3 Neumann on boundary (cell wall); pbc=4 Dirichlet on ghost cell
-    integer, parameter :: bc_x=1, bc_y=bc_x, bc_z=bc_x, pbc_x=1, pbc_y=pbc_x, pbc_z=pbc_x
-    logical, parameter :: save_output=.true., LU_poisson=(nxp*nyp*nzp<=34**3), FFT_poisson=(pbc_x==1 .and. pbc_y==1 .and. pbc_z==1)
+    integer, parameter :: dp_flag=0, bc_x=1, bc_y=bc_x, bc_z=bc_x, pbc_x=1, pbc_y=pbc_x, pbc_z=pbc_x
+    logical, parameter :: save_output=.false., LU_poisson=(nxp*nyp*nzp<=34**3), FFT_poisson=(pbc_x==1 .and. pbc_y==1 .and. pbc_z==1)
 
     call OMP_set_dynamic(.true.)
     ! First initialize the system_clock
@@ -250,8 +250,9 @@
         do i=1,nz
             poisson_eigv(:,:,i)=poisson_eigv(:,:,i)+(sin(pi*(i-1)/nz)/dz)**2
         end do
-        poisson_eigv(1,1,1)=1.0d0
+        !poisson_eigv(1,1,1)=1.0d0
         poisson_eigv=-4.0d0*poisson_eigv
+        poisson_eigv(1,1,1) = IEEE_VALUE (1.0d0, IEEE_POSITIVE_INF)
     end if
 
     do t_step=0,time_length
@@ -305,7 +306,11 @@
                 !call TGV(xv, yv, zv, 0.0d0, nu, v=v)
                 !call TGV(xp, yp, zp, 0.0d0, nu, p=p)
             else
-                write (string_var,'(A, "_result/HIT_", I0, "^3_decay_", ES5.0E1, "_", A ,"_dp_t_" , F0.4, ".h5")') trim(timescheme), nx, dt0, trim(timescheme), tGet
+                if (dp_flag==1) then
+                    write (string_var,'(A, "_result/HIT_", I0, "^3_decay_", ES5.0E1, "_", A ,"_dp_t_" , F0.4, ".h5")') trim(timescheme), nx, dt0, trim(timescheme), tGet
+                else
+                    write (string_var,'(A, "_result/HIT_", I0, "^3_decay_", ES5.0E1, "_", A ,"_p_t_" , F0.4, ".h5")') trim(timescheme), nx, dt0, trim(timescheme), tGet
+                end if
                 call h5fopen_f(string_var, H5F_ACC_RDONLY_F, h5f_whole, status)
 
                 call h5ltread_dataset_double_f(h5f_whole, 'u', u, [nx+1_8,ny+2_8,nz+2_8], status)
@@ -348,9 +353,9 @@
                 rhs_y(x_range1,y_range0,z_range1)=nu*diff_y-conv_y;
                 rhs_z(x_range1,y_range1,z_range0)=nu*diff_z-conv_z;
 
-                u_star=dt0*(1.0d0*rhs_x-1.0d0*dpdx+1.0d0*f_term_x)+u;
-                v_star=dt0*(1.0d0*rhs_y-1.0d0*dpdy+1.0d0*f_term_y)+v;
-                w_star=dt0*(1.0d0*rhs_z-1.0d0*dpdz+1.0d0*f_term_z)+w;
+                u_star=dt0*(1.0d0*rhs_x-dp_flag*dpdx+1.0d0*f_term_x)+u;
+                v_star=dt0*(1.0d0*rhs_y-dp_flag*dpdy+1.0d0*f_term_y)+v;
+                w_star=dt0*(1.0d0*rhs_z-dp_flag*dpdz+1.0d0*f_term_z)+w;
 
                 rhs_x_previous=0;
                 rhs_y_previous=0;
@@ -370,13 +375,13 @@
                 ! prediction
                 !if (t_step==1 .and. init) then
                 if ( (t_step==1 .or. t_step==nint( (dt0-t_start)/dt0) ) .and. init) then
-                    u_star=dt0*(1.0d0*rhs_x-1.0d0*dpdx+1.0d0*f_term_x)+u;
-                    v_star=dt0*(1.0d0*rhs_y-1.0d0*dpdy+1.0d0*f_term_y)+v;
-                    w_star=dt0*(1.0d0*rhs_z-1.0d0*dpdz+1.0d0*f_term_z)+w;
+                    u_star=dt0*(1.0d0*rhs_x-dp_flag*dpdx+1.0d0*f_term_x)+u;
+                    v_star=dt0*(1.0d0*rhs_y-dp_flag*dpdy+1.0d0*f_term_y)+v;
+                    w_star=dt0*(1.0d0*rhs_z-dp_flag*dpdz+1.0d0*f_term_z)+w;
                 else
-                    u_star=dt0*(1.5d0*rhs_x-0.5d0*rhs_x_previous-1.0d0*dpdx+1.0d0*f_term_x)+u;
-                    v_star=dt0*(1.5d0*rhs_y-0.5d0*rhs_y_previous-1.0d0*dpdy+1.0d0*f_term_y)+v;
-                    w_star=dt0*(1.5d0*rhs_z-0.5d0*rhs_z_previous-1.0d0*dpdz+1.0d0*f_term_z)+w;
+                    u_star=dt0*(1.5d0*rhs_x-0.5d0*rhs_x_previous-dp_flag*dpdx+1.0d0*f_term_x)+u;
+                    v_star=dt0*(1.5d0*rhs_y-0.5d0*rhs_y_previous-dp_flag*dpdy+1.0d0*f_term_y)+v;
+                    w_star=dt0*(1.5d0*rhs_z-0.5d0*rhs_z_previous-dp_flag*dpdz+1.0d0*f_term_z)+w;
 
                 end if
 
@@ -399,18 +404,18 @@
                     rhs_y(x_range1,y_range0,z_range1)=0.5d0*nu*diff_y-conv_y;
                     rhs_z(x_range1,y_range1,z_range0)=0.5d0*nu*diff_z-conv_z;
 
-                    u_star=dt0*(rhs_x-1.0d0*dpdx+1.0d0*f_term_x)+u;
-                    v_star=dt0*(rhs_y-1.0d0*dpdy+1.0d0*f_term_y)+v;
-                    w_star=dt0*(rhs_z-1.0d0*dpdz+1.0d0*f_term_z)+w;
+                    u_star=dt0*(rhs_x-dp_flag*dpdx+1.0d0*f_term_x)+u;
+                    v_star=dt0*(rhs_y-dp_flag*dpdy+1.0d0*f_term_y)+v;
+                    w_star=dt0*(rhs_z-dp_flag*dpdz+1.0d0*f_term_z)+w;
                 else
                     ! diff terms + conv terms
                     rhs_x(x_range0,y_range1,z_range1)=0.5d0*nu*diff_x-1.5d0*conv_x;
                     rhs_y(x_range1,y_range0,z_range1)=0.5d0*nu*diff_y-1.5d0*conv_y;
                     rhs_z(x_range1,y_range1,z_range0)=0.5d0*nu*diff_z-1.5d0*conv_z;
 
-                    u_star=dt0*(rhs_x-0.5d0*rhs_x_previous-1.0d0*dpdx+1.0d0*f_term_x)+u;
-                    v_star=dt0*(rhs_y-0.5d0*rhs_y_previous-1.0d0*dpdy+1.0d0*f_term_y)+v;
-                    w_star=dt0*(rhs_z-0.5d0*rhs_z_previous-1.0d0*dpdz+1.0d0*f_term_z)+w;
+                    u_star=dt0*(rhs_x-0.5d0*rhs_x_previous-dp_flag*dpdx+1.0d0*f_term_x)+u;
+                    v_star=dt0*(rhs_y-0.5d0*rhs_y_previous-dp_flag*dpdy+1.0d0*f_term_y)+v;
+                    w_star=dt0*(rhs_z-0.5d0*rhs_z_previous-dp_flag*dpdz+1.0d0*f_term_z)+w;
                 end if
 
                 rhs_x_previous(x_range0,y_range1,z_range1)=-conv_x;
@@ -529,7 +534,7 @@
                 !status = DftiComputeForward(hand_f, dft_out_c(:,1,1))
 
                 dft_out_c1=dft_out_c1/poisson_eigv
-                dft_out_c1(1,1,1)=0
+                !dft_out_c1(1,1,1)=0
                 !print *, "   Backward FFT..."
                 status = DftiComputeBackward(hand_b, dft_out_c1(:,1,1), dft_out_r1(:,1,1))
                 !status = DftiComputeBackward(hand_b, dft_out_c(:,1,1))
@@ -559,7 +564,7 @@
             u=-dt0*diff(dp,1,1)/dx+u_star
             v=-dt0*diff(dp,1,2)/dy+v_star
             w=-dt0*diff(dp,1,3)/dz+w_star
-            p=p+dp
+            p=dp_flag*p+dp
             CALL SYSTEM_CLOCK(c2)
             print '("    correction completed: ", F8.4, " second")', (c2-c1)/system_clock_rate
 
@@ -580,8 +585,11 @@
                 !call h5pcreate_f(H5P_FILE_ACCESS_F, prp_id, status)
                 !call h5pset_fapl_core_f(prp_id, 64, .true., status)
                 !call h5pset_cache_f(prp_id, 0, 521, 16000000, 1.0, status)
-
-                write (string_var,'(A, "_result/HIT_", I0, "^3_decay_", ES5.0E1, "_", A , "_dp_x0_", I0, "_nx0_", I0, "_sub.h5")') trim(timescheme), nx, dt0, trim(timescheme), x0, nx0
+                if (dp_flag==1) then
+                    write (string_var,'(A, "_result/HIT_", I0, "^3_decay_", ES5.0E1, "_", A , "_dp_x0_", I0, "_nx0_", I0, "_sub.h5")') trim(timescheme), nx, dt0, trim(timescheme), x0, nx0
+                else
+                    write (string_var,'(A, "_result/HIT_", I0, "^3_decay_", ES5.0E1, "_", A , "_p_x0_", I0, "_nx0_", I0, "_sub.h5")') trim(timescheme), nx, dt0, trim(timescheme), x0, nx0
+                end if
                 call h5fcreate_f(string_var, H5F_ACC_EXCL_F, h5f_sub, status)
                 call h5ltset_attribute_int_f(h5f_sub, "/", "nx", [nx], 1, status)
                 call h5ltset_attribute_double_f(h5f_sub, "/", "dt", [dt0], 1, status)
@@ -592,7 +600,11 @@
                 call h5ltset_attribute_int_f(h5f_sub, "/", "x0", [x0], 1, status)
                 call h5ltset_attribute_int_f(h5f_sub, "/", "nx0", [nx0], 1, status)
 
-                write (string_var,'(A, "_result/HIT_", I0,"^3_decay_", ES5.0E1, "_", A , "_slice_", I0, ".h5")') trim(timescheme), nx, dt0, trim(timescheme), slice
+                if (dp_flag==1) then
+                    write (string_var,'(A, "_result/HIT_", I0,"^3_decay_", ES5.0E1, "_", A , "_dp_slice_", I0, ".h5")') trim(timescheme), nx, dt0, trim(timescheme), slice
+                else
+                    write (string_var,'(A, "_result/HIT_", I0,"^3_decay_", ES5.0E1, "_", A , "_p_slice_", I0, ".h5")') trim(timescheme), nx, dt0, trim(timescheme), slice
+                end if
                 call h5fcreate_f(string_var, H5F_ACC_EXCL_F, h5f_slice, status)
                 call h5ltset_attribute_int_f(h5f_slice, "/", "nx", [nx], 1, status)
                 call h5ltset_attribute_double_f(h5f_slice, "/", "dt", [dt0], 1, status)
@@ -601,13 +613,17 @@
                 call h5ltset_attribute_int_f(h5f_slice, "/", "time_step", [t_step], 1, status)
                 call h5ltset_attribute_double_f(h5f_slice, "/", "time", [tGet], 1, status)
                 call h5ltset_attribute_int_f(h5f_slice, "/", "XY-slice", [slice], 1, status)
-                
+
                 first_write=.false.
             end if
 
             if (mod(abs(tGet), 1.0d0) < dt0/sub_tstep/100.0d0) then
                 if (init .or. (.not. init .and. t_step/=0)) then
-                    write (string_var,'(A, "_result/HIT_", I0, "^3_decay_", ES5.0E1, "_", A ,"_dp_t_" , F0.4, ".h5")') trim(timescheme), nx, dt0, trim(timescheme), tGet
+                    if (dp_flag==1) then
+                        write (string_var,'(A, "_result/HIT_", I0, "^3_decay_", ES5.0E1, "_", A ,"_dp_t_" , F0.4, ".h5")') trim(timescheme), nx, dt0, trim(timescheme), tGet
+                    else
+                        write (string_var,'(A, "_result/HIT_", I0, "^3_decay_", ES5.0E1, "_", A ,"_p_t_" , F0.4, ".h5")') trim(timescheme), nx, dt0, trim(timescheme), tGet
+                    end if
                     call h5fcreate_f(string_var, H5F_ACC_EXCL_F, h5f_whole, status)
 
                     call h5ltset_attribute_int_f(h5f_whole, "/", "nx", [nx], 1, status)
@@ -628,11 +644,19 @@
                     call h5fclose_f(h5f_whole, status)
 
                     call h5fclose_f(h5f_sub, status)
-                    write (string_var,'(A, "_result/HIT_", I0, "^3_decay_", ES5.0E1, "_", A , "_dp_x0_", I0, "_nx0_", I0, "_sub.h5")') trim(timescheme), nx, dt0, trim(timescheme), x0, nx0
+                    if (dp_flag==1) then
+                        write (string_var,'(A, "_result/HIT_", I0, "^3_decay_", ES5.0E1, "_", A , "_dp_x0_", I0, "_nx0_", I0, "_sub.h5")') trim(timescheme), nx, dt0, trim(timescheme), x0, nx0
+                    else
+                        write (string_var,'(A, "_result/HIT_", I0, "^3_decay_", ES5.0E1, "_", A , "_p_x0_", I0, "_nx0_", I0, "_sub.h5")') trim(timescheme), nx, dt0, trim(timescheme), x0, nx0
+                    end if
                     call h5fopen_f(string_var, H5F_ACC_RDWR_F, h5f_sub, status)
 
                     call h5fclose_f(h5f_slice, status)
-                    write (string_var,'(A, "_result/HIT_", I0,"^3_decay_", ES5.0E1, "_", A , "_slice_", I0, ".h5")') trim(timescheme), nx, dt0, trim(timescheme), slice
+                    if (dp_flag==1) then
+                        write (string_var,'(A, "_result/HIT_", I0,"^3_decay_", ES5.0E1, "_", A , "_dp_slice_", I0, ".h5")') trim(timescheme), nx, dt0, trim(timescheme), slice
+                    else
+                        write (string_var,'(A, "_result/HIT_", I0,"^3_decay_", ES5.0E1, "_", A , "_p_slice_", I0, ".h5")') trim(timescheme), nx, dt0, trim(timescheme), slice
+                    end if
                     call h5fopen_f(string_var, H5F_ACC_RDWR_F, h5f_slice, status)
                 end if
             end if

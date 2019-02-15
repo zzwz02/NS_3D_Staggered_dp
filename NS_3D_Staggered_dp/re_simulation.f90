@@ -98,14 +98,14 @@
     INTEGER :: c01,c02,c1,c2,cr,cm
 
     !!!!!!!!!!!!!!! re-simulation parameters !!!!!!!!!!!!!!!
-    real(8) :: dt0=2.5e-4  !4.0d-3, 2.0d-3, 1.0d-3, 5.0d-4, 2.5d-4
+    real(8) :: dt0=4e-3  !4.0d-3, 2.0d-3, 1.0d-3, 5.0d-4, 2.5d-4
     character(*), parameter :: timescheme="AB2"
     ! pbc=1 Periodic; pbc=2 Dirichlet on boundary (cell wall); pbc=3 Neumann on boundary (cell wall); pbc=4 Dirichlet on ghost cell
-    integer, parameter :: bc_x=2, bc_y=bc_x, bc_z=bc_x, pbc_x=3, pbc_y=3, pbc_z=3, sub_tstep=1
-    logical, parameter :: using_Ustar=.false., TOffset=.true., restart=.true.
-    real(8), parameter :: noise=0;
+    integer, parameter :: dp_flag=0, bc_x=2, bc_y=bc_x, bc_z=bc_x, pbc_x=3, pbc_y=3, pbc_z=3, sub_tstep=1
+    logical, parameter :: using_Ustar=.true., TOffset=.false., restart=.false.
+    real(8), parameter :: noise=0
     real(8), dimension (:,:), allocatable :: err_vel, err_grad, rms_vel, rms_grad
-    logical, parameter :: save_output=.true., LU_poisson=(.false. .and. nxp*nyp*nzp<=34**3), FFT_poisson=(pbc_x==1 .and. pbc_y==1 .and. pbc_z==1), DCT_poisson=(pbc_x/=1 .and. pbc_y/=1 .and. pbc_z/=1)
+    logical, parameter :: save_output=.false., LU_poisson=(.false. .and. nxp*nyp*nzp<=34**3), FFT_poisson=(pbc_x==1 .and. pbc_y==1 .and. pbc_z==1), DCT_poisson=(pbc_x/=1 .and. pbc_y/=1 .and. pbc_z/=1)
 
     call OMP_set_dynamic(.true.)
     ! First initialize the system_clock
@@ -271,8 +271,9 @@
         do i=1,nz
             poisson_eigv(:,:,i)=poisson_eigv(:,:,i)+(sin(pi*(i-1)/nz)/dz)**2
         end do
-        poisson_eigv(1,1,1)=1.0d0
-        poisson_eigv=-poisson_eigv*4.0d0
+        !poisson_eigv(1,1,1)=1.0d0
+        poisson_eigv=-4.0d0*poisson_eigv
+        poisson_eigv(1,1,1) = IEEE_VALUE (1.0d0, IEEE_POSITIVE_INF)
     end if
 
     !!!! DCT-based FD poisson solver (pbc=1 and 4 are not implemented and tested)
@@ -327,14 +328,23 @@
             end if
         end do
 
-        if (eig_tt(1,1,1)==0.0d0) eig_tt(1,1,1)=1.0d0
+        !if (eig_tt(1,1,1)==0.0d0) eig_tt(1,1,1)=1.0d0
         eig_tt=-4.0d0*eig_tt
+        if (eig_tt(1,1,1)==0.0d0) eig_tt(1,1,1) = IEEE_VALUE (1.0d0, IEEE_POSITIVE_INF)
     end if
 
     if (timescheme=="Euler") then
-        write (big_DNS_file,'(A, "_result.MARCC/HIT_", I0, "^3_decay_", ES5.0E1, "_", A , "_dp_x0_", I0, "_nx0_", I0, "_sub.h5")') trim("AB2"), nx0, dt0, trim("AB2"), x0, nx
+        if (dp_flag==1) then
+            write (big_DNS_file,'(A, "_result.MARCC/HIT_", I0, "^3_decay_", ES5.0E1, "_", A , "_dp_x0_", I0, "_nx0_", I0, "_sub.h5")') trim("AB2"), nx0, dt0, trim("AB2"), x0, nx
+        else
+            write (big_DNS_file,'(A, "_result.MARCC/HIT_", I0, "^3_decay_", ES5.0E1, "_", A , "_p_x0_", I0, "_nx0_", I0, "_sub.h5")') trim("AB2"), nx0, dt0, trim("AB2"), x0, nx
+        end if
     else
-        write (big_DNS_file,'(A, "_result.MARCC/HIT_", I0, "^3_decay_", ES5.0E1, "_", A , "_dp_x0_", I0, "_nx0_", I0, "_sub.h5")') trim(timescheme), nx0, dt0, trim(timescheme), x0, nx
+        if (dp_flag==1) then
+            write (big_DNS_file,'(A, "_result.MARCC/HIT_", I0, "^3_decay_", ES5.0E1, "_", A , "_dp_x0_", I0, "_nx0_", I0, "_sub.h5")') trim(timescheme), nx0, dt0, trim(timescheme), x0, nx
+        else
+            write (big_DNS_file,'(A, "_result.MARCC/HIT_", I0, "^3_decay_", ES5.0E1, "_", A , "_p_x0_", I0, "_nx0_", I0, "_sub.h5")') trim(timescheme), nx0, dt0, trim(timescheme), x0, nx
+        end if
     end if
 
     call h5fopen_f(big_DNS_file, H5F_ACC_RDONLY_F, h5f_sub, status)
@@ -399,7 +409,7 @@
             end if
 
             call h5gclose_f( h5g_sub, status)
-            dp_sub=p_sub-p
+            dp_sub=p_sub-dp_flag*p
 
             if (timescheme=="AB2-CN") then
                 call get_pr_bc(dp_sub, pbc_x, pbc_y, pbc_z, nx, ny, nz, dx, dy, dz, bx_p_1, bx_p_nx, by_p_1, by_p_ny, bz_p_1, bz_p_nz)
@@ -467,15 +477,15 @@
                 !$omp parallel sections
                 !$omp section
                 rhs_x(x_range0,y_range1,z_range1)=nu*diff_x-conv_x;
-                u_star=dt0*(1.0d0*rhs_x-1.0d0*dpdx+1.0d0*f_term_x)+u;
+                u_star=dt0*(1.0d0*rhs_x-dp_flag*dpdx+1.0d0*f_term_x)+u;
                 !rhs_x_previous=0;
                 !$omp section
                 rhs_y(x_range1,y_range0,z_range1)=nu*diff_y-conv_y;
-                v_star=dt0*(1.0d0*rhs_y-1.0d0*dpdy+1.0d0*f_term_y)+v;
+                v_star=dt0*(1.0d0*rhs_y-dp_flag*dpdy+1.0d0*f_term_y)+v;
                 !rhs_y_previous=0;
                 !$omp section
                 rhs_z(x_range1,y_range1,z_range0)=nu*diff_z-conv_z;
-                w_star=dt0*(1.0d0*rhs_z-1.0d0*dpdz+1.0d0*f_term_z)+w;
+                w_star=dt0*(1.0d0*rhs_z-dp_flag*dpdz+1.0d0*f_term_z)+w;
                 !rhs_z_previous=0;
                 !$omp end parallel sections
 
@@ -492,30 +502,30 @@
                     !$omp parallel sections
                     !$omp section
                     rhs_x(x_range0,y_range1,z_range1)=nu*diff_x-conv_x;
-                    u_star=dt0*(1.0d0*rhs_x-1.0d0*dpdx+1.0d0*f_term_x)+u;
+                    u_star=dt0*(1.0d0*rhs_x-dp_flag*dpdx+1.0d0*f_term_x)+u;
                     rhs_x_previous=rhs_x;
                     !$omp section
                     rhs_y(x_range1,y_range0,z_range1)=nu*diff_y-conv_y;
-                    v_star=dt0*(1.0d0*rhs_y-1.0d0*dpdy+1.0d0*f_term_y)+v;
+                    v_star=dt0*(1.0d0*rhs_y-dp_flag*dpdy+1.0d0*f_term_y)+v;
                     rhs_y_previous=rhs_y;
                     !$omp section
                     rhs_z(x_range1,y_range1,z_range0)=nu*diff_z-conv_z;
-                    w_star=dt0*(1.0d0*rhs_z-1.0d0*dpdz+1.0d0*f_term_z)+w;
+                    w_star=dt0*(1.0d0*rhs_z-dp_flag*dpdz+1.0d0*f_term_z)+w;
                     rhs_z_previous=rhs_z;
                     !$omp end parallel sections
                 else
                     !$omp parallel sections
                     !$omp section
                     rhs_x(x_range0,y_range1,z_range1)=nu*diff_x-conv_x;
-                    u_star=dt0*(1.5d0*rhs_x-0.5d0*rhs_x_previous-1.0d0*dpdx+1.0d0*f_term_x)+u;
+                    u_star=dt0*(1.5d0*rhs_x-0.5d0*rhs_x_previous-dp_flag*dpdx+1.0d0*f_term_x)+u;
                     rhs_x_previous=rhs_x;
                     !$omp section
                     rhs_y(x_range1,y_range0,z_range1)=nu*diff_y-conv_y;
-                    v_star=dt0*(1.5d0*rhs_y-0.5d0*rhs_y_previous-1.0d0*dpdy+1.0d0*f_term_y)+v;
+                    v_star=dt0*(1.5d0*rhs_y-0.5d0*rhs_y_previous-dp_flag*dpdy+1.0d0*f_term_y)+v;
                     rhs_y_previous=rhs_y;
                     !$omp section
                     rhs_z(x_range1,y_range1,z_range0)=nu*diff_z-conv_z;
-                    w_star=dt0*(1.5d0*rhs_z-0.5d0*rhs_z_previous-1.0d0*dpdz+1.0d0*f_term_z)+w;
+                    w_star=dt0*(1.5d0*rhs_z-0.5d0*rhs_z_previous-dp_flag*dpdz+1.0d0*f_term_z)+w;
                     rhs_z_previous=rhs_z;
                     !$omp end parallel sections
 
@@ -533,15 +543,15 @@
                     !$omp parallel sections
                     !$omp section
                     rhs_x(x_range0,y_range1,z_range1)=0.5d0*nu*diff_x-conv_x;
-                    u_star=dt0*(rhs_x-1.0d0*dpdx+1.0d0*f_term_x)+u;
+                    u_star=dt0*(rhs_x-dp_flag*dpdx+1.0d0*f_term_x)+u;
                     rhs_x_previous(x_range0,y_range1,z_range1)=-conv_x;
                     !$omp section
                     rhs_y(x_range1,y_range0,z_range1)=0.5d0*nu*diff_y-conv_y;
-                    v_star=dt0*(rhs_y-1.0d0*dpdy+1.0d0*f_term_y)+v;
+                    v_star=dt0*(rhs_y-dp_flag*dpdy+1.0d0*f_term_y)+v;
                     rhs_y_previous(x_range1,y_range0,z_range1)=-conv_y;
                     !$omp section
                     rhs_z(x_range1,y_range1,z_range0)=0.5d0*nu*diff_z-conv_z;
-                    w_star=dt0*(rhs_z-1.0d0*dpdz+1.0d0*f_term_z)+w;
+                    w_star=dt0*(rhs_z-dp_flag*dpdz+1.0d0*f_term_z)+w;
                     rhs_z_previous(x_range1,y_range1,z_range0)=-conv_z;
                     !$omp end parallel sections
                 else
@@ -549,15 +559,15 @@
                     !$omp parallel sections
                     !$omp section
                     rhs_x(x_range0,y_range1,z_range1)=0.5d0*nu*diff_x-1.5d0*conv_x;
-                    u_star=dt0*(rhs_x-0.5d0*rhs_x_previous-1.0d0*dpdx+1.0d0*f_term_x)+u;
+                    u_star=dt0*(rhs_x-0.5d0*rhs_x_previous-dp_flag*dpdx+1.0d0*f_term_x)+u;
                     rhs_x_previous(x_range0,y_range1,z_range1)=-conv_x;
                     !$omp section
                     rhs_y(x_range1,y_range0,z_range1)=0.5d0*nu*diff_y-1.5d0*conv_y;
-                    v_star=dt0*(rhs_y-0.5d0*rhs_y_previous-1.0d0*dpdy+1.0d0*f_term_y)+v;
+                    v_star=dt0*(rhs_y-0.5d0*rhs_y_previous-dp_flag*dpdy+1.0d0*f_term_y)+v;
                     rhs_y_previous(x_range1,y_range0,z_range1)=-conv_y;
                     !$omp section
                     rhs_z(x_range1,y_range1,z_range0)=0.5d0*nu*diff_z-1.5d0*conv_z;
-                    w_star=dt0*(rhs_z-0.5d0*rhs_z_previous-1.0d0*dpdz+1.0d0*f_term_z)+w;
+                    w_star=dt0*(rhs_z-0.5d0*rhs_z_previous-dp_flag*dpdz+1.0d0*f_term_z)+w;
                     rhs_z_previous(x_range1,y_range1,z_range0)=-conv_z;
                     !$omp end parallel sections
                 end if
@@ -667,7 +677,7 @@
                 !status = DftiComputeForward(hand_f, dft_out_c(:,1,1))
 
                 dft_out_c1=dft_out_c1/poisson_eigv
-                dft_out_c1(1,1,1)=0
+                !dft_out_c1(1,1,1)=0
                 !print *, "   Backward FFT..."
                 status = DftiComputeBackward(hand_b, dft_out_c1(:,1,1), dft_out_r1(:,1,1))
                 !status = DftiComputeBackward(hand_b, dft_out_c(:,1,1))
@@ -687,7 +697,7 @@
                 rhs_tt(1:nx,1:ny,1:nz)=RHS_poisson_internal
 
                 call DCT_poisson_solver(rhs_tt, eig_tt, handle_x, handle_y, handle_z, &
-                    ipar_x, ipar_y, ipar_z, dpar_x, dpar_y, dpar_z, nx, ny, nz, pbc_x, pbc_y, pbc_z)
+                    ipar_x, ipar_y, ipar_z, dpar_x, dpar_y, dpar_z, nx, ny, nz, pbc_x, pbc_y, pbc_z, mean(dp_sub(2:nxp-1,2:nyp-1,2:nzp-1)))
 
                 dp(2:nxp-1,2:nyp-1,2:nzp-1)=rhs_tt(1:nx,1:ny,1:nz)
                 call pr_bc_staggered(dp, bx_p_1, bx_p_nx, by_p_1, by_p_ny, bz_p_1, bz_p_nz, pbc_x, pbc_y, pbc_z, dx, dy, dz)
@@ -707,7 +717,7 @@
             !dp=reshape(dp,nxp,nyp,nzp);
 
             !dp=dp_lu;
-            if (pbc_x==3 .and. pbc_y==3 .and. pbc_z==3) dp=dp-dp(1,1,1)+dp_sub(1,1,1)
+            !if (pbc_x==3 .and. pbc_y==3 .and. pbc_z==3) dp=dp-dp(1,1,1)+dp_sub(1,1,1)
             !$omp parallel sections
             !$omp section
             u=-dt0*diff(dp,1,1)/dx+u_star
@@ -716,7 +726,7 @@
             !$omp section
             w=-dt0*diff(dp,1,3)/dz+w_star
             !$omp section
-            p=p+dp
+            p=dp_flag*p+dp
             !$omp end parallel sections
 
         end if

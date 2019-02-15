@@ -15,7 +15,7 @@ slice=16;
 
 temp=h5info(resim_file);
 
-for i=2:length(t)
+for i=1:length(t)
     gName=temp.Groups(i).Name;
 %     u_star=h5read(resim_file,[gName,'/u_star_sub']); %u=u(:,2:end-1,2:end-1);
 %     RHS=h5read(resim_file,[gName,'/RHS_poisson_sub']); RHS=RHS(2:end-1,2:end-1,2:end-1);
@@ -25,8 +25,8 @@ for i=2:length(t)
     
 %     u_star_sub=h5read(bigDNS_file,[gName,'/u_star_sub']); %u_sub=u_sub(:,2:end-1,2:end-1);
 %     RHS_sub=h5read(bigDNS_file,[gName,'/RHS_poisson_sub']); RHS_sub=RHS_sub(2:end-1,2:end-1,2:end-1);
-    p_sub=h5read(bigDNS_file,[gName,'/p_sub']); %p_sub=p_sub-mean(p_sub(:));
-    dp_sub=p_sub-h5read(resim_file,[temp.Groups(i-1).Name,'/p_sub']);
+    dp_sub=h5read(bigDNS_file,[gName,'/dp_sub']); %dp_sub=dp_sub-mean(dp_sub(:));
+%     p_sub=h5read(bigDNS_file,[gName,'/p_sub']); %p_sub=p_sub-mean(p_sub(:));
 %     u_sub=h5read(bigDNS_file,[gName,'/u_sub']); %u=u(:,2:end-1,2:end-1);;
     
 %     err_u_star=u_star-u_star_sub;
@@ -37,7 +37,7 @@ for i=2:length(t)
     
 %     err_u_star_max(i)=max(abs(err_u_star(:)));
 %     err_RHS_max(i)=max(abs(err_RHS(:)));
-    err_dp_max(i)=max(abs(err_dp(:)))/rms(dp_sub(:));
+    err_dp_max(i)=max(abs(err_dp(:)));%/rms(dp_sub(:));
 %     err_p_max(i)=max(abs(err_p(:)))/rms(p_sub(:));
 %     err_u_max(i)=max(abs(err_u(:)));
     

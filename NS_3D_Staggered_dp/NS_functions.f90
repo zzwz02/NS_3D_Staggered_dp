@@ -1487,13 +1487,14 @@
 
     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     subroutine DCT_poisson_solver(rhs_tt, eig_tt, handle_x, handle_y, handle_z, &
-        ipar_x, ipar_y, ipar_z, dpar_x, dpar_y, dpar_z, nx, ny, nz, pbc_x, pbc_y, pbc_z)
+        ipar_x, ipar_y, ipar_z, dpar_x, dpar_y, dpar_z, nx, ny, nz, pbc_x, pbc_y, pbc_z, mean_dp)
 
     use mkl_trig_transforms
+    use, intrinsic :: ieee_arithmetic
     implicit none
 
     integer, intent(in) :: nx, ny, nz, pbc_x, pbc_y, pbc_z
-    real(8), intent(in) :: eig_tt(nx,ny,nz), dpar_x(5*nx/2+2), dpar_y(5*nx/2+2), dpar_z(5*nz/2+2)
+    real(8), intent(in) :: eig_tt(nx,ny,nz), dpar_x(5*nx/2+2), dpar_y(5*nx/2+2), dpar_z(5*nz/2+2), mean_dp
     real(8), intent(out) :: rhs_tt(nx+1,ny+1,nz+1)
     integer, intent(inout) :: ipar_x(128), ipar_y(128), ipar_z(128)
     type(dfti_descriptor), pointer, intent(in) :: handle_x, handle_y, handle_z
@@ -1557,6 +1558,7 @@
     !    rhs_tt(1:nx,1:ny,1:nz)=rhs_tt(1:nx,1:ny,1:nz)/eig_tt
     !end if
     rhs_tt(1:nx,1:ny,1:nz)=rhs_tt(1:nx,1:ny,1:nz)/eig_tt
+    if (eig_tt(1,1,1)==IEEE_VALUE (1.0d0, IEEE_POSITIVE_INF) .or. eig_tt(1,1,1)==IEEE_VALUE (1.0d0, IEEE_NEGATIVE_INF)) rhs_tt(1,1,1)=mean_dp*nx*ny*nz
 
     !z-direction
     !$omp parallel do

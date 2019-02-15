@@ -18,9 +18,9 @@ for T=1:20
         slice=16;
         
         temp=h5info(resim_file);
-        if (idx==1)
-            gName=temp.Groups(T+100).Name;
-        end
+        %if (idx==1)
+            gName=temp.Groups(T).Name;
+        %end
         u_star=h5read(resim_file,[gName,'/u_star_sub']); %u=u(:,2:end-1,2:end-1);
         RHS=h5read(resim_file,[gName,'/RHS_poisson_sub']); RHS=RHS(2:end-1,2:end-1,2:end-1);
         dp=h5read(resim_file,[gName,'/dp_sub']); dp=dp-mean(dp(:));
