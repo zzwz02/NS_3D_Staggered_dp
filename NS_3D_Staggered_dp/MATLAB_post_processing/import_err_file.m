@@ -55,5 +55,5 @@ fclose(fileID);
 % script.
 
 %% Create output variable
-output = table(dataArray{1:end-1}, 'VariableNames', {'time_step','rel_err_u','rel_err_v','rel_err_w','rel_err_p','rel_err_u_star','rel_err_v_star','rel_err_w_star','rel_err_dp'});
+output = table(dataArray{1:end-1}, 'VariableNames', {'time_step','rel_err_u','rel_err_v','rel_err_w','rel_err_p','rel_err_um','rel_err_vm','rel_err_wm','rel_err_dp'});
 

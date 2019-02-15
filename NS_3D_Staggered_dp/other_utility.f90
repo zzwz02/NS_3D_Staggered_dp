@@ -119,9 +119,9 @@
 
     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     real(8) function rms(a)
-    
+
     implicit none
-    
+
     real(8), intent(in) :: a(:,:,:)
 
     rms=sqrt(sum(a*a)/size(a))
@@ -133,7 +133,7 @@
 
     use mkl_vsl_type
     use mkl_vsl
-    
+
     implicit none
 
     real(8), intent(in) :: input(:,:) ,noise
@@ -150,13 +150,13 @@
     output=input*(1+noise*reshape(r,nx))
 
     end function whiteNoise2
-    
+
     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     function whiteNoise3(input,noise) result(output)
 
     use mkl_vsl_type
     use mkl_vsl
-    
+
     implicit none
 
     real(8), intent(in) :: input(:,:,:) ,noise
@@ -173,6 +173,21 @@
     output=input*(1+noise*reshape(r,nx))
 
     end function whiteNoise3
+
+    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    integer function bool2int(input)
+
+    implicit none
+
+    logical, intent(in) :: input
+
+    if (input) then
+        bool2int=1;
+    else
+        bool2int=0;
+    end if
+
+    end function bool2int
 
     end module other_utility
 

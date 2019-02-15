@@ -69,7 +69,7 @@
     !real(8) :: temp01, temp02, temp03!, temp04, temp05, temp06
     !real(8), dimension (:), allocatable :: temp11!, temp12, temp13, temp14, temp15, temp16
     real(8), dimension (:,:), allocatable :: temp21!, temp22, temp23, temp24, temp25, temp26
-    !real(8), dimension (:,:,:), allocatable :: temp31, temp32, temp33!, temp34, temp35, temp36
+    real(8), dimension (:,:,:), allocatable :: temp31!, temp32, temp33!, temp34, temp35, temp36
 
     !!!!!!!!!!!!!!! INTEL mkl_pardiso !!!!!!!!!!!!!!!
     type(MKL_PARDISO_HANDLE) pt(64)
@@ -90,7 +90,7 @@
     type(dfti_descriptor), pointer :: handle_x, handle_y, handle_z
 
     !!!!!!!!!!!!!!! HDF5 !!!!!!!!!!!!!!!
-    character(len=1000) :: string_var, string_var2
+    character(len=1000) :: string_var, string_var2, big_DNS_file
     integer(8) :: h5f_whole, h5f_sub, h5f_slice, h5g_sub, h5g_slice
 
     !!!!!!!!!!!!!!! system_clock !!!!!!!!!!!!!!!
@@ -101,11 +101,11 @@
     real(8) :: dt0=2.5e-4  !4.0d-3, 2.0d-3, 1.0d-3, 5.0d-4, 2.5d-4
     character(*), parameter :: timescheme="AB2"
     ! pbc=1 Periodic; pbc=2 Dirichlet on boundary (cell wall); pbc=3 Neumann on boundary (cell wall); pbc=4 Dirichlet on ghost cell
-    integer, parameter :: bc_x=2, bc_y=bc_x, bc_z=bc_x, pbc_x=2, pbc_y=2, pbc_z=2, sub_tstep=1
-    logical, parameter :: using_Ustar=.true., TOffset=.true., restart=.false.
+    integer, parameter :: bc_x=2, bc_y=bc_x, bc_z=bc_x, pbc_x=3, pbc_y=3, pbc_z=3, sub_tstep=1
+    logical, parameter :: using_Ustar=.false., TOffset=.true., restart=.true.
     real(8), parameter :: noise=0;
     real(8), dimension (:,:), allocatable :: err_vel, err_grad, rms_vel, rms_grad
-    logical, parameter :: LU_poisson=(.false. .and. nxp*nyp*nzp<=34**3), FFT_poisson=(pbc_x==1 .and. pbc_y==1 .and. pbc_z==1), DCT_poisson=(pbc_x/=1 .and. pbc_y/=1 .and. pbc_z/=1)
+    logical, parameter :: save_output=.true., LU_poisson=(.false. .and. nxp*nyp*nzp<=34**3), FFT_poisson=(pbc_x==1 .and. pbc_y==1 .and. pbc_z==1), DCT_poisson=(pbc_x/=1 .and. pbc_y/=1 .and. pbc_z/=1)
 
     call OMP_set_dynamic(.true.)
     ! First initialize the system_clock
@@ -127,6 +127,18 @@
     time_length=nint((t_end-t_start)/(dt0))
     allocate( time_array(0:time_length), err_vel(8,0:time_length), err_grad(24,0:time_length), rms_vel(4,0:time_length), rms_grad(12,0:time_length) )
     time_array=[(0.0d0+dt0*i, i=t_step_offset, time_length+t_step_offset)]
+    allocate(temp31(nx+2,ny+2,nz+2))
+
+    write (string_var2,'(A, "_", ES5.0E1)') trim(timescheme), dt0
+    if (pbc_x==2) string_var2=trim(string_var2)//"_D"
+    if (pbc_x==3) string_var2=trim(string_var2)//"_N"
+    if (pbc_x==4) string_var2=trim(string_var2)//"_Dg"
+    if (using_Ustar) string_var2=trim(string_var2)//"_Ustar"
+    if (.not. using_Ustar) string_var2=trim(string_var2)//"_U"
+    if (TOffset) string_var2=trim(string_var2)//"_TOffset"
+    if (restart) string_var2=trim(string_var2)//"_restart"
+    if (noise/=0.0d0) write (string_var2,'(A, "_noise", ES5.0E1)') trim(string_var2), noise
+    if (sub_tstep/=1) write (string_var2,'(A, "_sub_tstep", I0)') trim(string_var2), sub_tstep
 
     if (bc_x==1) then
         !allocate( x_range0(nx) )
@@ -320,12 +332,12 @@
     end if
 
     if (timescheme=="Euler") then
-        write (string_var,'(A, "_result.MARCC/HIT_", I0, "^3_decay_", ES5.0E1, "_", A , "_dp_x0_", I0, "_nx0_", I0, "_sub.h5")') trim("AB2"), nx0, dt0, trim("AB2"), x0, nx
+        write (big_DNS_file,'(A, "_result.MARCC/HIT_", I0, "^3_decay_", ES5.0E1, "_", A , "_dp_x0_", I0, "_nx0_", I0, "_sub.h5")') trim("AB2"), nx0, dt0, trim("AB2"), x0, nx
     else
-        write (string_var,'(A, "_result.MARCC/HIT_", I0, "^3_decay_", ES5.0E1, "_", A , "_dp_x0_", I0, "_nx0_", I0, "_sub.h5")') trim(timescheme), nx0, dt0, trim(timescheme), x0, nx
+        write (big_DNS_file,'(A, "_result.MARCC/HIT_", I0, "^3_decay_", ES5.0E1, "_", A , "_dp_x0_", I0, "_nx0_", I0, "_sub.h5")') trim(timescheme), nx0, dt0, trim(timescheme), x0, nx
     end if
 
-    call h5fopen_f(string_var, H5F_ACC_RDONLY_F, h5f_sub, status)
+    call h5fopen_f(big_DNS_file, H5F_ACC_RDONLY_F, h5f_sub, status)
 
     do t_step=0,time_length
         tGet=time_array(t_step)
@@ -408,21 +420,21 @@
                 bx_v_nx=whiteNoise2(bx_v_nx,noise)
                 bx_w_1 =whiteNoise2(bx_w_1, noise)
                 bx_w_nx=whiteNoise2(bx_w_nx,noise)
-                
+
                 by_u_1 =whiteNoise2(by_u_1, noise)
                 by_u_ny=whiteNoise2(by_u_ny,noise)
                 by_v_1 =whiteNoise2(by_v_1, noise)
                 by_v_ny=whiteNoise2(by_v_ny,noise)
                 by_w_1 =whiteNoise2(by_w_1, noise)
                 by_w_ny=whiteNoise2(by_w_ny,noise)
-                
+
                 bz_u_1 =whiteNoise2(bz_u_1, noise)
                 bz_u_nz=whiteNoise2(bz_u_nz,noise)
                 bz_v_1 =whiteNoise2(bz_v_1, noise)
                 bz_v_nz=whiteNoise2(bz_v_nz,noise)
                 bz_w_1 =whiteNoise2(bz_w_1, noise)
                 bz_w_nz=whiteNoise2(bz_w_nz,noise)
-                
+
                 !bx_p_1 =whiteNoise2(bx_p_1, noise)
                 !bx_p_nx=whiteNoise2(bx_p_nx,noise)
                 !by_p_1 =whiteNoise2(by_p_1, noise)
@@ -598,8 +610,8 @@
                 !$omp end parallel do
             end if
             !call print_mat(u_star(:,:,2)-u_star_sub(:,:,2))
-            
-            !if (noise>0) then        
+
+            !if (noise>0) then
             !    u_star = whiteNoise3(u_star, noise)
             !    v_star = whiteNoise3(v_star, noise)
             !    w_star = whiteNoise3(w_star, noise)
@@ -617,9 +629,12 @@
             print *, [maxval(abs(u_star-u_star_sub)), maxval(abs(v_star-v_star_sub)), maxval(abs(w_star-w_star_sub)), maxval(abs(RHS_poisson_internal-RHS_poisson_sub(2:nxp-1,2:nyp-1,2:nzp-1)))]
             print *,'*****************************'
 
+            temp31(2:nxp-1,2:nyp-1,2:nzp-1)=RHS_poisson_internal
+
             call pr_bc_staggered_modify_rhs(RHS_poisson_internal, bx_p_1(2:nyp-1,2:nzp-1), bx_p_nx(2:nyp-1,2:nzp-1), &
                 by_p_1(2:nxp-1,2:nzp-1), by_p_ny(2:nxp-1,2:nzp-1), bz_p_1(2:nxp-1,2:nyp-1), bz_p_nz(2:nxp-1,2:nyp-1), &
                 pbc_x, pbc_y, pbc_z, dx, dy, dz, dx2, dy2, dz2)
+            print *,sum(RHS_poisson_internal)
 
             !!!!!!!!!! LU-based FD poisson solver !!!!!!!!!!
             if (LU_poisson) then
@@ -715,11 +730,56 @@
 
         rms_vel(1,t_step)=rms(u_sub);                             rms_vel(2,t_step)=rms(v_sub);                             rms_vel(3,t_step)=rms(w_sub);                             rms_vel(4,t_step)=rms(p_sub)
         err_vel(1,t_step)=maxval(abs(u-u_sub))/rms_vel(1,t_step); err_vel(2,t_step)=maxval(abs(v-v_sub))/rms_vel(2,t_step); err_vel(3,t_step)=maxval(abs(w-w_sub))/rms_vel(3,t_step); err_vel(4,t_step)=maxval(abs(p-p_sub))/rms_vel(4,t_step);
-        err_vel(5,t_step)=mean(abs(u-u_sub))/rms_vel(1,t_step);   err_vel(6,t_step)=mean(abs(v-v_sub))/rms_vel(2,t_step);   err_vel(7,t_step)=mean(abs(w-w_sub))/rms_vel(3,t_step);   err_vel(8,t_step)=mean(abs(p-p_sub))/rms_vel(4,t_step);
+        err_vel(5,t_step)=mean(abs(u-u_sub))/rms_vel(1,t_step);   err_vel(6,t_step)=mean(abs(v-v_sub))/rms_vel(2,t_step);   err_vel(7,t_step)=mean(abs(w-w_sub))/rms_vel(3,t_step);   err_vel(8,t_step)=maxval(abs(dp-dp_sub))/rms(dp_sub);
 
         write(*,'("   MAX vel/pr error: ", 100g15.5)') err_vel(1:4,t_step)
         print '("Complete: ", F8.4, " second. MAX Div: ", E13.6)', (c02-c01)/system_clock_rate, maxval(abs(div))
         print *, "**************************************"
+
+        if (save_output) then
+
+            if (t_step==0) then
+                write (string_var,'("err_file/err_vel_", A, ".h5")') trim(string_var2)
+
+                call h5fcreate_f(string_var, H5F_ACC_EXCL_F, h5f_slice, status)
+
+                !call h5ltset_attribute_int_f(h5f_slice, "/", "nx", [nx0], 1, status)
+                !call h5ltset_attribute_double_f(h5f_slice, "/", "dt", [dt0], 1, status)
+                !call h5ltset_attribute_double_f(h5f_slice, "/", "nu", [nu], 1, status)
+                !call h5ltset_attribute_string_f(h5f_slice, "/", "time_scheme", trim(timescheme), status)
+                !call h5ltset_attribute_int_f(h5f_slice, "/", "time_step", [t_step], 1, status)
+                !call h5ltset_attribute_double_f(h5f_slice, "/", "time", [tGet], 1, status)
+                !call h5ltset_attribute_int_f(h5f_slice, "/", "x0", [x0], 1, status)
+                !call h5ltset_attribute_int_f(h5f_slice, "/", "nx0", [nx], 1, status)
+
+                call h5ltset_attribute_string_f(h5f_slice, "/", "big_DNS_file", trim(big_DNS_file), status)
+                call h5ltset_attribute_int_f(h5f_slice, "/", "pbc_x", [pbc_x], 1, status)
+                call h5ltset_attribute_int_f(h5f_slice, "/", "using_Ustar", [bool2int(using_Ustar)], 1, status)
+                call h5ltset_attribute_int_f(h5f_slice, "/", "TOffset", [bool2int(TOffset)], 1, status)
+                call h5ltset_attribute_int_f(h5f_slice, "/", "restart", [bool2int(restart)], 1, status)
+                call h5ltset_attribute_double_f(h5f_slice, "/", "noise", [noise], 1, status)
+                call h5ltset_attribute_int_f(h5f_slice, "/", "sub_tstep", [sub_tstep], 1, status)
+            end if
+
+            write (string_var,'("t_", F0.4)') tGet
+            call h5gcreate_f(h5f_slice, string_var, h5g_sub, status)
+
+            call h5ltmake_dataset_double_f(h5g_sub, 'u_sub',           3, [nx+1_8,ny+2_8,nz+2_8], u,           status)
+            call h5ltmake_dataset_double_f(h5g_sub, 'v_sub',           3, [nx+2_8,ny+1_8,nz+2_8], v,           status)
+            call h5ltmake_dataset_double_f(h5g_sub, 'w_sub',           3, [nx+2_8,ny+2_8,nz+1_8], w,           status)
+            call h5ltmake_dataset_double_f(h5g_sub, 'p_sub',           3, [nx+2_8,ny+2_8,nz+2_8], p,           status)
+            call h5ltmake_dataset_double_f(h5g_sub, 'u_star_sub',      3, [nx+1_8,ny+2_8,nz+2_8], u_star,      status)
+            call h5ltmake_dataset_double_f(h5g_sub, 'v_star_sub',      3, [nx+2_8,ny+1_8,nz+2_8], v_star,      status)
+            call h5ltmake_dataset_double_f(h5g_sub, 'w_star_sub',      3, [nx+2_8,ny+2_8,nz+1_8], w_star,      status)
+            call h5ltmake_dataset_double_f(h5g_sub, 'dp_sub',          3, [nx+2_8,ny+2_8,nz+2_8], dp,          status)
+            call h5ltmake_dataset_double_f(h5g_sub, 'RHS_poisson_sub', 3, [nx+2_8,ny+2_8,nz+2_8], temp31, status)
+
+            call h5gclose_f( h5g_sub, status)
+
+            if (tGet==t_end) then
+                call h5fclose_f( h5f_slice, status)
+            end if
+        end if
 
     end do
 
@@ -736,17 +796,6 @@
 
     call h5fclose_f(h5f_sub, status)
     call h5close_f(status)
-
-    write (string_var2,'(A, "_", ES5.0E1)') trim(timescheme), dt0
-    if (pbc_x==2) string_var2=trim(string_var2)//"_D"
-    if (pbc_x==3) string_var2=trim(string_var2)//"_N"
-    if (pbc_x==4) string_var2=trim(string_var2)//"_Dg"
-    if (using_Ustar) string_var2=trim(string_var2)//"_Ustar"
-    if (.not. using_Ustar) string_var2=trim(string_var2)//"_U"
-    if (TOffset) string_var2=trim(string_var2)//"_TOffset"
-    if (restart) string_var2=trim(string_var2)//"_restart"
-    if (noise/=0.0d0) write (string_var2,'(A, "_noise", ES5.0E1)') trim(string_var2), noise
-    if (sub_tstep/=1) write (string_var2,'(A, "_sub_tstep", I0)') trim(string_var2), sub_tstep
 
     write (string_var,'("err_file/err_vel_", A, ".txt")') trim(string_var2)
     OPEN(10, file=string_var, form="formatted")

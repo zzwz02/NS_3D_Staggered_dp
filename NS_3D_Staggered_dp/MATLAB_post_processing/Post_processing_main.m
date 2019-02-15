@@ -21,9 +21,9 @@ filename=[data_folder,'HIT_256^3_decay_4.E-3_AB2_dp_t_.0000.h5'];
 disp(filename);
 
 tic
-u1=h5read(filename,'/u');
-v1=h5read(filename,'/v');
-w1=h5read(filename,'/w');
+u=h5read(filename,'/u');
+v=h5read(filename,'/v');
+w=h5read(filename,'/w');
 toc;
 
 u_p=(u(1:end-1,2:end-1,2:end-1)+u(2:end,2:end-1,2:end-1))/2;
@@ -46,15 +46,13 @@ subplot(1,2,2)
 loglog(k*eta,2*nu*k.^2.*spectrum')
 hold on;
 %%
-filename=[data_folder,'HIT_256^3_decay_4.E-3_AB2_dp_t_.0000.h5'];
+filename=[data_folder,'HIT_256^3_decay_4.E-3_AB2_dp_t_2.0000.h5'];
 disp(filename);
 
 tic
-fileID = fopen(filename);
-u = fread(fileID,(nx+1)*(ny+2)*(nz+2),'*double'); u=reshape(u,[nx+1, ny+2, nz+2]);
-v = fread(fileID,(nx+2)*(ny+1)*(nz+2),'*double'); v=reshape(v,[nx+2, ny+1, nz+2]);
-w = fread(fileID,(nx+2)*(ny+2)*(nz+1),'*double'); w=reshape(w,[nx+2, ny+2, nz+1]);
-fclose(fileID);
+u=h5read(filename,'/u');
+v=h5read(filename,'/v');
+w=h5read(filename,'/w');
 toc;
 
 u_p=(u(1:end-1,2:end-1,2:end-1)+u(2:end,2:end-1,2:end-1))/2;
@@ -71,12 +69,12 @@ subplot(1,2,1)
 loglog(k, spectrum)
 hold on;
 plot(k, 4e-1*k.^(-5/3))
-legend('time step=0.       dx/\eta=1.33','time step=5000. dx/\eta=0.58')
+legend('time step=0.       dx/\eta=1.33','time step=500. dx/\eta=0.58')
 xlabel('k'); ylabel('E(k)')
 
 subplot(1,2,2)
 loglog(k*eta1,2*nu*k.^2.*spectrum')
-legend('time step=0.       dx/\eta=1.33','time step=5000. dx/\eta=0.58')
+legend('time step=0.       dx/\eta=1.33','time step=500. dx/\eta=0.58')
 xlabel('k\eta'); ylabel('D(k)')
 
 %%

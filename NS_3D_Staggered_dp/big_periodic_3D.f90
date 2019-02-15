@@ -6,7 +6,7 @@
     real(8), parameter :: pi = 3.1415926535897932_8
     integer :: i=0,j=0,k=0,ll=0,mm=0
 
-    logical, parameter :: init=.true., save_output=.true.
+    logical, parameter :: init=.true.
     real(8), parameter :: Re=1.0d0, nu=0.002d0, t_end=10.0d0!, dt0=0.004d0 !!!dt<=0.004 to be stable
     real(8), parameter :: t_start=0.0d0
     !integer, parameter :: nx_file=256
@@ -102,10 +102,10 @@
 
     !!!!!!!!!!!!!!! simulation parameters !!!!!!!!!!!!!!!
     real(8) :: dt0=0.004d0
-    character(*), parameter :: timescheme="AB2-CN"
+    character(*), parameter :: timescheme="AB2"
     ! pbc=1 Periodic; pbc=2 Dirichlet on boundary (cell wall); pbc=3 Neumann on boundary (cell wall); pbc=4 Dirichlet on ghost cell
     integer, parameter :: bc_x=1, bc_y=bc_x, bc_z=bc_x, pbc_x=1, pbc_y=pbc_x, pbc_z=pbc_x
-    logical, parameter :: LU_poisson=(nxp*nyp*nzp<=34**3), FFT_poisson=(pbc_x==1 .and. pbc_y==1 .and. pbc_z==1)
+    logical, parameter :: save_output=.true., LU_poisson=(nxp*nyp*nzp<=34**3), FFT_poisson=(pbc_x==1 .and. pbc_y==1 .and. pbc_z==1)
 
     call OMP_set_dynamic(.true.)
     ! First initialize the system_clock
