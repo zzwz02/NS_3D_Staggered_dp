@@ -14,53 +14,53 @@ err_4 = import_err_file('../err_file/err_vel_AB2_5.E-4_N_U_Toffset_Restart.txt')
 
 pcolor=color(1,:);
 figure(1)
-semilogy(t1,err_1.rel_err_dp,'--')
+semilogy(t1,err_1.rel_err_p,'--')
 hold on;
-plot(t2,err_2.rel_err_dp,'--')
-plot(t3,err_3.rel_err_dp,'--')
-plot(t4,err_4.rel_err_dp,'--')
-%plot(t5,err_5.rel_err_dp,'--')
+plot(t2,err_2.rel_err_p,'--')
+plot(t3,err_3.rel_err_p,'--')
+plot(t4,err_4.rel_err_p,'--')
+%plot(t5,err_5.rel_err_p,'--')
 
 %dt=[1e-1 1e-3 1e-5 1e-7 1e-9];
 crit=1.004;
-err_u_max(1)=max(err_1.rel_err_u(10:end));
-err_u_max(2)=max(err_2.rel_err_u(10:end));
-err_u_max(3)=max(err_3.rel_err_u(10:end));
-err_u_max(4)=max(err_4.rel_err_u(10:end));
-%err_u_max(5)=max(err_5.rel_err_u(10:end));
+err_u_max(1)=max(err_1.rel_err_u(1:end));
+err_u_max(2)=max(err_2.rel_err_u(1:end));
+err_u_max(3)=max(err_3.rel_err_u(1:end));
+err_u_max(4)=max(err_4.rel_err_u(1:end));
+%err_u_max(5)=max(err_5.rel_err_u(1:end));
 polyfit(log(dt),log(err_u_max),1)
 
 figure(2)
 loglog(dt,err_u_max,'^','Color',pcolor)
 hold on;
 
-err_u_max(1)=max(err_1.rel_err_v(10:end));
-err_u_max(2)=max(err_2.rel_err_v(10:end));
-err_u_max(3)=max(err_3.rel_err_v(10:end));
-err_u_max(4)=max(err_4.rel_err_v(10:end));
-%err_u_max(5)=max(err_5.rel_err_v(10:end));
+err_u_max(1)=max(err_1.rel_err_v(1:end));
+err_u_max(2)=max(err_2.rel_err_v(1:end));
+err_u_max(3)=max(err_3.rel_err_v(1:end));
+err_u_max(4)=max(err_4.rel_err_v(1:end));
+%err_u_max(5)=max(err_5.rel_err_v(1:end));
 polyfit(log(dt),log(err_u_max),1)
 
 figure(2)
 loglog(dt,err_u_max,'s','Color',pcolor)
 hold on;
 
-err_u_max(1)=max(err_1.rel_err_w(10:end));
-err_u_max(2)=max(err_2.rel_err_w(10:end));
-err_u_max(3)=max(err_3.rel_err_w(10:end));
-err_u_max(4)=max(err_4.rel_err_w(10:end));
-% err_u_max(5)=max(err_5.rel_err_w(10:end));
+err_u_max(1)=max(err_1.rel_err_w(1:end));
+err_u_max(2)=max(err_2.rel_err_w(1:end));
+err_u_max(3)=max(err_3.rel_err_w(1:end));
+err_u_max(4)=max(err_4.rel_err_w(1:end));
+% err_u_max(5)=max(err_5.rel_err_w(1:end));
 polyfit(log(dt),log(err_u_max),1)
 
 figure(2)
 loglog(dt,err_u_max,'o','Color',pcolor)
 hold on;
 
-err_u_max(1)=max(err_1.rel_err_dp(10:end));
-err_u_max(2)=max(err_2.rel_err_dp(10:end));
-err_u_max(3)=max(err_3.rel_err_dp(10:end));
-err_u_max(4)=max(err_4.rel_err_dp(10:end));
-% err_u_max(5)=max(err_5.rel_err_dp(10:end));
+err_u_max(1)=max(err_1.rel_err_p(1:end));
+err_u_max(2)=max(err_2.rel_err_p(1:end));
+err_u_max(3)=max(err_3.rel_err_p(1:end));
+err_u_max(4)=max(err_4.rel_err_p(1:end));
+% err_u_max(5)=max(err_5.rel_err_p(1:end));
 polyfit(log(dt),log(err_u_max),1)
 
 figure(2)

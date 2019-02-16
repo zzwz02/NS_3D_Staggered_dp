@@ -347,7 +347,7 @@
         allocate(u_sub_int(nx+1,ny+2,nz+2,sub_tstep),v_sub_int(nx+2,ny+1,nz+2,sub_tstep),w_sub_int(nx+2,ny+2,nz+1,sub_tstep),p_sub_int(nx+2,ny+2,nz+2,sub_tstep))
         allocate(u_star_sub_int(nx+1,ny+2,nz+2,sub_tstep),v_star_sub_int(nx+2,ny+1,nz+2,sub_tstep),w_star_sub_int(nx+2,ny+2,nz+1,sub_tstep),dp_sub_int(nx+2,ny+2,nz+2,sub_tstep))
 
-        if (dp_flag==1) then
+        if (dp_flag) then
             write (string_var,'(A, "_result.MARCC/HIT_", I0, "^3_decay_", ES5.0E1, "_", A , "_dp_x0_", I0, "_nx0_", I0, "_sub_", A, ".h5")') trim(timescheme), nx0, dt0, trim(timescheme), x0, nx, trim(interp_scheme)
         else
             write (string_var,'(A, "_result.MARCC/HIT_", I0, "^3_decay_", ES5.0E1, "_", A , "_p_x0_", I0, "_nx0_", I0, "_sub_", A, ".h5")') trim(timescheme), nx0, dt0, trim(timescheme), x0, nx, trim(interp_scheme)
@@ -356,7 +356,7 @@
             u_star_sub_int, v_star_sub_int, w_star_sub_int, dp_sub_int, nx, ny, nz, sub_tstep, timescheme)
     end if
 
-    if (dp_flag==1) then
+    if (dp_flag) then
         write (big_DNS_file,'(A, "_result.MARCC/HIT_", I0, "^3_decay_", ES5.0E1, "_", A , "_dp_x0_", I0, "_nx0_", I0, "_sub.h5")') trim(timescheme), nx0, dt0, trim(timescheme), x0, nx
     else
         write (big_DNS_file,'(A, "_result.MARCC/HIT_", I0, "^3_decay_", ES5.0E1, "_", A , "_p_x0_", I0, "_nx0_", I0, "_sub.h5")') trim(timescheme), nx0, dt0, trim(timescheme), x0, nx
@@ -450,7 +450,9 @@
                 call h5gclose_f( h5g_sub, status)
             end if
 
-            dp_sub=p_sub-dp_flag*p
+            if (.not. dp_flag) then
+                dp_sub=p_sub
+            end if
 
             if (timescheme=="AB2-CN") then
                 call get_pr_bc(dp_sub, pbc_x, pbc_y, pbc_z, nx, ny, nz, dx, dy, dz, bx_p_1, bx_p_nx, by_p_1, by_p_ny, bz_p_1, bz_p_nz)

@@ -101,11 +101,11 @@
     INTEGER :: c01,c02,c1,c2,cr,cm
 
     !!!!!!!!!!!!!!! simulation parameters !!!!!!!!!!!!!!!
-    real(8) :: dt0=4e-3
+    real(8) :: dt0=5e-4
     character(*), parameter :: timescheme="AB2"
     ! pbc=1 Periodic; pbc=2 Dirichlet on boundary (cell wall); pbc=3 Neumann on boundary (cell wall); pbc=4 Dirichlet on ghost cell
     integer, parameter :: dp_flag=0, bc_x=1, bc_y=bc_x, bc_z=bc_x, pbc_x=1, pbc_y=pbc_x, pbc_z=pbc_x
-    logical, parameter :: save_output=.false., LU_poisson=(nxp*nyp*nzp<=34**3), FFT_poisson=(pbc_x==1 .and. pbc_y==1 .and. pbc_z==1)
+    logical, parameter :: save_output=.true., LU_poisson=(nxp*nyp*nzp<=34**3), FFT_poisson=(pbc_x==1 .and. pbc_y==1 .and. pbc_z==1)
 
     call OMP_set_dynamic(.true.)
     ! First initialize the system_clock
@@ -306,7 +306,7 @@
                 !call TGV(xv, yv, zv, 0.0d0, nu, v=v)
                 !call TGV(xp, yp, zp, 0.0d0, nu, p=p)
             else
-                if (dp_flag==1) then
+                if (dp_flag) then
                     write (string_var,'(A, "_result/HIT_", I0, "^3_decay_", ES5.0E1, "_", A ,"_dp_t_" , F0.4, ".h5")') trim(timescheme), nx, dt0, trim(timescheme), tGet
                 else
                     write (string_var,'(A, "_result/HIT_", I0, "^3_decay_", ES5.0E1, "_", A ,"_p_t_" , F0.4, ".h5")') trim(timescheme), nx, dt0, trim(timescheme), tGet
@@ -585,7 +585,7 @@
                 !call h5pcreate_f(H5P_FILE_ACCESS_F, prp_id, status)
                 !call h5pset_fapl_core_f(prp_id, 64, .true., status)
                 !call h5pset_cache_f(prp_id, 0, 521, 16000000, 1.0, status)
-                if (dp_flag==1) then
+                if (dp_flag) then
                     write (string_var,'(A, "_result/HIT_", I0, "^3_decay_", ES5.0E1, "_", A , "_dp_x0_", I0, "_nx0_", I0, "_sub.h5")') trim(timescheme), nx, dt0, trim(timescheme), x0, nx0
                 else
                     write (string_var,'(A, "_result/HIT_", I0, "^3_decay_", ES5.0E1, "_", A , "_p_x0_", I0, "_nx0_", I0, "_sub.h5")') trim(timescheme), nx, dt0, trim(timescheme), x0, nx0
@@ -600,7 +600,7 @@
                 call h5ltset_attribute_int_f(h5f_sub, "/", "x0", [x0], 1, status)
                 call h5ltset_attribute_int_f(h5f_sub, "/", "nx0", [nx0], 1, status)
 
-                if (dp_flag==1) then
+                if (dp_flag) then
                     write (string_var,'(A, "_result/HIT_", I0,"^3_decay_", ES5.0E1, "_", A , "_dp_slice_", I0, ".h5")') trim(timescheme), nx, dt0, trim(timescheme), slice
                 else
                     write (string_var,'(A, "_result/HIT_", I0,"^3_decay_", ES5.0E1, "_", A , "_p_slice_", I0, ".h5")') trim(timescheme), nx, dt0, trim(timescheme), slice
@@ -619,7 +619,7 @@
 
             if (mod(abs(tGet), 1.0d0) < dt0/sub_tstep/100.0d0) then
                 if (init .or. (.not. init .and. t_step/=0)) then
-                    if (dp_flag==1) then
+                    if (dp_flag) then
                         write (string_var,'(A, "_result/HIT_", I0, "^3_decay_", ES5.0E1, "_", A ,"_dp_t_" , F0.4, ".h5")') trim(timescheme), nx, dt0, trim(timescheme), tGet
                     else
                         write (string_var,'(A, "_result/HIT_", I0, "^3_decay_", ES5.0E1, "_", A ,"_p_t_" , F0.4, ".h5")') trim(timescheme), nx, dt0, trim(timescheme), tGet
@@ -644,7 +644,7 @@
                     call h5fclose_f(h5f_whole, status)
 
                     call h5fclose_f(h5f_sub, status)
-                    if (dp_flag==1) then
+                    if (dp_flag) then
                         write (string_var,'(A, "_result/HIT_", I0, "^3_decay_", ES5.0E1, "_", A , "_dp_x0_", I0, "_nx0_", I0, "_sub.h5")') trim(timescheme), nx, dt0, trim(timescheme), x0, nx0
                     else
                         write (string_var,'(A, "_result/HIT_", I0, "^3_decay_", ES5.0E1, "_", A , "_p_x0_", I0, "_nx0_", I0, "_sub.h5")') trim(timescheme), nx, dt0, trim(timescheme), x0, nx0
@@ -652,7 +652,7 @@
                     call h5fopen_f(string_var, H5F_ACC_RDWR_F, h5f_sub, status)
 
                     call h5fclose_f(h5f_slice, status)
-                    if (dp_flag==1) then
+                    if (dp_flag) then
                         write (string_var,'(A, "_result/HIT_", I0,"^3_decay_", ES5.0E1, "_", A , "_dp_slice_", I0, ".h5")') trim(timescheme), nx, dt0, trim(timescheme), slice
                     else
                         write (string_var,'(A, "_result/HIT_", I0,"^3_decay_", ES5.0E1, "_", A , "_p_slice_", I0, ".h5")') trim(timescheme), nx, dt0, trim(timescheme), slice

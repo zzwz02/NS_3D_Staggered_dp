@@ -101,8 +101,8 @@
     real(8) :: dt0=4e-3  !4.0d-3, 2.0d-3, 1.0d-3, 5.0d-4, 2.5d-4
     character(*), parameter :: timescheme="AB2"
     ! pbc=1 Periodic; pbc=2 Dirichlet on boundary (cell wall); pbc=3 Neumann on boundary (cell wall); pbc=4 Dirichlet on ghost cell
-    integer, parameter :: dp_flag=0, bc_x=2, bc_y=bc_x, bc_z=bc_x, pbc_x=3, pbc_y=3, pbc_z=3, sub_tstep=1
-    logical, parameter :: using_Ustar=.true., TOffset=.false., restart=.false.
+    integer, parameter :: dp_flag=1, bc_x=2, bc_y=bc_x, bc_z=bc_x, pbc_x=3, pbc_y=3, pbc_z=3, sub_tstep=1
+    logical, parameter :: using_Ustar=.false., TOffset=.true., restart=.true.
     real(8), parameter :: noise=0
     real(8), dimension (:,:), allocatable :: err_vel, err_grad, rms_vel, rms_grad
     logical, parameter :: save_output=.false., LU_poisson=(.false. .and. nxp*nyp*nzp<=34**3), FFT_poisson=(pbc_x==1 .and. pbc_y==1 .and. pbc_z==1), DCT_poisson=(pbc_x/=1 .and. pbc_y/=1 .and. pbc_z/=1)
@@ -130,6 +130,7 @@
     allocate(temp31(nx+2,ny+2,nz+2))
 
     write (string_var2,'(A, "_", ES5.0E1)') trim(timescheme), dt0
+    if (.not. dp_flag) string_var2=trim(string_var2)//"_p"
     if (pbc_x==2) string_var2=trim(string_var2)//"_D"
     if (pbc_x==3) string_var2=trim(string_var2)//"_N"
     if (pbc_x==4) string_var2=trim(string_var2)//"_Dg"
@@ -216,11 +217,14 @@
         END DO
         phase=12
         iparm(1) = 0 ! no solver default
-        !iparm(2) = 2 ! fill-in reordering from METIS
+        call pardisoinit (pt, mtype, iparm)
+        print *,iparm(1)
+        iparm(2) = 3 ! parallel (OpenMP) version of the nested dissection algorithm
         !iparm(5) = 2 ! no user fill-in reducing permutation
         !iparm(11) = 1 ! use nonsymmetric permutation and scaling MPS
         !iparm(13) = 1 ! maximum weighted matching algorithm is switched-on (default for non-symmetric)
         !iparm(19) = -1 ! Output: Mflops for LU factorization
+        iparm(25)=1 ! Intel MKL PARDISO uses a parallel algorithm for the solve step.
 
         print *, "**************************************"
         print *, "LU of LHS_poisson start..."
@@ -334,13 +338,13 @@
     end if
 
     if (timescheme=="Euler") then
-        if (dp_flag==1) then
+        if (dp_flag) then
             write (big_DNS_file,'(A, "_result.MARCC/HIT_", I0, "^3_decay_", ES5.0E1, "_", A , "_dp_x0_", I0, "_nx0_", I0, "_sub.h5")') trim("AB2"), nx0, dt0, trim("AB2"), x0, nx
         else
             write (big_DNS_file,'(A, "_result.MARCC/HIT_", I0, "^3_decay_", ES5.0E1, "_", A , "_p_x0_", I0, "_nx0_", I0, "_sub.h5")') trim("AB2"), nx0, dt0, trim("AB2"), x0, nx
         end if
     else
-        if (dp_flag==1) then
+        if (dp_flag) then
             write (big_DNS_file,'(A, "_result.MARCC/HIT_", I0, "^3_decay_", ES5.0E1, "_", A , "_dp_x0_", I0, "_nx0_", I0, "_sub.h5")') trim(timescheme), nx0, dt0, trim(timescheme), x0, nx
         else
             write (big_DNS_file,'(A, "_result.MARCC/HIT_", I0, "^3_decay_", ES5.0E1, "_", A , "_p_x0_", I0, "_nx0_", I0, "_sub.h5")') trim(timescheme), nx0, dt0, trim(timescheme), x0, nx
@@ -369,9 +373,9 @@
 
             u=u_sub; v=v_sub; w=w_sub; p=p_sub;
 
-            !call TGV(xu, yu, zu, 0.0d0, nu, u)
-            !call TGV(xv, yv, zv, 0.0d0, nu, v=v)
-            !call TGV(xp, yp, zp, 0.0d0, nu, p=p)
+            !call TGV(xu(idx_xu), yu(idx_yu), zu(idx_zu), 0.0d0, nu, u)
+            !call TGV(xv(idx_xv), yv(idx_yv), zv(idx_zv), 0.0d0, nu, v=v)
+            !call TGV(xp(idx_xp), yp(idx_yp), zp(idx_zp), 0.0d0, nu, p=p)
         else
             write (string_var,'("t_", F0.4)') tGet
             call h5gopen_f(h5f_sub, string_var, h5g_sub, status)
@@ -409,7 +413,9 @@
             end if
 
             call h5gclose_f( h5g_sub, status)
-            dp_sub=p_sub-dp_flag*p
+            if (.not. dp_flag) then
+                dp_sub=p_sub
+            end if
 
             if (timescheme=="AB2-CN") then
                 call get_pr_bc(dp_sub, pbc_x, pbc_y, pbc_z, nx, ny, nz, dx, dy, dz, bx_p_1, bx_p_nx, by_p_1, by_p_ny, bz_p_1, bz_p_nz)
@@ -454,7 +460,7 @@
             end if
 
             !!! Convection
-            !$omp parallel sections
+            !$omp parallel sections if (nx<40)
             !$omp section
             call cal_conv(u, v, w, bc_x, bc_y, bc_z, dx, dy, dz, conv_x, conv_y, conv_z)
 
@@ -474,7 +480,7 @@
             !!! Time-advancement
             if (timescheme=="Euler") then
                 ! diff terms + conv terms
-                !$omp parallel sections
+                !$omp parallel sections if (nx<40)
                 !$omp section
                 rhs_x(x_range0,y_range1,z_range1)=nu*diff_x-conv_x;
                 u_star=dt0*(1.0d0*rhs_x-dp_flag*dpdx+1.0d0*f_term_x)+u;
@@ -499,7 +505,7 @@
 
                 ! prediction
                 if (.not. restart .and. t_step==1) then
-                    !$omp parallel sections
+                    !$omp parallel sections if (nx<40)
                     !$omp section
                     rhs_x(x_range0,y_range1,z_range1)=nu*diff_x-conv_x;
                     u_star=dt0*(1.0d0*rhs_x-dp_flag*dpdx+1.0d0*f_term_x)+u;
@@ -514,7 +520,7 @@
                     rhs_z_previous=rhs_z;
                     !$omp end parallel sections
                 else
-                    !$omp parallel sections
+                    !$omp parallel sections if (nx<40)
                     !$omp section
                     rhs_x(x_range0,y_range1,z_range1)=nu*diff_x-conv_x;
                     u_star=dt0*(1.5d0*rhs_x-0.5d0*rhs_x_previous-dp_flag*dpdx+1.0d0*f_term_x)+u;
@@ -540,7 +546,7 @@
                 ! prediction
                 if ( .not. restart .and. t_step==1 ) then
                     ! diff terms + conv terms
-                    !$omp parallel sections
+                    !$omp parallel sections if (nx<40)
                     !$omp section
                     rhs_x(x_range0,y_range1,z_range1)=0.5d0*nu*diff_x-conv_x;
                     u_star=dt0*(rhs_x-dp_flag*dpdx+1.0d0*f_term_x)+u;
@@ -556,7 +562,7 @@
                     !$omp end parallel sections
                 else
                     ! diff terms + conv terms
-                    !$omp parallel sections
+                    !$omp parallel sections if (nx<40)
                     !$omp section
                     rhs_x(x_range0,y_range1,z_range1)=0.5d0*nu*diff_x-1.5d0*conv_x;
                     u_star=dt0*(rhs_x-0.5d0*rhs_x_previous-dp_flag*dpdx+1.0d0*f_term_x)+u;
@@ -573,7 +579,7 @@
                 end if
 
                 call vel_bc_staggered_CN2(u_star, v_star, w_star, bx_u_1, bx_u_nx, bx_v_1, bx_v_nx, bx_w_1, bx_w_nx, bc_x, 1)
-                !$omp parallel do
+                !$omp parallel do if (nx<40)
                 do k=1,nz+2
                     call dttrsb( A_low, A_d, A_up, u_star(:,:,k) )
                     call dttrsb( B_low, B_d, B_up, v_star(:,:,k) )
@@ -582,7 +588,7 @@
                 !$omp end parallel do
 
                 call vel_bc_staggered_CN2(u_star, v_star, w_star, by_u_1, by_u_ny, by_v_1, by_v_ny, by_w_1, by_w_ny, bc_y, 2)
-                !$omp parallel do private(temp21)
+                !$omp parallel do private(temp21) if (nx<40)
                 do k=1,nz+2
                     temp21=transpose(u_star(:,:,k))
                     call dttrsb( D_low, D_d, D_up, temp21 )
@@ -601,7 +607,7 @@
                 !$omp end parallel do
 
                 call vel_bc_staggered_CN2(u_star, v_star, w_star, bz_u_1, bz_u_nz, bz_v_1, bz_v_nz, bz_w_1, bz_w_nz, bc_z, 3)
-                !$omp parallel do private(temp21)
+                !$omp parallel do private(temp21) if (nx<40)
                 do j=1,ny+2
                     temp21=transpose(u_star(:,j,:))
                     call dttrsb( F_low, F_d, F_up, temp21 )
@@ -682,11 +688,11 @@
                 status = DftiComputeBackward(hand_b, dft_out_c1(:,1,1), dft_out_r1(:,1,1))
                 !status = DftiComputeBackward(hand_b, dft_out_c(:,1,1))
                 !dft_out_r=dble(dft_out_c)
-                dp(2:nxp-1,2:nyp-1,2:nzp-1)=dft_out_r1
-                call pr_bc_staggered(dp, bx_p_1, bx_p_nx, by_p_1, by_p_ny, bz_p_1, bz_p_nz, pbc_x, pbc_y, pbc_z, dx, dy, dz)
-
                 CALL SYSTEM_CLOCK(c2)
                 print '("    Solve Poisson (FFT-based FD) completed: ", F8.4, " second")', (c2-c1)/system_clock_rate
+
+                dp(2:nxp-1,2:nyp-1,2:nzp-1)=dft_out_r1
+                call pr_bc_staggered(dp, bx_p_1, bx_p_nx, by_p_1, by_p_ny, bz_p_1, bz_p_nz, pbc_x, pbc_y, pbc_z, dx, dy, dz)
                 !print *, "**************************************"
             end if
 
@@ -699,11 +705,11 @@
                 call DCT_poisson_solver(rhs_tt, eig_tt, handle_x, handle_y, handle_z, &
                     ipar_x, ipar_y, ipar_z, dpar_x, dpar_y, dpar_z, nx, ny, nz, pbc_x, pbc_y, pbc_z, mean(dp_sub(2:nxp-1,2:nyp-1,2:nzp-1)))
 
-                dp(2:nxp-1,2:nyp-1,2:nzp-1)=rhs_tt(1:nx,1:ny,1:nz)
-                call pr_bc_staggered(dp, bx_p_1, bx_p_nx, by_p_1, by_p_ny, bz_p_1, bz_p_nz, pbc_x, pbc_y, pbc_z, dx, dy, dz)
-
                 CALL SYSTEM_CLOCK(c2)
                 print '("    Solve Poisson (DCT-based FD) completed: ", F8.4, " second")', (c2-c1)/system_clock_rate
+
+                dp(2:nxp-1,2:nyp-1,2:nzp-1)=rhs_tt(1:nx,1:ny,1:nz)
+                call pr_bc_staggered(dp, bx_p_1, bx_p_nx, by_p_1, by_p_ny, bz_p_1, bz_p_nz, pbc_x, pbc_y, pbc_z, dx, dy, dz)
             end if
             print *, maxval(abs(dp-dp(1,1,1)-dp_lu+dp_lu(1,1,1)))
             !temp31=dp-dp_lu
