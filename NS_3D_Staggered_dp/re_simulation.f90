@@ -7,7 +7,7 @@
     integer :: i=0,j=0,k=0,ll=0,mm=0
 
     logical, parameter :: init=.true.
-    real(8), parameter :: Re=1.0d0, nu=0.002d0, t_end=2.0d0
+    real(8), parameter :: Re=1.0d0, nu=0.002d0, t_end=1.3d0
     real(8) :: t_start
     !integer, parameter :: nx_file=256
     integer, parameter :: nx0=256, ny0=nx0, nz0=nx0, nxp0=nx0+2, nyp0=ny0+2, nzp0=nz0+2
@@ -105,7 +105,7 @@
     logical, parameter :: using_Ustar=.false., TOffset=.true., restart=.true.
     real(8), parameter :: noise=0
     real(8), dimension (:,:), allocatable :: err_vel, err_grad, rms_vel, rms_grad
-    logical, parameter :: save_output=.false., LU_poisson=(.false. .and. nxp*nyp*nzp<=34**3), FFT_poisson=(pbc_x==1 .and. pbc_y==1 .and. pbc_z==1), DCT_poisson=(pbc_x/=1 .and. pbc_y/=1 .and. pbc_z/=1)
+    logical, parameter :: save_output=.true., LU_poisson=(.false. .and. nxp*nyp*nzp<=34**3), FFT_poisson=(pbc_x==1 .and. pbc_y==1 .and. pbc_z==1), DCT_poisson=(pbc_x/=1 .and. pbc_y/=1 .and. pbc_z/=1)
 
     call OMP_set_dynamic(.true.)
     ! First initialize the system_clock
@@ -369,6 +369,9 @@
             call h5ltread_dataset_double_f(h5g_sub, 'rhs_x_previous', rhs_x_previous, [nx+1_8,ny+2_8,nz+2_8], status)
             call h5ltread_dataset_double_f(h5g_sub, 'rhs_y_previous', rhs_y_previous, [nx+2_8,ny+1_8,nz+2_8], status)
             call h5ltread_dataset_double_f(h5g_sub, 'rhs_z_previous', rhs_z_previous, [nx+2_8,ny+2_8,nz+1_8], status)
+            !call h5ltread_dataset_double_f(h5g_sub, 'u_star_sub', u_star_sub, [nx+1_8,ny+2_8,nz+2_8], status)
+            !call h5ltread_dataset_double_f(h5g_sub, 'v_star_sub', v_star_sub, [nx+2_8,ny+1_8,nz+2_8], status)
+            !call h5ltread_dataset_double_f(h5g_sub, 'w_star_sub', w_star_sub, [nx+2_8,ny+2_8,nz+1_8], status)
             call h5gclose_f( h5g_sub, status)
 
             u=u_sub; v=v_sub; w=w_sub; p=p_sub;
@@ -379,7 +382,7 @@
         else
             write (string_var,'("t_", F0.4)') tGet
             call h5gopen_f(h5f_sub, string_var, h5g_sub, status)
-
+            
             call h5ltread_dataset_double_f(h5g_sub, 'u_sub', u_sub, [nx+1_8,ny+2_8,nz+2_8], status)
             call h5ltread_dataset_double_f(h5g_sub, 'v_sub', v_sub, [nx+2_8,ny+1_8,nz+2_8], status)
             call h5ltread_dataset_double_f(h5g_sub, 'w_sub', w_sub, [nx+2_8,ny+2_8,nz+1_8], status)
@@ -396,14 +399,14 @@
                 call h5ltread_dataset_double_f(h5g_sub, 'bx_v_nxs', bx_v_nx, [ny+1_8,nz+2_8], status)
                 call h5ltread_dataset_double_f(h5g_sub, 'bx_w_1s', bx_w_1, [ny+2_8,nz+1_8], status)
                 call h5ltread_dataset_double_f(h5g_sub, 'bx_w_nxs', bx_w_nx, [ny+2_8,nz+1_8], status)
-
+            
                 call h5ltread_dataset_double_f(h5g_sub, 'by_u_1s', by_u_1, [nx+1_8,nz+2_8], status)
                 call h5ltread_dataset_double_f(h5g_sub, 'by_u_nys', by_u_ny, [nx+1_8,nz+2_8], status)
                 call h5ltread_dataset_double_f(h5g_sub, 'by_v_1s', by_v_1, [nx+2_8,nz+2_8], status)
                 call h5ltread_dataset_double_f(h5g_sub, 'by_v_nys', by_v_ny, [nx+2_8,nz+2_8], status)
                 call h5ltread_dataset_double_f(h5g_sub, 'by_w_1s', by_w_1, [nx+2_8,nz+1_8], status)
                 call h5ltread_dataset_double_f(h5g_sub, 'by_w_nys', by_w_ny, [nx+2_8,nz+1_8], status)
-
+            
                 call h5ltread_dataset_double_f(h5g_sub, 'bz_u_1s', bz_u_1, [nx+1_8,ny+2_8], status)
                 call h5ltread_dataset_double_f(h5g_sub, 'bz_u_nzs', bz_u_nz, [nx+1_8,ny+2_8], status)
                 call h5ltread_dataset_double_f(h5g_sub, 'bz_v_1s', bz_v_1, [nx+2_8,ny+1_8], status)
@@ -411,7 +414,7 @@
                 call h5ltread_dataset_double_f(h5g_sub, 'bz_w_1s', bz_w_1, [nx+2_8,ny+2_8], status)
                 call h5ltread_dataset_double_f(h5g_sub, 'bz_w_nzs', bz_w_nz, [nx+2_8,ny+2_8], status)
             end if
-
+            
             call h5gclose_f( h5g_sub, status)
             if (.not. dp_flag) then
                 dp_sub=p_sub
@@ -422,34 +425,34 @@
             else if (using_Ustar) then
                 call get_velpr_bc(u_star_sub, v_star_sub, w_star_sub, dp_sub, bc_x, bc_y, bc_z, pbc_x, pbc_y, pbc_z, nx, ny, nz, dx, dy, dz, &
                     bx_u_1, bx_u_nx, by_u_1, by_u_ny, bz_u_1, bz_u_nz, bx_v_1, bx_v_nx, by_v_1, by_v_ny, bz_v_1, bz_v_nz, &
-                    bx_w_1, bx_w_nx, by_w_1, by_w_ny, bz_w_1, bz_w_nz, bx_p_1, bx_p_nx, by_p_1, by_p_ny, bz_p_1, bz_p_nz)
+                    bx_w_1, bx_w_nx, by_w_1, by_w_ny, bz_w_1, bz_w_nz, bx_p_1, bx_p_nx, by_p_1, by_p_ny, bz_p_1, bz_p_nz, dt0, dp_flag, using_Ustar)
             else
                 call get_velpr_bc(u_sub, v_sub, w_sub, dp_sub, bc_x, bc_y, bc_z, pbc_x, pbc_y, pbc_z, nx, ny, nz, dx, dy, dz, &
                     bx_u_1, bx_u_nx, by_u_1, by_u_ny, bz_u_1, bz_u_nz, bx_v_1, bx_v_nx, by_v_1, by_v_ny, bz_v_1, bz_v_nz, &
-                    bx_w_1, bx_w_nx, by_w_1, by_w_ny, bz_w_1, bz_w_nz, bx_p_1, bx_p_nx, by_p_1, by_p_ny, bz_p_1, bz_p_nz)
+                    bx_w_1, bx_w_nx, by_w_1, by_w_ny, bz_w_1, bz_w_nz, bx_p_1, bx_p_nx, by_p_1, by_p_ny, bz_p_1, bz_p_nz, dt0, dp_flag, using_Ustar)
             end if
 
             if (noise>0) then
-                bx_u_1 =whiteNoise2(bx_u_1, noise)
-                bx_u_nx=whiteNoise2(bx_u_nx,noise)
-                bx_v_1 =whiteNoise2(bx_v_1, noise)
-                bx_v_nx=whiteNoise2(bx_v_nx,noise)
-                bx_w_1 =whiteNoise2(bx_w_1, noise)
-                bx_w_nx=whiteNoise2(bx_w_nx,noise)
+                bx_u_1 =noise*dt0*dt0+bx_u_1!whiteNoise2(bx_u_1, noise)
+                bx_u_nx=noise*dt0*dt0+bx_u_nx!whiteNoise2(bx_u_nx,noise)
+                bx_v_1 =noise*dt0*dt0+bx_v_1!whiteNoise2(bx_v_1, noise)
+                bx_v_nx=noise*dt0*dt0+bx_v_nx!whiteNoise2(bx_v_nx,noise)
+                bx_w_1 =noise*dt0*dt0+bx_w_1!whiteNoise2(bx_w_1, noise)
+                bx_w_nx=noise*dt0*dt0+bx_w_nx!whiteNoise2(bx_w_nx,noise)
 
-                by_u_1 =whiteNoise2(by_u_1, noise)
-                by_u_ny=whiteNoise2(by_u_ny,noise)
-                by_v_1 =whiteNoise2(by_v_1, noise)
-                by_v_ny=whiteNoise2(by_v_ny,noise)
-                by_w_1 =whiteNoise2(by_w_1, noise)
-                by_w_ny=whiteNoise2(by_w_ny,noise)
+                by_u_1 =noise*dt0*dt0+by_u_1!whiteNoise2(by_u_1, noise)
+                by_u_ny=noise*dt0*dt0+by_u_ny!whiteNoise2(by_u_ny,noise)
+                by_v_1 =noise*dt0*dt0+by_v_1!whiteNoise2(by_v_1, noise)
+                by_v_ny=noise*dt0*dt0+by_v_ny!whiteNoise2(by_v_ny,noise)
+                by_w_1 =noise*dt0*dt0+by_w_1!whiteNoise2(by_w_1, noise)
+                by_w_ny=noise*dt0*dt0+by_w_ny!whiteNoise2(by_w_ny,noise)
 
-                bz_u_1 =whiteNoise2(bz_u_1, noise)
-                bz_u_nz=whiteNoise2(bz_u_nz,noise)
-                bz_v_1 =whiteNoise2(bz_v_1, noise)
-                bz_v_nz=whiteNoise2(bz_v_nz,noise)
-                bz_w_1 =whiteNoise2(bz_w_1, noise)
-                bz_w_nz=whiteNoise2(bz_w_nz,noise)
+                bz_u_1 =noise*dt0*dt0+bz_u_1!whiteNoise2(bz_u_1, noise)
+                bz_u_nz=noise*dt0*dt0+bz_u_nz!whiteNoise2(bz_u_nz,noise)
+                bz_v_1 =noise*dt0*dt0+bz_v_1!whiteNoise2(bz_v_1, noise)
+                bz_v_nz=noise*dt0*dt0+bz_v_nz!whiteNoise2(bz_v_nz,noise)
+                bz_w_1 =noise*dt0*dt0+bz_w_1!whiteNoise2(bz_w_1, noise)
+                bz_w_nz=noise*dt0*dt0+bz_w_nz!whiteNoise2(bz_w_nz,noise)
 
                 !bx_p_1 =whiteNoise2(bx_p_1, noise)
                 !bx_p_nx=whiteNoise2(bx_p_nx,noise)
@@ -470,9 +473,11 @@
 
             !!! Pressure gradients
             !$omp section
-            dpdx=diff(p,1,1)/dx;
-            dpdy=diff(p,1,2)/dy;
-            dpdz=diff(p,1,3)/dz;
+            if (dp_flag) then
+                dpdx=diff(p,1,1)/dx;
+                dpdy=diff(p,1,2)/dy;
+                dpdz=diff(p,1,3)/dz;
+            end if
 
             f_term_x=0; f_term_y=0; f_term_z=0;
             !$omp end parallel sections
@@ -711,7 +716,7 @@
                 dp(2:nxp-1,2:nyp-1,2:nzp-1)=rhs_tt(1:nx,1:ny,1:nz)
                 call pr_bc_staggered(dp, bx_p_1, bx_p_nx, by_p_1, by_p_ny, bz_p_1, bz_p_nz, pbc_x, pbc_y, pbc_z, dx, dy, dz)
             end if
-            print *, maxval(abs(dp-dp(1,1,1)-dp_lu+dp_lu(1,1,1)))
+            !print *, mean(dp(2:nxp-1,2:nyp-1,2:nzp-1)), mean(dp_sub(2:nxp-1,2:nyp-1,2:nzp-1))
             !temp31=dp-dp_lu
 
             !OPEN(10, file="poisson_eq.dat", form="unformatted")
@@ -745,7 +750,7 @@
             diff_old(w(2:ubound(w,1)-1,2:ubound(w,2)-1,:),1,3)/dz;
 
         rms_vel(1,t_step)=rms(u_sub);                             rms_vel(2,t_step)=rms(v_sub);                             rms_vel(3,t_step)=rms(w_sub);                             rms_vel(4,t_step)=rms(p_sub)
-        err_vel(1,t_step)=maxval(abs(u-u_sub))/rms_vel(1,t_step); err_vel(2,t_step)=maxval(abs(v-v_sub))/rms_vel(2,t_step); err_vel(3,t_step)=maxval(abs(w-w_sub))/rms_vel(3,t_step); err_vel(4,t_step)=maxval(abs(p-p_sub))/rms_vel(4,t_step);
+        err_vel(1,t_step)=maxval(abs(u-u_sub)); err_vel(2,t_step)=maxval(abs(v-v_sub)); err_vel(3,t_step)=maxval(abs(w-w_sub)); err_vel(4,t_step)=maxval(abs(p-p_sub));
         err_vel(5,t_step)=mean(abs(u-u_sub))/rms_vel(1,t_step);   err_vel(6,t_step)=mean(abs(v-v_sub))/rms_vel(2,t_step);   err_vel(7,t_step)=mean(abs(w-w_sub))/rms_vel(3,t_step);   err_vel(8,t_step)=maxval(abs(dp-dp_sub))/rms(dp_sub);
 
         write(*,'("   MAX vel/pr error: ", 100g15.5)') err_vel(1:4,t_step)

@@ -231,6 +231,7 @@
     nu=ubound(u_star)
     nv=ubound(v_star)
     nw=ubound(w_star)
+
     !!!!!!!!!!!!!! X component !!!!!!!!!!!!!!
     if (bc_x==1) then
         u_star(nu(1),:,:)=u_star(1      ,:,:)
@@ -412,81 +413,96 @@
 
     subroutine get_velpr_bc(u_bc, v_bc, w_bc, p_bc, bc_x, bc_y, bc_z, pbc_x, pbc_y, pbc_z, nx, ny, nz, dx, dy, dz, &
         bx_u_1, bx_u_nx, by_u_1, by_u_ny, bz_u_1, bz_u_nz, bx_v_1, bx_v_nx, by_v_1, by_v_ny, bz_v_1, bz_v_nz, &
-        bx_w_1, bx_w_nx, by_w_1, by_w_ny, bz_w_1, bz_w_nz, bx_p_1, bx_p_nx, by_p_1, by_p_ny, bz_p_1, bz_p_nz)
+        bx_w_1, bx_w_nx, by_w_1, by_w_ny, bz_w_1, bz_w_nz, bx_p_1, bx_p_nx, by_p_1, by_p_ny, bz_p_1, bz_p_nz, dt, dp_flag, using_Ustar)
     implicit none
 
-    integer, intent(in) :: bc_x, bc_y, bc_z, pbc_x, pbc_y, pbc_z, nx, ny, nz
-    real(8), intent(in) :: dx, dy, dz
-    real(8), intent(in) :: u_bc(nx+1, ny+2, nz+2), v_bc(nx+2, ny+1, nz+2), w_bc(nx+2, ny+2, nz+1), p_bc(nx+2, ny+2, nz+2)
+    integer, intent(in) :: bc_x, bc_y, bc_z, pbc_x, pbc_y, pbc_z, nx, ny, nz, dp_flag
+    real(8), intent(in) :: dx, dy, dz, dt
+    real(8), intent(inout) :: u_bc(nx+1, ny+2, nz+2), v_bc(nx+2, ny+1, nz+2), w_bc(nx+2, ny+2, nz+1), p_bc(nx+2, ny+2, nz+2)
     real(8), intent(out) :: bx_u_1(ny+2,nz+2), bx_u_nx(ny+2,nz+2), by_u_1(nx+1,nz+2), by_u_ny(nx+1,nz+2), bz_u_1(nx+1,ny+2), bz_u_nz(nx+1,ny+2)
     real(8), intent(out) :: bx_v_1(ny+1,nz+2), bx_v_nx(ny+1,nz+2), by_v_1(nx+2,nz+2), by_v_ny(nx+2,nz+2), bz_v_1(nx+2,ny+1), bz_v_nz(nx+2,ny+1)
     real(8), intent(out) :: bx_w_1(ny+2,nz+1), bx_w_nx(ny+2,nz+1), by_w_1(nx+2,nz+1), by_w_ny(nx+2,nz+1), bz_w_1(nx+2,ny+2), bz_w_nz(nx+2,ny+2)
     real(8), intent(out) :: bx_p_1(ny+2,nz+2), bx_p_nx(ny+2,nz+2), by_p_1(nx+2,nz+2), by_p_ny(nx+2,nz+2), bz_p_1(nx+2,ny+2), bz_p_nz(nx+2,ny+2)
+    logical, intent(in) :: using_Ustar
 
-    integer :: nxp, nyp, nzp
+    integer :: nxp, nyp, nzp, alpha
+    real(8) :: u_bc_corr(nx+1, ny+2, nz+2), v_bc_corr(nx+2, ny+1, nz+2), w_bc_corr(nx+2, ny+2, nz+1)
 
     nxp=nx+2; nyp=ny+2; nzp=nz+2
+
+
+    if (bc_x/=1 .or. bc_y/=1 .or. bc_z/=1) then
+        if (.not. (dp_flag .or. using_Ustar)) then
+            u_bc_corr=u_bc+diff(p_bc,1,1)/dx*dt;
+            v_bc_corr=v_bc+diff(p_bc,1,2)/dy*dt;
+            w_bc_corr=w_bc+diff(p_bc,1,3)/dz*dt;
+        else
+            u_bc_corr=u_bc;
+            v_bc_corr=v_bc;
+            w_bc_corr=w_bc;
+        end if
+    end if
 
     !$omp parallel sections
     !$omp section
     if (bc_x==2) then
-        bx_u_1 =u_bc(1,:,:);
-        bx_u_nx=u_bc(nx+1,:,:);
+        bx_u_1 =u_bc_corr(1,:,:);
+        bx_u_nx=u_bc_corr(nx+1,:,:);
 
-        bx_v_1 =(v_bc(1,:,:)+v_bc(2,:,:))/2;
-        bx_v_nx=(v_bc(nx+2,:,:)+v_bc(nx+2-1,:,:))/2;
+        bx_v_1 =(v_bc_corr(1,:,:)+v_bc_corr(2,:,:))/2;
+        bx_v_nx=(v_bc_corr(nx+2,:,:)+v_bc_corr(nx+2-1,:,:))/2;
 
-        bx_w_1 =(w_bc(1,:,:)+w_bc(2,:,:))/2;
-        bx_w_nx=(w_bc(nx+2,:,:)+w_bc(nx+2-1,:,:))/2;
+        bx_w_1 =(w_bc_corr(1,:,:)+w_bc_corr(2,:,:))/2;
+        bx_w_nx=(w_bc_corr(nx+2,:,:)+w_bc_corr(nx+2-1,:,:))/2;
     else if (bc_x==4) then
-        bx_u_1 =u_bc(1,:,:);
-        bx_u_nx=u_bc(nx+1,:,:);
+        bx_u_1 =u_bc_corr(1,:,:);
+        bx_u_nx=u_bc_corr(nx+1,:,:);
 
-        bx_v_1 =v_bc(1,:,:);
-        bx_v_nx=v_bc(nx+2,:,:);
+        bx_v_1 =v_bc_corr(1,:,:);
+        bx_v_nx=v_bc_corr(nx+2,:,:);
 
-        bx_w_1 =w_bc(1,:,:);
-        bx_w_nx=w_bc(nx+2,:,:);
+        bx_w_1 =w_bc_corr(1,:,:);
+        bx_w_nx=w_bc_corr(nx+2,:,:);
     end if
     !$omp section
     if (bc_y==2) then
-        by_u_1 =(u_bc(:,1,:)+u_bc(:,2,:))/2;
-        by_u_ny=(u_bc(:,ny+2,:)+u_bc(:,ny+2-1,:))/2;
+        by_u_1 =(u_bc_corr(:,1,:)+u_bc_corr(:,2,:))/2;
+        by_u_ny=(u_bc_corr(:,ny+2,:)+u_bc_corr(:,ny+2-1,:))/2;
 
-        by_v_1 =v_bc(:,1,:);
-        by_v_ny=v_bc(:,ny+1,:);
+        by_v_1 =v_bc_corr(:,1,:);
+        by_v_ny=v_bc_corr(:,ny+1,:);
 
-        by_w_1 =(w_bc(:,1,:)+w_bc(:,2,:))/2;
-        by_w_ny=(w_bc(:,ny+2,:)+w_bc(:,ny+2-1,:))/2;
+        by_w_1 =(w_bc_corr(:,1,:)+w_bc_corr(:,2,:))/2;
+        by_w_ny=(w_bc_corr(:,ny+2,:)+w_bc_corr(:,ny+2-1,:))/2;
     else if (bc_y==4) then
-        by_u_1 =u_bc(:,1,:);
-        by_u_ny=u_bc(:,ny+2,:);
+        by_u_1 =u_bc_corr(:,1,:);
+        by_u_ny=u_bc_corr(:,ny+2,:);
 
-        by_v_1 =v_bc(:,1,:);
-        by_v_ny=v_bc(:,ny+1,:);
+        by_v_1 =v_bc_corr(:,1,:);
+        by_v_ny=v_bc_corr(:,ny+1,:);
 
-        by_w_1 =w_bc(:,1,:);
-        by_w_ny=w_bc(:,ny+2,:);
+        by_w_1 =w_bc_corr(:,1,:);
+        by_w_ny=w_bc_corr(:,ny+2,:);
     end if
     !$omp section
     if (bc_z==2) then
-        bz_u_1 =(u_bc(:,:,1)+u_bc(:,:,2))/2;
-        bz_u_nz=(u_bc(:,:,nz+2)+u_bc(:,:,nz+2-1))/2;
+        bz_u_1 =(u_bc_corr(:,:,1)+u_bc_corr(:,:,2))/2;
+        bz_u_nz=(u_bc_corr(:,:,nz+2)+u_bc_corr(:,:,nz+2-1))/2;
 
-        bz_v_1 =(v_bc(:,:,1)+v_bc(:,:,2))/2;
-        bz_v_nz=(v_bc(:,:,nz+2)+v_bc(:,:,nz+2-1))/2;
+        bz_v_1 =(v_bc_corr(:,:,1)+v_bc_corr(:,:,2))/2;
+        bz_v_nz=(v_bc_corr(:,:,nz+2)+v_bc_corr(:,:,nz+2-1))/2;
 
-        bz_w_1 =w_bc(:,:,1);
-        bz_w_nz=w_bc(:,:,nz+1);
+        bz_w_1 =w_bc_corr(:,:,1);
+        bz_w_nz=w_bc_corr(:,:,nz+1);
     else if (bc_z==4) then
-        bz_u_1 =u_bc(:,:,1);
-        bz_u_nz=u_bc(:,:,nz+2);
+        bz_u_1 =u_bc_corr(:,:,1);
+        bz_u_nz=u_bc_corr(:,:,nz+2);
 
-        bz_v_1 =v_bc(:,:,1);
-        bz_v_nz=v_bc(:,:,nz+2);
+        bz_v_1 =v_bc_corr(:,:,1);
+        bz_v_nz=v_bc_corr(:,:,nz+2);
 
-        bz_w_1 =w_bc(:,:,1);
-        bz_w_nz=w_bc(:,:,nz+1);
+        bz_w_1 =w_bc_corr(:,:,1);
+        bz_w_nz=w_bc_corr(:,:,nz+1);
     end if
     !$omp end parallel sections
     call get_pr_bc(p_bc, pbc_x, pbc_y, pbc_z, nx, ny, nz, dx, dy, dz, bx_p_1, bx_p_nx, by_p_1, by_p_ny, bz_p_1, bz_p_nz)

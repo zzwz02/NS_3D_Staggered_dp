@@ -4,7 +4,7 @@ clc
 nx=32; ny=nx; nz=nx; t_start=1;
 dt0=[4e-3,2e-3,1e-3,5e-4,2.5e-4];
 sub_tstep=[2,3,4,5,10,20,50,100,1000];
-t_span=[-4:5];
+t_span=[-40:50];
 interp_scheme='spline';
 
 temp=length(t_span);

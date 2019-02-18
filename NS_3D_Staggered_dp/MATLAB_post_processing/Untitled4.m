@@ -19,7 +19,7 @@ for T=1:20
         
         temp=h5info(resim_file);
         %if (idx==1)
-            gName=temp.Groups(T+0).Name;
+            gName=temp.Groups(T+1).Name;
         %end
         u_star=h5read(resim_file,[gName,'/u_star_sub']); %u=u(:,2:end-1,2:end-1);
         RHS=h5read(resim_file,[gName,'/RHS_poisson_sub']); RHS=RHS(2:end-1,2:end-1,2:end-1);

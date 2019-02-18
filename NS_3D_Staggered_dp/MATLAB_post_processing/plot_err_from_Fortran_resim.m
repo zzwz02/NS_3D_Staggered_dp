@@ -6,7 +6,7 @@ t_start=1; t_end=2;
 dt=[4e-3, 2e-3, 1e-3, 5e-4, 2.5e-4];
 dt_string={'4.E-3','2.E-3','1.E-3','5.E-4','3.E-4'};
 
-idx=5;
+idx=1;
 t=[t_start:dt(idx):t_end];
 err_dp_max=zeros(length(t),1);
 resim_file=['../err_file/err_vel_AB2_',dt_string{idx},'_N_U_TOffset_restart.h5'];
@@ -26,7 +26,7 @@ for i=2:length(t)
 %     u_star_sub=h5read(bigDNS_file,[gName,'/u_star_sub']); %u_sub=u_sub(:,2:end-1,2:end-1);
 %     RHS_sub=h5read(bigDNS_file,[gName,'/RHS_poisson_sub']); RHS_sub=RHS_sub(2:end-1,2:end-1,2:end-1);
     p_sub=h5read(bigDNS_file,[gName,'/p_sub']); %p_sub=p_sub-mean(p_sub(:));
-    dp_sub=p_sub-h5read(resim_file,[temp.Groups(i-1).Name,'/p_sub']);
+    dp_sub=h5read(bigDNS_file,[gName,'/dp_sub']); %p_sub=p_sub-mean(p_sub(:));
 %     u_sub=h5read(bigDNS_file,[gName,'/u_sub']); %u=u(:,2:end-1,2:end-1);;
     
 %     err_u_star=u_star-u_star_sub;

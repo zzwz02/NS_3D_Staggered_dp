@@ -361,14 +361,19 @@
     else
         write (big_DNS_file,'(A, "_result.MARCC/HIT_", I0, "^3_decay_", ES5.0E1, "_", A , "_p_x0_", I0, "_nx0_", I0, "_sub.h5")') trim(timescheme), nx0, dt0, trim(timescheme), x0, nx
     end if
-    call h5fopen_f(string_var, H5F_ACC_RDONLY_F, h5f_sub, status)
+    call h5fopen_f(big_DNS_file, H5F_ACC_RDONLY_F, h5f_sub, status)
 
     if (comp_base) then
-        if (sub_tstep==1000) then
+        if (dp_flag) then
             write (string_var,'("err_file/spline/", ES5.0E1, "_sub_tstep1000_base.h5")') dt0
+        else
+            write (string_var,'("err_file/spline/p", ES5.0E1, "_sub_tstep1000_base.h5")') dt0
+        end if
+
+        if (sub_tstep==1000) then
+
             call h5fcreate_f(string_var, H5F_ACC_EXCL_F, h5f_slice, status)
         else
-            write (string_var,'("err_file/spline/", ES5.0E1, "_sub_tstep1000_base.h5")') dt0
             call h5fopen_f(string_var, H5F_ACC_RDONLY_F, h5f_slice, status)
         end if
     end if
@@ -459,11 +464,11 @@
             else if (using_Ustar) then
                 call get_velpr_bc(u_star_sub, v_star_sub, w_star_sub, dp_sub, bc_x, bc_y, bc_z, pbc_x, pbc_y, pbc_z, nx, ny, nz, dx, dy, dz, &
                     bx_u_1, bx_u_nx, by_u_1, by_u_ny, bz_u_1, bz_u_nz, bx_v_1, bx_v_nx, by_v_1, by_v_ny, bz_v_1, bz_v_nz, &
-                    bx_w_1, bx_w_nx, by_w_1, by_w_ny, bz_w_1, bz_w_nz, bx_p_1, bx_p_nx, by_p_1, by_p_ny, bz_p_1, bz_p_nz)
+                    bx_w_1, bx_w_nx, by_w_1, by_w_ny, bz_w_1, bz_w_nz, bx_p_1, bx_p_nx, by_p_1, by_p_ny, bz_p_1, bz_p_nz, dt, dp_flag, using_Ustar)
             else
                 call get_velpr_bc(u_sub, v_sub, w_sub, dp_sub, bc_x, bc_y, bc_z, pbc_x, pbc_y, pbc_z, nx, ny, nz, dx, dy, dz, &
                     bx_u_1, bx_u_nx, by_u_1, by_u_ny, bz_u_1, bz_u_nz, bx_v_1, bx_v_nx, by_v_1, by_v_ny, bz_v_1, bz_v_nz, &
-                    bx_w_1, bx_w_nx, by_w_1, by_w_ny, bz_w_1, bz_w_nz, bx_p_1, bx_p_nx, by_p_1, by_p_ny, bz_p_1, bz_p_nz)
+                    bx_w_1, bx_w_nx, by_w_1, by_w_ny, bz_w_1, bz_w_nz, bx_p_1, bx_p_nx, by_p_1, by_p_ny, bz_p_1, bz_p_nz, dt, dp_flag, using_Ustar)
             end if
 
             !!! Convection
@@ -477,9 +482,11 @@
 
             !!! Pressure gradients
             !$omp section
-            dpdx=diff(p,1,1)/dx;
-            dpdy=diff(p,1,2)/dy;
-            dpdz=diff(p,1,3)/dz;
+            if (dp_flag) then
+                dpdx=diff(p,1,1)/dx;
+                dpdy=diff(p,1,2)/dy;
+                dpdz=diff(p,1,3)/dz;
+            end if
 
             f_term_x=0; f_term_y=0; f_term_z=0;
             !$omp end parallel sections
@@ -832,7 +839,11 @@
     call h5fclose_f(h5f_sub, status)
     call h5close_f(status)
 
-    write (string_var,'("err_file/", A, "/err_vel_", A, ".txt")') trim(interp_scheme), trim(string_var2)
+    if (dp_flag) then
+        write (string_var,'("err_file/", A, "/err_vel_", A, ".txt")') trim(interp_scheme), trim(string_var2)
+    else
+        write (string_var,'("err_file/", A, "/perr_vel_", A, ".txt")') trim(interp_scheme), trim(string_var2)
+    end if
     OPEN(10, file=string_var, form="formatted")
     write(10,'("time_step, rel_err_u, rel_err_v, rel_err_w, rel_err_p, rel_err_u_m, rel_err_v_m, rel_err_w_m, rel_err_p_m")')
     do j=0,time_length
@@ -849,7 +860,12 @@
     CLOSE(10)
 
     if (comp_base .and. sub_tstep/=1000) then
-        write (string_var,'("err_file/", A, "/base_err_vel_", A, ".txt")') trim(interp_scheme), trim(string_var2)
+        if (dp_flag) then
+            write (string_var,'("err_file/", A, "/base_err_vel_", A, ".txt")') trim(interp_scheme), trim(string_var2)
+        else
+            write (string_var,'("err_file/", A, "/pbase_err_vel_", A, ".txt")') trim(interp_scheme), trim(string_var2)
+        end if
+
         OPEN(10, file=string_var, form="formatted")
         write(10,'("time_step, rel_err_u, rel_err_v, rel_err_w, rel_err_p, rel_err_u_m, rel_err_v_m, rel_err_w_m, rel_err_p_m")')
         do j=0,time_length
