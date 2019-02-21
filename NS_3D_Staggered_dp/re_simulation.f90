@@ -7,7 +7,7 @@
     integer :: i=0,j=0,k=0,ll=0,mm=0
 
     logical, parameter :: init=.true.
-    real(8), parameter :: Re=1.0d0, nu=0.002d0, t_end=1.3d0
+    real(8), parameter :: Re=1.0d0, nu=0.002d0, t_end=2.0d0
     real(8) :: t_start
     !integer, parameter :: nx_file=256
     integer, parameter :: nx0=256, ny0=nx0, nz0=nx0, nxp0=nx0+2, nyp0=ny0+2, nzp0=nz0+2
@@ -102,10 +102,10 @@
     character(*), parameter :: timescheme="AB2"
     ! pbc=1 Periodic; pbc=2 Dirichlet on boundary (cell wall); pbc=3 Neumann on boundary (cell wall); pbc=4 Dirichlet on ghost cell
     integer, parameter :: dp_flag=1, bc_x=2, bc_y=bc_x, bc_z=bc_x, pbc_x=3, pbc_y=3, pbc_z=3, sub_tstep=1
-    logical, parameter :: using_Ustar=.false., TOffset=.true., restart=.true.
+    logical, parameter :: using_Ustar=.true., TOffset=.true., restart=.true.
     real(8), parameter :: noise=0
     real(8), dimension (:,:), allocatable :: err_vel, err_grad, rms_vel, rms_grad
-    logical, parameter :: save_output=.true., LU_poisson=(.false. .and. nxp*nyp*nzp<=34**3), FFT_poisson=(pbc_x==1 .and. pbc_y==1 .and. pbc_z==1), DCT_poisson=(pbc_x/=1 .and. pbc_y/=1 .and. pbc_z/=1)
+    logical, parameter :: save_output=.false., LU_poisson=(.false. .and. nxp*nyp*nzp<=34**3), FFT_poisson=(pbc_x==1 .and. pbc_y==1 .and. pbc_z==1), DCT_poisson=(pbc_x/=1 .and. pbc_y/=1 .and. pbc_z/=1)
 
     call OMP_set_dynamic(.true.)
     ! First initialize the system_clock
@@ -138,7 +138,7 @@
     if (.not. using_Ustar) string_var2=trim(string_var2)//"_U"
     if (TOffset) string_var2=trim(string_var2)//"_TOffset"
     if (restart) string_var2=trim(string_var2)//"_restart"
-    if (noise/=0.0d0) write (string_var2,'(A, "_noise", ES5.0E1)') trim(string_var2), noise
+    if (noise/=0.0d0) write (string_var2,'(A, "_1noise", ES6.0E2)') trim(string_var2), noise
     if (sub_tstep/=1) write (string_var2,'(A, "_sub_tstep", I0)') trim(string_var2), sub_tstep
 
     if (bc_x==1) then
@@ -432,27 +432,27 @@
                     bx_w_1, bx_w_nx, by_w_1, by_w_ny, bz_w_1, bz_w_nz, bx_p_1, bx_p_nx, by_p_1, by_p_ny, bz_p_1, bz_p_nz, dt0, dp_flag, using_Ustar)
             end if
 
-            if (noise>0) then
-                bx_u_1 =noise*dt0*dt0+bx_u_1!whiteNoise2(bx_u_1, noise)
-                bx_u_nx=noise*dt0*dt0+bx_u_nx!whiteNoise2(bx_u_nx,noise)
-                bx_v_1 =noise*dt0*dt0+bx_v_1!whiteNoise2(bx_v_1, noise)
-                bx_v_nx=noise*dt0*dt0+bx_v_nx!whiteNoise2(bx_v_nx,noise)
-                bx_w_1 =noise*dt0*dt0+bx_w_1!whiteNoise2(bx_w_1, noise)
-                bx_w_nx=noise*dt0*dt0+bx_w_nx!whiteNoise2(bx_w_nx,noise)
+            if (noise>0 .and. t_step==1) then
+                bx_u_1 =whiteNoise2(bx_u_1, noise)
+                bx_u_nx=whiteNoise2(bx_u_nx,noise)
+                bx_v_1 =whiteNoise2(bx_v_1, noise)
+                bx_v_nx=whiteNoise2(bx_v_nx,noise)
+                bx_w_1 =whiteNoise2(bx_w_1, noise)
+                bx_w_nx=whiteNoise2(bx_w_nx,noise)
 
-                by_u_1 =noise*dt0*dt0+by_u_1!whiteNoise2(by_u_1, noise)
-                by_u_ny=noise*dt0*dt0+by_u_ny!whiteNoise2(by_u_ny,noise)
-                by_v_1 =noise*dt0*dt0+by_v_1!whiteNoise2(by_v_1, noise)
-                by_v_ny=noise*dt0*dt0+by_v_ny!whiteNoise2(by_v_ny,noise)
-                by_w_1 =noise*dt0*dt0+by_w_1!whiteNoise2(by_w_1, noise)
-                by_w_ny=noise*dt0*dt0+by_w_ny!whiteNoise2(by_w_ny,noise)
+                by_u_1 =whiteNoise2(by_u_1, noise)
+                by_u_ny=whiteNoise2(by_u_ny,noise)
+                by_v_1 =whiteNoise2(by_v_1, noise)
+                by_v_ny=whiteNoise2(by_v_ny,noise)
+                by_w_1 =whiteNoise2(by_w_1, noise)
+                by_w_ny=whiteNoise2(by_w_ny,noise)
 
-                bz_u_1 =noise*dt0*dt0+bz_u_1!whiteNoise2(bz_u_1, noise)
-                bz_u_nz=noise*dt0*dt0+bz_u_nz!whiteNoise2(bz_u_nz,noise)
-                bz_v_1 =noise*dt0*dt0+bz_v_1!whiteNoise2(bz_v_1, noise)
-                bz_v_nz=noise*dt0*dt0+bz_v_nz!whiteNoise2(bz_v_nz,noise)
-                bz_w_1 =noise*dt0*dt0+bz_w_1!whiteNoise2(bz_w_1, noise)
-                bz_w_nz=noise*dt0*dt0+bz_w_nz!whiteNoise2(bz_w_nz,noise)
+                bz_u_1 =whiteNoise2(bz_u_1, noise)
+                bz_u_nz=whiteNoise2(bz_u_nz,noise)
+                bz_v_1 =whiteNoise2(bz_v_1, noise)
+                bz_v_nz=whiteNoise2(bz_v_nz,noise)
+                bz_w_1 =whiteNoise2(bz_w_1, noise)
+                bz_w_nz=whiteNoise2(bz_w_nz,noise)
 
                 !bx_p_1 =whiteNoise2(bx_p_1, noise)
                 !bx_p_nx=whiteNoise2(bx_p_nx,noise)
@@ -750,7 +750,7 @@
             diff_old(w(2:ubound(w,1)-1,2:ubound(w,2)-1,:),1,3)/dz;
 
         rms_vel(1,t_step)=rms(u_sub);                             rms_vel(2,t_step)=rms(v_sub);                             rms_vel(3,t_step)=rms(w_sub);                             rms_vel(4,t_step)=rms(p_sub)
-        err_vel(1,t_step)=maxval(abs(u-u_sub)); err_vel(2,t_step)=maxval(abs(v-v_sub)); err_vel(3,t_step)=maxval(abs(w-w_sub)); err_vel(4,t_step)=maxval(abs(p-p_sub));
+        err_vel(1,t_step)=maxval(abs(u-u_sub))/rms_vel(1,t_step); err_vel(2,t_step)=maxval(abs(v-v_sub))/rms_vel(2,t_step); err_vel(3,t_step)=maxval(abs(w-w_sub))/rms_vel(3,t_step); err_vel(4,t_step)=maxval(abs(p-p_sub))/rms_vel(4,t_step);
         err_vel(5,t_step)=mean(abs(u-u_sub))/rms_vel(1,t_step);   err_vel(6,t_step)=mean(abs(v-v_sub))/rms_vel(2,t_step);   err_vel(7,t_step)=mean(abs(w-w_sub))/rms_vel(3,t_step);   err_vel(8,t_step)=maxval(abs(dp-dp_sub))/rms(dp_sub);
 
         write(*,'("   MAX vel/pr error: ", 100g15.5)') err_vel(1:4,t_step)
