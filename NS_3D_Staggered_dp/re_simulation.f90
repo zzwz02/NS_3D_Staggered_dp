@@ -18,7 +18,7 @@
     real(8), parameter :: xp(nx0+2)=[((i+0.5d0)*dx, i=-1, nx0)], yp(ny0+2)=[((i+0.5d0)*dy, i=-1, ny0)], zp(nz0+2)=[((i+0.5d0)*dz, i=-1, nz0)]
 
     integer, parameter :: nx=32, ny=nx, nz=nx, nxp=nx+2, nyp=ny+2, nzp=nz+2
-    integer, parameter :: x0=16, y0=16, z0=16
+    integer, parameter :: x0=16, y0=x0, z0=x0
     integer, parameter :: idx_xu(nx+1)=[(x0+i, i=0, nx)],   idx_yu(ny+2)=[(y0+i, i=0, ny+1)], idx_zu(nz+2)=[(z0+i, i=0, nz+1)]
     integer, parameter :: idx_xv(nx+2)=[(x0+i, i=0, nx+1)], idx_yv(ny+1)=[(y0+i, i=0, ny)],   idx_zv(nz+2)=[(z0+i, i=0, nz+1)]
     integer, parameter :: idx_xw(nx+2)=[(x0+i, i=0, nx+1)], idx_yw(ny+2)=[(y0+i, i=0, ny+1)], idx_zw(nz+1)=[(z0+i, i=0, nz)]
@@ -91,7 +91,7 @@
 
     !!!!!!!!!!!!!!! HDF5 !!!!!!!!!!!!!!!
     character(len=1000) :: string_var, string_var2, big_DNS_file
-    integer(8) :: h5f_whole, h5f_sub, h5f_slice, h5g_sub, h5g_slice
+    integer(8) :: h5f_whole, h5f_sub, h5f_slice, h5f_bc_interp, h5g_sub, h5g_slice, h5g_bc_interp
 
     !!!!!!!!!!!!!!! system_clock !!!!!!!!!!!!!!!
     REAL(8) :: system_clock_rate
@@ -102,7 +102,7 @@
     character(*), parameter :: timescheme="AB2"
     ! pbc=1 Periodic; pbc=2 Dirichlet on boundary (cell wall); pbc=3 Neumann on boundary (cell wall); pbc=4 Dirichlet on ghost cell
     integer, parameter :: dp_flag=1, bc_x=2, bc_y=bc_x, bc_z=bc_x, pbc_x=3, pbc_y=3, pbc_z=3, sub_tstep=1
-    logical, parameter :: using_Ustar=.true., TOffset=.true., restart=.true.
+    logical, parameter :: using_Ustar=.true., TOffset=.true., restart=.false., BC_interp=.false.
     real(8), parameter :: noise=0
     real(8), dimension (:,:), allocatable :: err_vel, err_grad, rms_vel, rms_grad
     logical, parameter :: save_output=.false., LU_poisson=(.false. .and. nxp*nyp*nzp<=34**3), FFT_poisson=(pbc_x==1 .and. pbc_y==1 .and. pbc_z==1), DCT_poisson=(pbc_x/=1 .and. pbc_y/=1 .and. pbc_z/=1)
@@ -138,8 +138,9 @@
     if (.not. using_Ustar) string_var2=trim(string_var2)//"_U"
     if (TOffset) string_var2=trim(string_var2)//"_TOffset"
     if (restart) string_var2=trim(string_var2)//"_restart"
-    if (noise/=0.0d0) write (string_var2,'(A, "_1noise", ES6.0E2)') trim(string_var2), noise
+    if (noise/=0.0d0) write (string_var2,'(A, "_noise", ES6.0E2)') trim(string_var2), noise
     if (sub_tstep/=1) write (string_var2,'(A, "_sub_tstep", I0)') trim(string_var2), sub_tstep
+    if (BC_interp) string_var2=trim(string_var2)//"_BCinterp"
 
     if (bc_x==1) then
         !allocate( x_range0(nx) )
@@ -353,6 +354,16 @@
 
     call h5fopen_f(big_DNS_file, H5F_ACC_RDONLY_F, h5f_sub, status)
 
+    if (BC_interp) then
+        if (using_Ustar==.true. .and. TOffset==.true. .and. restart==.true. .and. noise==0.0d0 .and. sub_tstep==1 .and. timescheme=="AB2" .and. dp_flag==1) then
+            write (string_var,'(A, "_result.MARCC/HIT_", I0, "^3_decay_", ES5.0E1, "_", A , "_dp_x0_", I0, "_nx0_", I0, "_sub_BC_spline.h5")') trim("AB2"), nx0, dt0, trim("AB2"), x0, nx
+            call h5fopen_f(string_var, H5F_ACC_RDONLY_F, h5f_bc_interp, status)
+        else
+            print *, 'BC_interp errors!!! re_simulation.f90: Line 361!!!'
+            stop(1)
+        end if
+    end if
+
     do t_step=0,time_length
         tGet=time_array(t_step)
         print *,''
@@ -382,7 +393,7 @@
         else
             write (string_var,'("t_", F0.4)') tGet
             call h5gopen_f(h5f_sub, string_var, h5g_sub, status)
-            
+
             call h5ltread_dataset_double_f(h5g_sub, 'u_sub', u_sub, [nx+1_8,ny+2_8,nz+2_8], status)
             call h5ltread_dataset_double_f(h5g_sub, 'v_sub', v_sub, [nx+2_8,ny+1_8,nz+2_8], status)
             call h5ltread_dataset_double_f(h5g_sub, 'w_sub', w_sub, [nx+2_8,ny+2_8,nz+1_8], status)
@@ -399,14 +410,14 @@
                 call h5ltread_dataset_double_f(h5g_sub, 'bx_v_nxs', bx_v_nx, [ny+1_8,nz+2_8], status)
                 call h5ltread_dataset_double_f(h5g_sub, 'bx_w_1s', bx_w_1, [ny+2_8,nz+1_8], status)
                 call h5ltread_dataset_double_f(h5g_sub, 'bx_w_nxs', bx_w_nx, [ny+2_8,nz+1_8], status)
-            
+
                 call h5ltread_dataset_double_f(h5g_sub, 'by_u_1s', by_u_1, [nx+1_8,nz+2_8], status)
                 call h5ltread_dataset_double_f(h5g_sub, 'by_u_nys', by_u_ny, [nx+1_8,nz+2_8], status)
                 call h5ltread_dataset_double_f(h5g_sub, 'by_v_1s', by_v_1, [nx+2_8,nz+2_8], status)
                 call h5ltread_dataset_double_f(h5g_sub, 'by_v_nys', by_v_ny, [nx+2_8,nz+2_8], status)
                 call h5ltread_dataset_double_f(h5g_sub, 'by_w_1s', by_w_1, [nx+2_8,nz+1_8], status)
                 call h5ltread_dataset_double_f(h5g_sub, 'by_w_nys', by_w_ny, [nx+2_8,nz+1_8], status)
-            
+
                 call h5ltread_dataset_double_f(h5g_sub, 'bz_u_1s', bz_u_1, [nx+1_8,ny+2_8], status)
                 call h5ltread_dataset_double_f(h5g_sub, 'bz_u_nzs', bz_u_nz, [nx+1_8,ny+2_8], status)
                 call h5ltread_dataset_double_f(h5g_sub, 'bz_v_1s', bz_v_1, [nx+2_8,ny+1_8], status)
@@ -414,8 +425,18 @@
                 call h5ltread_dataset_double_f(h5g_sub, 'bz_w_1s', bz_w_1, [nx+2_8,ny+2_8], status)
                 call h5ltread_dataset_double_f(h5g_sub, 'bz_w_nzs', bz_w_nz, [nx+2_8,ny+2_8], status)
             end if
-            
+
             call h5gclose_f( h5g_sub, status)
+
+            if (BC_interp) then
+                call h5gopen_f(h5f_bc_interp, string_var, h5g_bc_interp, status)
+                call h5ltread_dataset_double_f(h5g_bc_interp, 'u_star_sub', u_star_sub, [nx+1_8,ny+2_8,nz+2_8], status)
+                call h5ltread_dataset_double_f(h5g_bc_interp, 'v_star_sub', v_star_sub, [nx+2_8,ny+1_8,nz+2_8], status)
+                call h5ltread_dataset_double_f(h5g_bc_interp, 'w_star_sub', w_star_sub, [nx+2_8,ny+2_8,nz+1_8], status)
+                call h5ltread_dataset_double_f(h5g_bc_interp, 'dp_sub', dp_sub, [nx+2_8,ny+2_8,nz+2_8], status)
+                call h5gclose_f( h5g_bc_interp, status)
+            end if
+
             if (.not. dp_flag) then
                 dp_sub=p_sub
             end if
@@ -815,6 +836,7 @@
         call free_trig_transform(handle_z,ipar_z,status)
     end if
 
+    if (BC_interp) call h5fclose_f(h5f_bc_interp, status)
     call h5fclose_f(h5f_sub, status)
     call h5close_f(status)
 

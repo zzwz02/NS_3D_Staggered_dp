@@ -20,10 +20,6 @@
     implicit none
     include 'omp_lib.h'
 
-    integer :: i
-
-
-
     !call big_periodic_3D
 
     call re_simulation

@@ -3,7 +3,7 @@ clc
 
 nx=32; ny=nx; nz=nx; t_start=1;
 dt0=[4e-3,2e-3,1e-3,5e-4,2.5e-4];
-sub_tstep=[2,3,4,5,10,20,50,100,1000];
+sub_tstep=[2,3,4,5,6,7,8,9,10,20,50,100,1000];
 t_span=[-4:5];
 interp_scheme='spline';
 
@@ -17,13 +17,13 @@ v_star0=zeros(temp, nx+2, ny+1, nz+2);
 w_star0=zeros(temp, nx+2, ny+2, nz+1);
 dp0=zeros(temp, nx+2, ny+2, nz+2);
 
-filename0(1)="../AB2_result.MARCC/HIT_256^3_decay_4.E-3_AB2_p_x0_16_nx0_32_sub.h5";
-filename0(2)="../AB2_result.MARCC/HIT_256^3_decay_2.E-3_AB2_p_x0_16_nx0_32_sub.h5";
-filename0(3)="../AB2_result.MARCC/HIT_256^3_decay_1.E-3_AB2_p_x0_16_nx0_32_sub.h5";
-filename0(4)="../AB2_result.MARCC/HIT_256^3_decay_5.E-4_AB2_p_x0_16_nx0_32_sub.h5";
-filename0(5)="../AB2_result.MARCC/HIT_256^3_decay_3.E-4_AB2_p_x0_16_nx0_32_sub.h5";
+filename0(1)="../AB2_result.MARCC/HIT_256^3_decay_4.E-3_AB2_dp_x0_32_nx0_32_sub.h5";
+filename0(2)="../AB2_result.MARCC/HIT_256^3_decay_2.E-3_AB2_dp_x0_16_nx0_32_sub.h5";
+filename0(3)="../AB2_result.MARCC/HIT_256^3_decay_1.E-3_AB2_dp_x0_16_nx0_32_sub.h5";
+filename0(4)="../AB2_result.MARCC/HIT_256^3_decay_5.E-4_AB2_dp_x0_16_nx0_32_sub.h5";
+filename0(5)="../AB2_result.MARCC/HIT_256^3_decay_3.E-4_AB2_dp_x0_16_nx0_32_sub.h5";
 
-for j=2:2
+for j=1:1
     idx=j; dt=dt0(idx);
     filename=char(filename0(idx));
     output_filename=[filename(1:end-3),'_',interp_scheme,filename(end-2:end)]
