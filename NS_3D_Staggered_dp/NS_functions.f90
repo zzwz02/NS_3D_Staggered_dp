@@ -413,12 +413,12 @@
 
     subroutine get_velpr_bc(u_bc, v_bc, w_bc, p_bc, bc_x, bc_y, bc_z, pbc_x, pbc_y, pbc_z, nx, ny, nz, dx, dy, dz, &
         bx_u_1, bx_u_nx, by_u_1, by_u_ny, bz_u_1, bz_u_nz, bx_v_1, bx_v_nx, by_v_1, by_v_ny, bz_v_1, bz_v_nz, &
-        bx_w_1, bx_w_nx, by_w_1, by_w_ny, bz_w_1, bz_w_nz, bx_p_1, bx_p_nx, by_p_1, by_p_ny, bz_p_1, bz_p_nz, dt, dp_flag, using_Ustar)
+        bx_w_1, bx_w_nx, by_w_1, by_w_ny, bz_w_1, bz_w_nz, bx_p_1, bx_p_nx, by_p_1, by_p_ny, bz_p_1, bz_p_nz, dt, dp_flag, using_Ustar, p_previous)
     implicit none
 
     integer, intent(in) :: bc_x, bc_y, bc_z, pbc_x, pbc_y, pbc_z, nx, ny, nz, dp_flag
     real(8), intent(in) :: dx, dy, dz, dt
-    real(8), intent(inout) :: u_bc(nx+1, ny+2, nz+2), v_bc(nx+2, ny+1, nz+2), w_bc(nx+2, ny+2, nz+1), p_bc(nx+2, ny+2, nz+2)
+    real(8), intent(in) :: u_bc(nx+1, ny+2, nz+2), v_bc(nx+2, ny+1, nz+2), w_bc(nx+2, ny+2, nz+1), p_bc(nx+2, ny+2, nz+2), p_previous(nx+2, ny+2, nz+2)
     real(8), intent(out) :: bx_u_1(ny+2,nz+2), bx_u_nx(ny+2,nz+2), by_u_1(nx+1,nz+2), by_u_ny(nx+1,nz+2), bz_u_1(nx+1,ny+2), bz_u_nz(nx+1,ny+2)
     real(8), intent(out) :: bx_v_1(ny+1,nz+2), bx_v_nx(ny+1,nz+2), by_v_1(nx+2,nz+2), by_v_ny(nx+2,nz+2), bz_v_1(nx+2,ny+1), bz_v_nz(nx+2,ny+1)
     real(8), intent(out) :: bx_w_1(ny+2,nz+1), bx_w_nx(ny+2,nz+1), by_w_1(nx+2,nz+1), by_w_ny(nx+2,nz+1), bz_w_1(nx+2,ny+2), bz_w_nz(nx+2,ny+2)
@@ -433,9 +433,9 @@
 
     if (bc_x/=1 .or. bc_y/=1 .or. bc_z/=1) then
         if (.not. (dp_flag .or. using_Ustar)) then
-            u_bc_corr=u_bc+diff(p_bc,1,1)/dx*dt;
-            v_bc_corr=v_bc+diff(p_bc,1,2)/dy*dt;
-            w_bc_corr=w_bc+diff(p_bc,1,3)/dz*dt;
+            u_bc_corr=u_bc+diff(p_previous,1,1)/dx*dt;
+            v_bc_corr=v_bc+diff(p_previous,1,2)/dy*dt;
+            w_bc_corr=w_bc+diff(p_previous,1,3)/dz*dt;
         else
             u_bc_corr=u_bc;
             v_bc_corr=v_bc;

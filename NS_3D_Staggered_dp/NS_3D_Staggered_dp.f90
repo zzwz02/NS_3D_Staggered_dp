@@ -27,6 +27,7 @@
     include 'big_periodic_3D.f90'
     include 're_simulation.f90'
     include 're_simulation_sub_tstep.f90'
+    include 're_simulation_sub_tstep_interBC_combine.f90'
     include 'test_subroutine.f90'
 
     end module NS_3D_Staggered_dp

@@ -110,6 +110,8 @@ temp0=w_star0(t_idx,:,:,:)-w_star; temp0(:,3:end-2,3:end-2,2:end-1)=nan; temp3=m
 dp(:,3:end-2,3:end-2,3:end-2)=nan;
 temp0=dp0(t_idx,:,:,:)-dp; temp0(:,3:end-2,3:end-2,3:end-2)=nan; temp4=max(max(max(abs(temp0),[],4),[],3),[],2)/rms(dp(~isnan(dp)));
 
+[max(temp1) max(temp2) max(temp3) max(temp4)]
+
 figure
 plot(t2,temp1,'-')
 hold on;
@@ -119,3 +121,4 @@ plot(t2,temp4,'-k')
 legend('u','v','w','p')
 xlabel('$t$','Interpreter','latex')
 ylabel('$\epsilon_{\varphi,L_\infty}$','Interpreter','latex')
+

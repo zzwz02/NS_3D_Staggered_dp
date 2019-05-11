@@ -47,7 +47,7 @@
     !!!!!!!!!!!!!!! big-simulation data !!!!!!!!!!!!!!!
     real(8) :: u_sub(nx+1,ny+2,nz+2)=0,          v_sub(nx+2,ny+1,nz+2)=0,          w_sub(nx+2,ny+2,nz+1)=0,       p_sub(nx+2,ny+2,nz+2)=0
     real(8) :: u_star_sub(nx+1,ny+2,nz+2)=0,     v_star_sub(nx+2,ny+1,nz+2)=0,     w_star_sub(nx+2,ny+2,nz+1)=0,  dp_sub(nx+2,ny+2,nz+2)=0
-    real(8) :: RHS_poisson_sub(nx+2,ny+2,nz+2)=0
+    real(8) :: RHS_poisson_sub(nx+2,ny+2,nz+2)=0,  p_sub_pre(nx+2,ny+2,nz+2)=0
 
     !!!!!!!!!!!!!!! boundary conditions !!!!!!!!!!!!!!!
     real(8) :: bx_u_1(ny+2,nz+2)=0, bx_u_nx(ny+2,nz+2)=0, by_u_1(nx+1,nz+2)=0, by_u_ny(nx+1,nz+2)=0, bz_u_1(nx+1,ny+2)=0, bz_u_nz(nx+1,ny+2)=0
@@ -102,7 +102,7 @@
     character(*), parameter :: timescheme="AB2"
     ! pbc=1 Periodic; pbc=2 Dirichlet on boundary (cell wall); pbc=3 Neumann on boundary (cell wall); pbc=4 Dirichlet on ghost cell
     integer, parameter :: dp_flag=1, bc_x=2, bc_y=bc_x, bc_z=bc_x, pbc_x=3, pbc_y=3, pbc_z=3, sub_tstep=1
-    logical, parameter :: using_Ustar=.true., TOffset=.true., restart=.false., BC_interp=.false.
+    logical, parameter :: using_Ustar=.false., TOffset=.true., restart=.true., BC_interp=.false.
     real(8), parameter :: noise=0
     real(8), dimension (:,:), allocatable :: err_vel, err_grad, rms_vel, rms_grad
     logical, parameter :: save_output=.false., LU_poisson=(.false. .and. nxp*nyp*nzp<=34**3), FFT_poisson=(pbc_x==1 .and. pbc_y==1 .and. pbc_z==1), DCT_poisson=(pbc_x/=1 .and. pbc_y/=1 .and. pbc_z/=1)
@@ -391,6 +391,10 @@
             !call TGV(xv(idx_xv), yv(idx_yv), zv(idx_zv), 0.0d0, nu, v=v)
             !call TGV(xp(idx_xp), yp(idx_yp), zp(idx_zp), 0.0d0, nu, p=p)
         else
+            if (.not. dp_flag) then
+                p_sub_pre=p_sub
+            end if
+            
             write (string_var,'("t_", F0.4)') tGet
             call h5gopen_f(h5f_sub, string_var, h5g_sub, status)
 
@@ -446,11 +450,11 @@
             else if (using_Ustar) then
                 call get_velpr_bc(u_star_sub, v_star_sub, w_star_sub, dp_sub, bc_x, bc_y, bc_z, pbc_x, pbc_y, pbc_z, nx, ny, nz, dx, dy, dz, &
                     bx_u_1, bx_u_nx, by_u_1, by_u_ny, bz_u_1, bz_u_nz, bx_v_1, bx_v_nx, by_v_1, by_v_ny, bz_v_1, bz_v_nz, &
-                    bx_w_1, bx_w_nx, by_w_1, by_w_ny, bz_w_1, bz_w_nz, bx_p_1, bx_p_nx, by_p_1, by_p_ny, bz_p_1, bz_p_nz, dt0, dp_flag, using_Ustar)
+                    bx_w_1, bx_w_nx, by_w_1, by_w_ny, bz_w_1, bz_w_nz, bx_p_1, bx_p_nx, by_p_1, by_p_ny, bz_p_1, bz_p_nz, dt0, dp_flag, using_Ustar,p_sub_pre)
             else
                 call get_velpr_bc(u_sub, v_sub, w_sub, dp_sub, bc_x, bc_y, bc_z, pbc_x, pbc_y, pbc_z, nx, ny, nz, dx, dy, dz, &
                     bx_u_1, bx_u_nx, by_u_1, by_u_ny, bz_u_1, bz_u_nz, bx_v_1, bx_v_nx, by_v_1, by_v_ny, bz_v_1, bz_v_nz, &
-                    bx_w_1, bx_w_nx, by_w_1, by_w_ny, bz_w_1, bz_w_nz, bx_p_1, bx_p_nx, by_p_1, by_p_ny, bz_p_1, bz_p_nz, dt0, dp_flag, using_Ustar)
+                    bx_w_1, bx_w_nx, by_w_1, by_w_ny, bz_w_1, bz_w_nz, bx_p_1, bx_p_nx, by_p_1, by_p_ny, bz_p_1, bz_p_nz, dt0, dp_flag, using_Ustar,p_sub_pre)
             end if
 
             if (noise>0 .and. t_step==1) then
@@ -772,7 +776,7 @@
 
         rms_vel(1,t_step)=rms(u_sub);                             rms_vel(2,t_step)=rms(v_sub);                             rms_vel(3,t_step)=rms(w_sub);                             rms_vel(4,t_step)=rms(p_sub)
         err_vel(1,t_step)=maxval(abs(u-u_sub))/rms_vel(1,t_step); err_vel(2,t_step)=maxval(abs(v-v_sub))/rms_vel(2,t_step); err_vel(3,t_step)=maxval(abs(w-w_sub))/rms_vel(3,t_step); err_vel(4,t_step)=maxval(abs(p-p_sub))/rms_vel(4,t_step);
-        err_vel(5,t_step)=mean(abs(u-u_sub))/rms_vel(1,t_step);   err_vel(6,t_step)=mean(abs(v-v_sub))/rms_vel(2,t_step);   err_vel(7,t_step)=mean(abs(w-w_sub))/rms_vel(3,t_step);   err_vel(8,t_step)=maxval(abs(dp-dp_sub))/rms(dp_sub);
+        err_vel(5,t_step)=rms(abs(u-u_sub))/rms_vel(1,t_step);    err_vel(6,t_step)=rms(abs(v-v_sub))/rms_vel(2,t_step);    err_vel(7,t_step)=rms(abs(w-w_sub))/rms_vel(3,t_step);    err_vel(8,t_step)=rms(abs(p-p_sub))/rms_vel(4,t_step);
 
         write(*,'("   MAX vel/pr error: ", 100g15.5)') err_vel(1:4,t_step)
         print '("Complete: ", F8.4, " second. MAX Div: ", E13.6)', (c02-c01)/system_clock_rate, maxval(abs(div))

@@ -2,7 +2,7 @@ clear all
 close all
 
 root_folder='D:\Documents\source\repos\NS_3D_Staggered_dp\NS_3D_Staggered_dp\';
-data_folder=[root_folder,'AB2_result\'];
+data_folder=[root_folder,'AB2_result\p-form\'];
 nu=0.002;
 lx = 2*pi; ly = 2*pi; lz = 2*pi;
 nx=256; ny=nx; nz=nx;
@@ -17,7 +17,7 @@ bc_x=1; bc_y=1; bc_z=1;
 pbc_x=1; pbc_y=1; pbc_z=1;
 
 %%
-filename=[data_folder,'HIT_256^3_decay_4.E-3_AB2_dp_t_.0000.h5'];
+filename=[data_folder,'HIT_256^3_decay_4.E-3_AB2_p_t_.0000.h5'];
 disp(filename);
 
 tic
@@ -35,18 +35,20 @@ w_p=(w(2:end-1,2:end-1,1:end-1)+w(2:end-1,2:end-1,2:end))/2;
 [eta,u_eta,tau]=KolmoScale(nu,Dissipation);
 
 2*pi/nx/eta
+urms=rms([u_p(:);v_p(:);w_p(:)]);
+lambda=sqrt(15*nu*urms^2/Dissipation);
+Re_lambda=up*lambda/nu;
 
-figure;
-subplot(1,2,1)
+figure(1);
 loglog(k, spectrum)
 hold on;
 %plot(k, 4e-1*k.^(-5/3))
 
-subplot(1,2,2)
-loglog(k*eta,2*nu*k.^2.*spectrum')
+figure(2);
+loglog(k*eta,2*nu*k.^2.*spectrum'/(Dissipation*nu)^0.75)
 hold on;
 %%
-filename=[data_folder,'HIT_256^3_decay_4.E-3_AB2_dp_t_2.0000.h5'];
+filename=[data_folder,'HIT_256^3_decay_4.E-3_AB2_p_t_2.0000.h5'];
 disp(filename);
 
 tic
@@ -65,18 +67,19 @@ w_p=(w(2:end-1,2:end-1,1:end-1)+w(2:end-1,2:end-1,2:end))/2;
 
 2*pi/nx/eta1
 
-subplot(1,2,1)
+figure(1);
 loglog(k, spectrum)
 hold on;
 plot(k, 4e-1*k.^(-5/3))
 legend('time step=0.       dx/\eta=1.33','time step=500. dx/\eta=0.58')
-xlabel('k'); ylabel('E(k)')
+xlabel('$k$','Interpreter','latex'); ylabel('$E(k)$','Interpreter','latex')
+xlim([0.8 2e2])
 
-subplot(1,2,2)
-loglog(k*eta1,2*nu*k.^2.*spectrum')
+figure(2);
+loglog(k*eta1,2*nu*k.^2.*spectrum'/(Dissipation*nu)^0.75)
 legend('time step=0.       dx/\eta=1.33','time step=500. dx/\eta=0.58')
-xlabel('k\eta'); ylabel('D(k)')
-
+xlabel('$k\eta$','Interpreter','latex'); ylabel('$k^2 E(k)/(\varepsilon\nu)^{3/4}$','Interpreter','latex')
+xlim([1e-2 3e0])
 %%
 time=0;
 filename=[data_folder,'HIT_256^3_decay_4.E-3_AB2_slice_129.h5'];

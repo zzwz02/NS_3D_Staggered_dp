@@ -6,7 +6,7 @@ load('4E-3_error_base.mat')
 color=[0,0.45,0.74;0.85,0.33,0.10;0.93,0.69,0.13;0.49,0.18,0.56];
 
 dt=[4e-3,2e-3,1e-3,5e-4,2.5e-4]; dt_string={'4.E-3','2.E-3','1.E-3','5.E-4','3.E-4'};
-idx=2;
+idx=4;
 sub_tstep=[1,2,3,4,5,6,7,8,9,10,20,50,100];
 tt=[1:dt(idx):2];
 
@@ -52,7 +52,7 @@ loglog([sub_tstep(1) sub_tstep(end)],[err_p_max(end) err_p_max(end)],'-','Color'
 loglog([sub_tstep(1)*0.9 sub_tstep(end)*1.1],[sub_tstep(1)*0.9 sub_tstep(end)*1.1].^-2*3e-3,'-.','Color',[0.47,0.67,0.19])
 xlim([0.9 110])
 legend('u','v','w','p')
-xlabel('number of sub-time step $l$','Interpreter','latex'); ylabel('$\epsilon_{\varphi,L_\infty}$ (compared with reference solut.)','Interpreter','latex')
+xlabel('number of sub-time step $k$','Interpreter','latex'); ylabel('Errors compared with reference solut.','Interpreter','latex')
 
 temp(1,:)=abs(err_u_max(1:end-1)-err_u_max(end));
 temp(2,:)=abs(err_v_max(1:end-1)-err_v_max(end));
@@ -100,10 +100,10 @@ loglog(sub_tstep,err_v_max,'s','Color',color(2,:))
 loglog(sub_tstep,err_w_max,'o','Color',color(3,:))
 loglog(sub_tstep,err_p_max,'+','Color',color(4,:))
 
-loglog([0.9 5],[0.9 5].^-2*1.4e-3,'-.','Color',[0.47,0.67,0.19])
-loglog([0.9 5],[0.9 5].^-2*1e-2,'-.','Color',[0.47,0.67,0.19])
+loglog([0.9 8],[0.9 8].^-2*1.4e-3,'-.','Color',[0.47,0.67,0.19])
+loglog([0.9 8],[0.9 8].^-2*8e-3,'-.','Color',[0.47,0.67,0.19])
 xlim([0.9, 110])
 polyfit(log(sub_tstep(1:4)),log(err_u_max(1:4))',1)
 
 legend('u','v','w','p')
-xlabel('number of sub-time step $l$','Interpreter','latex'); ylabel('$\epsilon_{\varphi,L_\infty}$ (compared with AB2 solut.)','Interpreter','latex')
+xlabel('number of sub-time step $k$','Interpreter','latex'); ylabel('$\epsilon_{\varphi,\infty}$ (compared with AB2 solut.)','Interpreter','latex')

@@ -47,7 +47,7 @@
     !!!!!!!!!!!!!!! big-simulation data !!!!!!!!!!!!!!!
     real(8) :: u_sub(nx+1,ny+2,nz+2)=0,          v_sub(nx+2,ny+1,nz+2)=0,          w_sub(nx+2,ny+2,nz+1)=0,       p_sub(nx+2,ny+2,nz+2)=0
     real(8) :: u_star_sub(nx+1,ny+2,nz+2)=0,     v_star_sub(nx+2,ny+1,nz+2)=0,     w_star_sub(nx+2,ny+2,nz+1)=0,  dp_sub(nx+2,ny+2,nz+2)=0
-    real(8) :: RHS_poisson_sub(nx+2,ny+2,nz+2)=0
+    real(8) :: RHS_poisson_sub(nx+2,ny+2,nz+2)=0,  p_sub_pre(nx+2,ny+2,nz+2)=0
 
     !!!!!!!!!!!!!!! boundary conditions !!!!!!!!!!!!!!!
     real(8) :: bx_u_1(ny+2,nz+2)=0, bx_u_nx(ny+2,nz+2)=0, by_u_1(nx+1,nz+2)=0, by_u_ny(nx+1,nz+2)=0, bz_u_1(nx+1,ny+2)=0, bz_u_nz(nx+1,ny+2)=0
@@ -98,7 +98,7 @@
     INTEGER :: c01,c02,c1,c2,cr,cm
 
     !!!!!!!!!!!!!!! re-simulation parameters !!!!!!!!!!!!!!!
-    real(8) :: dt0=4e-3, dt  !4.0d-3, 2.0d-3, 1.0d-3, 5.0d-4, 2.5d-4
+    real(8) :: dt0=5e-4, dt  !4.0d-3, 2.0d-3, 1.0d-3, 5.0d-4, 2.5d-4
     character(*), parameter :: timescheme="AB2", interp_scheme="spline"
     ! pbc=1 Periodic; pbc=2 Dirichlet on boundary (cell wall); pbc=3 Neumann on boundary (cell wall); pbc=4 Dirichlet on ghost cell
     integer, parameter :: dp_flag=1, bc_x=2, bc_y=bc_x, bc_z=bc_x, pbc_x=3, pbc_y=3, pbc_z=3, sub_tstep0(15)=[1000,100,50,20,10,9,8,7,6,5,4,3,2,1,1]
@@ -423,6 +423,10 @@
                 !call TGV(xv, yv, zv, 0.0d0, nu, v=v)
                 !call TGV(xp, yp, zp, 0.0d0, nu, p=p)
             else
+                if (.not. dp_flag) then
+                    p_sub_pre=p_sub
+                end if
+
                 if (t_step<=sub_tstep .and. sub_tstep>1) then
                     dt=dt0/sub_tstep
 
@@ -486,11 +490,11 @@
                 else if (using_Ustar) then
                     call get_velpr_bc(u_star_sub, v_star_sub, w_star_sub, dp_sub, bc_x, bc_y, bc_z, pbc_x, pbc_y, pbc_z, nx, ny, nz, dx, dy, dz, &
                         bx_u_1, bx_u_nx, by_u_1, by_u_ny, bz_u_1, bz_u_nz, bx_v_1, bx_v_nx, by_v_1, by_v_ny, bz_v_1, bz_v_nz, &
-                        bx_w_1, bx_w_nx, by_w_1, by_w_ny, bz_w_1, bz_w_nz, bx_p_1, bx_p_nx, by_p_1, by_p_ny, bz_p_1, bz_p_nz, dt, dp_flag, using_Ustar)
+                        bx_w_1, bx_w_nx, by_w_1, by_w_ny, bz_w_1, bz_w_nz, bx_p_1, bx_p_nx, by_p_1, by_p_ny, bz_p_1, bz_p_nz, dt, dp_flag, using_Ustar, p_sub_pre)
                 else
                     call get_velpr_bc(u_sub, v_sub, w_sub, dp_sub, bc_x, bc_y, bc_z, pbc_x, pbc_y, pbc_z, nx, ny, nz, dx, dy, dz, &
                         bx_u_1, bx_u_nx, by_u_1, by_u_ny, bz_u_1, bz_u_nz, bx_v_1, bx_v_nx, by_v_1, by_v_ny, bz_v_1, bz_v_nz, &
-                        bx_w_1, bx_w_nx, by_w_1, by_w_ny, bz_w_1, bz_w_nz, bx_p_1, bx_p_nx, by_p_1, by_p_ny, bz_p_1, bz_p_nz, dt, dp_flag, using_Ustar)
+                        bx_w_1, bx_w_nx, by_w_1, by_w_ny, bz_w_1, bz_w_nz, bx_p_1, bx_p_nx, by_p_1, by_p_ny, bz_p_1, bz_p_nz, dt, dp_flag, using_Ustar, p_sub_pre)
                 end if
 
                 !!! Convection
