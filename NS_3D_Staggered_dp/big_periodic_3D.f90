@@ -105,7 +105,7 @@
     character(*), parameter :: timescheme="AB2"
     ! pbc=1 Periodic; pbc=2 Dirichlet on boundary (cell wall); pbc=3 Neumann on boundary (cell wall); pbc=4 Dirichlet on ghost cell
     integer, parameter :: dp_flag=0, bc_x=1, bc_y=bc_x, bc_z=bc_x, pbc_x=1, pbc_y=pbc_x, pbc_z=pbc_x
-    logical, parameter :: save_output=.true., LU_poisson=(nxp*nyp*nzp<=34**3), FFT_poisson=(pbc_x==1 .and. pbc_y==1 .and. pbc_z==1)
+    logical, parameter :: save_output=.false., LU_poisson=(nxp*nyp*nzp<=34**3), FFT_poisson=(pbc_x==1 .and. pbc_y==1 .and. pbc_z==1)
 
     call OMP_set_dynamic(.true.)
     ! First initialize the system_clock
@@ -495,7 +495,7 @@
             !    (diff(u_star(:,2:ubound(u_star,2)-1,2:ubound(u_star,3)-1),1,1)/dx + &
             !    diff(v_star(2:ubound(v_star,1)-1,:,2:ubound(v_star,3)-1),1,2)/dy + &
             !    diff(w_star(2:ubound(w_star,1)-1,2:ubound(w_star,2)-1,:),1,3)/dz) / (dt0);
-            RHS_poisson_internal = diff(u_star(:,2:ubound(u_star,2)-1,2:ubound(u_star,3)-1),1,1)/dx
+            RHS_poisson_internal = diff_old(u_star(:,2:ubound(u_star,2)-1,2:ubound(u_star,3)-1),1,1)/dx
             RHS_poisson_internal = RHS_poisson_internal + diff(v_star(2:ubound(v_star,1)-1,:,2:ubound(v_star,3)-1),1,2)/dy
             RHS_poisson_internal = RHS_poisson_internal + diff(w_star(2:ubound(w_star,1)-1,2:ubound(w_star,2)-1,:),1,3)/dz
             RHS_poisson_internal = RHS_poisson_internal/dt0

@@ -20,13 +20,13 @@
     implicit none
     include 'omp_lib.h'
 
-    !call big_periodic_3D
+    call big_periodic_3D
 
     !call re_simulation
     
     !call re_simulation_sub_tstep
     
-    call re_simulation_sub_tstep_interBC
+    !call re_simulation_sub_tstep_interBC
 
     !call test_subroutine
 

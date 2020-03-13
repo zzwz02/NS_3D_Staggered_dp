@@ -229,7 +229,7 @@
     print *, "**************************************"
     call dfftw_destroy_plan(fwd)
 
-    dft_in_r_test=RHS_poisson(1:10,4,4)
+    dft_in_r_test=[1,-1,-3,-2,0,4,6,4,-4,2]!RHS_poisson(1:10,4,4)
     dft_in_c_test=dcmplx(dft_in_r_test)
     ! Configure a Descriptor
     hand => null()
